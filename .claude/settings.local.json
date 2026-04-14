@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign"
+    ]
+  }
+}
