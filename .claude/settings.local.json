@@ -1,10 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/**)"
+      "Read(//c/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/**)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Read(//c/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Privat/athena-finance/**)"
     ],
     "additionalDirectories": [
-      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign"
+      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign",
+      "C:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\graphify-out"
     ]
   }
 }

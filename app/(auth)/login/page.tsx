@@ -1,34 +1,45 @@
 'use client'
 
 import { useActionState } from 'react'
-import { signInWithEmail } from './actions'
+import { signIn } from './actions'
 
-type State = { status: 'success' } | { status: 'error'; message: string } | null
+type State = { status: 'error'; message: string } | null
 
 export default function LoginPage() {
-  const [state, action, pending] = useActionState<State, FormData>(
-    signInWithEmail,
-    null
-  )
+  const [state, action, pending] = useActionState<State, FormData>(signIn, null)
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
+    <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold mb-2">Kundenportal</h1>
-        <p className="text-sm text-gray-500 mb-8">
-          Gib deine E-Mail-Adresse ein. Falls du eingeladen wurdest, erhältst
-          du einen Login-Link.
-        </p>
+        {/* Brand */}
+        <div className="text-center mb-10">
+          <h1
+            className="text-3xl font-bold text-white"
+            style={{ fontFamily: 'var(--font-playfair)' }}
+          >
+            Schuck Webdesign
+          </h1>
+          <p className="text-white/40 text-sm mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            Kundenportal & Backoffice
+          </p>
+        </div>
 
-        {state?.status === 'success' ? (
-          <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-            Falls du einen Account hast, haben wir dir einen Link geschickt.
-            Bitte prüfe dein Postfach.
-          </div>
-        ) : (
-          <form action={action} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium mb-1">
+        <div className="bg-white/4 border border-white/10 rounded-2xl p-8">
+          <h2
+            className="text-white text-xl font-semibold mb-6"
+            style={{ fontFamily: 'var(--font-dm-sans)' }}
+          >
+            Anmelden
+          </h2>
+
+          <form action={action} className="flex flex-col gap-5">
+            {/* Email */}
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="email"
+                className="text-white/60 text-sm"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
                 E-Mail
               </label>
               <input
@@ -37,25 +48,53 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 required
-                placeholder="du@beispiel.de"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black disabled:opacity-50"
                 disabled={pending}
+                placeholder="deine@email.de"
+                className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/25 outline-none focus:border-white/30 focus:bg-white/[0.07] transition-colors disabled:opacity-50"
               />
             </div>
 
+            {/* Password */}
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="password"
+                className="text-white/60 text-sm"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                Passwort
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                disabled={pending}
+                placeholder="••••••••"
+                className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/25 outline-none focus:border-white/30 focus:bg-white/[0.07] transition-colors disabled:opacity-50"
+              />
+            </div>
+
+            {/* Error */}
             {state?.status === 'error' && (
-              <p className="text-sm text-red-600">{state.message}</p>
+              <p className="text-red-400 text-sm -mt-1">{state.message}</p>
             )}
 
+            {/* Submit */}
             <button
               type="submit"
               disabled={pending}
-              className="w-full rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="mt-1 w-full bg-white text-black text-sm font-semibold rounded-xl py-3 hover:bg-white/90 disabled:opacity-50 transition-colors"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}
             >
-              {pending ? 'Sende Link…' : 'Login-Link anfordern'}
+              {pending ? 'Anmelden…' : 'Anmelden'}
             </button>
           </form>
-        )}
+        </div>
+
+        <p className="text-center text-white/25 text-xs mt-6" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+          Nur für eingeladene Nutzer. Zugang über Schuck Webdesign.
+        </p>
       </div>
     </main>
   )

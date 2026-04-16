@@ -34,12 +34,17 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // ── Auth-Routen immer durchlassen (Callback, Set-Password) ────────────────
+  if (pathname.startsWith('/auth/')) {
+    return supabaseResponse
+  }
+
   // ── Kein Login → geschützte Routen blockieren ─────────────────────────────
 
   if (!user) {
     if (
       pathname.startsWith('/admin') ||
-      pathname.startsWith('/dashboard')
+      pathname.startsWith('/portal')
     ) {
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('redirect', pathname)
@@ -51,8 +56,6 @@ export async function updateSession(request: NextRequest) {
   // ── Eingeloggter User → Login-Seite überspringen ──────────────────────────
 
   if (pathname === '/login') {
-    // Auth-Callback hängt die Rolle in den redirect – hier einfach auf / leiten
-    // (die Auth-Callback-Route macht den role-basierten redirect nach Login)
     return NextResponse.redirect(new URL('/', request.url))
   }
 
@@ -67,13 +70,13 @@ export async function updateSession(request: NextRequest) {
 
     if (profile?.role !== 'admin') {
       // Eingeloggter Client versucht Admin-Bereich zu öffnen
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return NextResponse.redirect(new URL('/portal', request.url))
     }
   }
 
   // ── Role-Guard: /dashboard/* nur für Client ───────────────────────────────
 
-  if (pathname.startsWith('/dashboard')) {
+  if (pathname.startsWith('/portal')) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')

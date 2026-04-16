@@ -1,38 +1,44 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 
-type ActionResult =
-  | { status: 'success' }
-  | { status: 'error'; message: string }
+type ActionResult = { status: 'error'; message: string }
 
-export async function signInWithEmail(
+export async function signIn(
   _prev: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   const email = formData.get('email')
+  const password = formData.get('password')
 
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     return { status: 'error', message: 'Bitte eine gültige E-Mail eingeben.' }
   }
+  if (!password || typeof password !== 'string' || password.length < 1) {
+    return { status: 'error', message: 'Bitte ein Passwort eingeben.' }
+  }
 
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signInWithOtp({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: email.trim().toLowerCase(),
-    options: {
-      // Nur bereits eingeladene User erhalten einen Link.
-      // Nicht-registrierte E-Mails werden stillschweigend ignoriert.
-      shouldCreateUser: false,
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-    },
+    password,
   })
 
   if (error) {
-    console.error('[login] signInWithOtp error:', error.message)
-    // Aus Sicherheitsgründen keine Details nach außen geben
+    return { status: 'error', message: 'E-Mail oder Passwort falsch.' }
   }
 
-  // Immer "Erfolg" anzeigen – so verraten wir nicht, ob eine E-Mail existiert
-  return { status: 'success' }
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', data.user.id)
+    .single()
+
+  if (profile?.role === 'admin') {
+    redirect('/admin/dashboard')
+  }
+
+  redirect('/portal')
 }

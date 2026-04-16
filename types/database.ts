@@ -38,6 +38,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       clients: {
         Row: {
@@ -46,7 +47,12 @@ export type Database = {
           company_name: string
           website: string | null
           phone: string | null
-          status: 'active' | 'inactive'
+          status: 'active' | 'inactive' | 'pending'
+          address_street: string | null
+          address_city: string | null
+          address_zip: string | null
+          address_country: string | null
+          notes: string | null
           created_at: string
         }
         Insert: {
@@ -55,7 +61,12 @@ export type Database = {
           company_name: string
           website?: string | null
           phone?: string | null
-          status?: 'active' | 'inactive'
+          status?: 'active' | 'inactive' | 'pending'
+          address_street?: string | null
+          address_city?: string | null
+          address_zip?: string | null
+          address_country?: string | null
+          notes?: string | null
           created_at?: string
         }
         Update: {
@@ -64,9 +75,23 @@ export type Database = {
           company_name?: string
           website?: string | null
           phone?: string | null
-          status?: 'active' | 'inactive'
+          status?: 'active' | 'inactive' | 'pending'
+          address_street?: string | null
+          address_city?: string | null
+          address_zip?: string | null
+          address_country?: string | null
+          notes?: string | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'clients_profile_id_fkey'
+            columns: ['profile_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
       }
       projects: {
         Row: {
@@ -77,6 +102,8 @@ export type Database = {
           status: ProjectStatus
           start_date: string | null
           launch_date: string | null
+          internal_notes: string | null
+          milestones: Json
           created_at: string
         }
         Insert: {
@@ -87,6 +114,8 @@ export type Database = {
           status?: ProjectStatus
           start_date?: string | null
           launch_date?: string | null
+          internal_notes?: string | null
+          milestones?: Json
           created_at?: string
         }
         Update: {
@@ -97,8 +126,19 @@ export type Database = {
           status?: ProjectStatus
           start_date?: string | null
           launch_date?: string | null
+          internal_notes?: string | null
+          milestones?: Json
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'projects_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: false
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          }
+        ]
       }
       documents: {
         Row: {
@@ -108,6 +148,7 @@ export type Database = {
           name: string
           file_url: string
           category: DocumentCategory
+          folder: string | null
           uploaded_by: string
           created_at: string
         }
@@ -118,6 +159,7 @@ export type Database = {
           name: string
           file_url: string
           category?: DocumentCategory
+          folder?: string | null
           uploaded_by: string
           created_at?: string
         }
@@ -128,9 +170,200 @@ export type Database = {
           name?: string
           file_url?: string
           category?: DocumentCategory
+          folder?: string | null
           uploaded_by?: string
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'documents_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: false
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'documents_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'documents_uploaded_by_fkey'
+            columns: ['uploaded_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      meetings: {
+        Row: {
+          id: string
+          project_id: string
+          title: string
+          meeting_date: string
+          duration_minutes: number | null
+          notes: string | null
+          action_items: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          title: string
+          meeting_date: string
+          duration_minutes?: number | null
+          notes?: string | null
+          action_items?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          title?: string
+          meeting_date?: string
+          duration_minutes?: number | null
+          notes?: string | null
+          action_items?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'meetings_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      messages: {
+        Row: {
+          id: string
+          project_id: string
+          sender_id: string
+          sender_role: 'admin' | 'client'
+          content: string
+          read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          sender_id: string
+          sender_role: 'admin' | 'client'
+          content: string
+          read?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          sender_id?: string
+          sender_role?: 'admin' | 'client'
+          content?: string
+          read?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'messages_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      change_requests: {
+        Row: {
+          id: string
+          project_id: string
+          submitted_by: string
+          title: string
+          description: string | null
+          admin_notes: string | null
+          status: 'open' | 'in_progress' | 'done' | 'rejected'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          submitted_by: string
+          title: string
+          description?: string | null
+          admin_notes?: string | null
+          status?: 'open' | 'in_progress' | 'done' | 'rejected'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          submitted_by?: string
+          title?: string
+          description?: string | null
+          admin_notes?: string | null
+          status?: 'open' | 'in_progress' | 'done' | 'rejected'
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'change_requests_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      reviews: {
+        Row: {
+          id: string
+          project_id: string
+          client_id: string
+          rating: number
+          text: string
+          status: 'pending' | 'approved' | 'rejected'
+          approved_at: string | null
+          published: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          client_id: string
+          rating: number
+          text: string
+          status?: 'pending' | 'approved' | 'rejected'
+          approved_at?: string | null
+          published?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          client_id?: string
+          rating?: number
+          text?: string
+          status?: 'pending' | 'approved' | 'rejected'
+          approved_at?: string | null
+          published?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'reviews_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          }
+        ]
       }
       project_updates: {
         Row: {
@@ -151,21 +384,31 @@ export type Database = {
           message?: string
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'project_updates_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          }
+        ]
       }
     }
     Views: Record<string, never>
     Functions: {
       get_my_role: {
-        Args: Record<string, never>
+        Args: Record<PropertyKey, never>
         Returns: 'admin' | 'client'
       }
     }
     Enums: {
       user_role: 'admin' | 'client'
-      client_status: 'active' | 'inactive'
+      client_status: 'active' | 'inactive' | 'pending'
       project_status: ProjectStatus
       document_category: DocumentCategory
     }
+    CompositeTypes: Record<string, never>
   }
 }
 
@@ -174,7 +417,7 @@ export type Database = {
 // ============================================================
 
 export type UserRole = 'admin' | 'client'
-export type ClientStatus = 'active' | 'inactive'
+export type ClientStatus = 'active' | 'inactive' | 'pending'
 export type ProjectStatus = 'briefing' | 'design' | 'development' | 'review' | 'live'
 export type DocumentCategory = 'contract' | 'invoice' | 'briefing' | 'handover' | 'other'
 
@@ -199,19 +442,16 @@ export type ProjectUpdate = Tables<'project_updates'>
 // JOINED / EXTENDED TYPES
 // ============================================================
 
-// Projekt mit zugehörigem Client (für Admin-Übersicht)
 export type ProjectWithClient = Project & {
   client: Client
 }
 
-// Projekt mit Updates und Dokumenten (für Kundenportal)
 export type ProjectDetail = Project & {
   client: Client
   project_updates: ProjectUpdate[]
   documents: Document[]
 }
 
-// Client mit allen Projekten (für Admin-Detailansicht)
 export type ClientWithProjects = Client & {
   profile: Profile
   projects: Project[]
