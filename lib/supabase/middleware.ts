@@ -26,67 +26,46 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Session auffrischen – WICHTIG: getUser() statt getSession()
-  // getSession() liest nur den Cookie ohne Server-Validierung.
+  // Refresh the session from the server-validated user, not just the raw cookie.
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
 
-  // ── Auth-Routen immer durchlassen (Callback, Set-Password) ────────────────
   if (pathname.startsWith('/auth/')) {
     return supabaseResponse
   }
 
-  // ── Kein Login → geschützte Routen blockieren ─────────────────────────────
-
   if (!user) {
-    if (
-      pathname.startsWith('/admin') ||
-      pathname.startsWith('/portal')
-    ) {
+    if (pathname.startsWith('/admin') || pathname.startsWith('/portal')) {
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
     }
+
     return supabaseResponse
   }
 
-  // ── Eingeloggter User → Login-Seite überspringen ──────────────────────────
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const authenticatedHome =
+    profile?.role === 'admin' ? '/admin/dashboard' : '/portal'
 
   if (pathname === '/login') {
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL(authenticatedHome, request.url))
   }
 
-  // ── Role-Guard: /admin/* nur für Admin ────────────────────────────────────
-
-  if (pathname.startsWith('/admin')) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      // Eingeloggter Client versucht Admin-Bereich zu öffnen
-      return NextResponse.redirect(new URL('/portal', request.url))
-    }
+  if (pathname.startsWith('/admin') && profile?.role !== 'admin') {
+    return NextResponse.redirect(new URL('/portal', request.url))
   }
 
-  // ── Role-Guard: /dashboard/* nur für Client ───────────────────────────────
-
-  if (pathname.startsWith('/portal')) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role === 'admin') {
-      // Admin landet im falschen Bereich
-      return NextResponse.redirect(new URL('/admin/dashboard', request.url))
-    }
+  if (pathname.startsWith('/portal') && profile?.role === 'admin') {
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url))
   }
 
   return supabaseResponse

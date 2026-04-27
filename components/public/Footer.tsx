@@ -19,8 +19,8 @@ export function Footer() {
         <div className="flex flex-col md:flex-row justify-between gap-10 md:gap-6">
           {/* Logo + tagline */}
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col items-start">
-              <div className="flex items-baseline">
+            <div className="inline-flex flex-col items-center self-start">
+              <div className="inline-flex items-baseline">
                 <span
                   style={{
                     fontFamily: "Georgia, serif",
@@ -103,7 +103,14 @@ export function Footer() {
               Kontakt
             </p>
             <p className="text-sm text-[#555]" style={{ fontFamily: "var(--font-dm-sans)" }}>
-              eric@schuck-webdesign.de
+              <a href="mailto:thericschuck@gmail.com" className="hover:text-[#F5F5F0] transition-colors">
+                thericschuck@gmail.com
+              </a>
+            </p>
+            <p className="text-sm text-[#555]" style={{ fontFamily: "var(--font-dm-sans)" }}>
+              <a href="tel:+4917634445821" className="hover:text-[#F5F5F0] transition-colors">
+                +49 176 3444 5821
+              </a>
             </p>
             <p className="text-sm text-[#555]" style={{ fontFamily: "var(--font-dm-sans)" }}>
               Deutschland

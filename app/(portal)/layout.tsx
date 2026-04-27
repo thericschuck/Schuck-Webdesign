@@ -25,9 +25,9 @@ export default async function PortalLayout({
   if (!profile) redirect('/login')
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-gray-50 to-blue-50/40">
+    <div className="min-h-screen bg-[#F7F5F0]">
       <PortalNav fullName={profile.full_name} email={profile.email} />
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-10">
         {children}
       </main>
     </div>

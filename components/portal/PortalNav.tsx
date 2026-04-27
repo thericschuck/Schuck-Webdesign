@@ -5,10 +5,11 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 
 const NAV_LINKS = [
-  { href: '/portal',            label: 'Dashboard' },
-  { href: '/portal/project',    label: 'Mein Projekt' },
-  { href: '/portal/documents',  label: 'Dokumente' },
-  { href: '/portal/settings',   label: 'Einstellungen' },
+  { href: '/portal',              label: 'Dashboard' },
+  { href: '/portal/project',      label: 'Mein Projekt' },
+  { href: '/portal/documents',    label: 'Dokumente' },
+  { href: '/portal/bewertung',    label: 'Bewertung' },
+  { href: '/portal/settings',     label: 'Einstellungen' },
 ]
 
 interface PortalNavProps {
@@ -23,16 +24,36 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
   const displayName = fullName || email
 
   return (
-    <header className="sticky top-0 z-30 bg-gray-950 border-b border-white/8">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-14">
+    <header
+      className="sticky top-0 z-30 border-b border-white/8 bg-[#080808]/92 backdrop-blur-xl"
+      style={{
+        backdropFilter: 'blur(24px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(160%)',
+      }}
+    >
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/portal" className="text-sm font-semibold tracking-tight text-white">
-            Schuck Webdesign
+          <Link
+            href="/portal"
+            className="flex flex-col leading-none text-[#F5F5F0]"
+          >
+            <span
+              className="text-sm tracking-tight"
+              style={{ fontFamily: 'var(--font-fraunces)' }}
+            >
+              [ Schuck ]
+            </span>
+            <span
+              className="mt-1 text-[9px] uppercase tracking-[0.22em] text-white/28"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}
+            >
+              Webdesign
+            </span>
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-0.5">
+          <nav className="hidden md:flex items-center gap-1 rounded-full border border-white/8 bg-white/[0.03] px-2 py-1">
             {NAV_LINKS.map((link) => {
               const active = pathname === link.href || (link.href !== '/portal' && pathname.startsWith(link.href))
               return (
@@ -40,11 +61,12 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
                   key={link.href}
                   href={link.href}
                   className={[
-                    'px-3 py-1.5 rounded-md text-sm transition-colors',
+                    'px-4 py-2 rounded-full text-sm transition-all duration-200',
                     active
-                      ? 'bg-white/10 text-white font-medium'
-                      : 'text-white/50 hover:text-white hover:bg-white/6',
+                      ? 'bg-[#F5F5F0] text-[#080808] font-medium'
+                      : 'text-white/50 hover:text-white hover:bg-white/[0.05]',
                   ].join(' ')}
+                  style={{ fontFamily: 'var(--font-dm-sans)' }}
                 >
                   {link.label}
                 </Link>
@@ -54,11 +76,17 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
 
           {/* User + Logout */}
           <div className="hidden md:flex items-center gap-3">
-            <span className="text-xs text-white/40 max-w-35 truncate">{displayName}</span>
+            <span
+              className="text-xs text-white/40 max-w-35 truncate"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}
+            >
+              {displayName}
+            </span>
             <form action="/auth/logout" method="POST">
               <button
                 type="submit"
                 className="text-xs text-white/40 hover:text-white/80 transition-colors"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
               >
                 Abmelden
               </button>
@@ -86,7 +114,7 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-white/8 bg-gray-950 px-4 py-3 flex flex-col gap-0.5">
+        <div className="md:hidden border-t border-white/8 bg-[#080808] px-4 py-3 flex flex-col gap-1">
           {NAV_LINKS.map((link) => {
             const active = pathname === link.href || (link.href !== '/portal' && pathname.startsWith(link.href))
             return (
@@ -95,11 +123,12 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
                 className={[
-                  'px-3 py-2.5 rounded-md text-sm',
+                  'px-3 py-2.5 rounded-xl text-sm',
                   active
-                    ? 'bg-white/10 text-white font-medium'
-                    : 'text-white/50 hover:text-white hover:bg-white/6',
+                    ? 'bg-[#F5F5F0] text-[#080808] font-medium'
+                    : 'text-white/50 hover:text-white hover:bg-white/[0.05]',
                 ].join(' ')}
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
               >
                 {link.label}
               </Link>

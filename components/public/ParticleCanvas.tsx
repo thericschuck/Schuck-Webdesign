@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 
 const DENSITY = 7000;
 const CONNECTION_DIST = 90;
-const REPEL_RADIUS = 160;
+const REPEL_RADIUS = 180;
 
 interface Particle {
   x: number;
@@ -132,7 +132,7 @@ export function ParticleCanvas() {
         const dy = my - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < REPEL_RADIUS && dist > 0) {
-          const force = (1 - dist / REPEL_RADIUS) * 0.055;
+          const force = (1 - dist / REPEL_RADIUS) * 0.22;
           p.x -= (dx / dist) * force;
           p.y -= (dy / dist) * force;
         }

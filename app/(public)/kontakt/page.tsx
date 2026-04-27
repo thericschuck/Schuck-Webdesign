@@ -29,15 +29,16 @@ const projektTypes = [
 const inputClass =
   "w-full bg-[#F4F2ED] border border-black/[0.10] rounded-lg px-4 py-3 text-sm text-[#1C1C1E] focus:outline-none focus:border-[#7F77DD]/60 transition-colors placeholder:text-[#aaa]";
 
-const labelClass =
-  "block text-xs uppercase tracking-widest text-[#999] mb-1.5";
+const labelClass = "block text-xs uppercase tracking-widest text-[#999] mb-1.5";
 
 export default function KontaktPage() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
@@ -53,131 +54,18 @@ export default function KontaktPage() {
   }
 
   return (
-    <main className="flex flex-col md:flex-row" style={{ minHeight: "100dvh" }}>
+    <main className="flex flex-col md:flex-row-reverse" style={{ minHeight: "100dvh" }}>
 
-      {/* ── Dark left half ──────────────────────────────────────────── */}
-      <div className="relative bg-[#080808] md:w-[45%] flex flex-col justify-center px-8 md:px-14 pt-28 pb-16 md:py-24 overflow-hidden">
-        <ParticleCanvas />
-
-        {/* gradient overlays */}
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse 90% 70% at 25% 55%, rgba(127,119,221,0.07) 0%, transparent 70%)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse 100% 100% at 50% 50%, transparent 35%, rgba(0,0,0,0.55) 100%)",
-          }}
-        />
-
-        <div className="relative z-10 flex flex-col gap-10 max-w-sm">
-          {/* Heading */}
-          <div>
-            <FadeIn>
-              <p
-                className="text-[11px] uppercase tracking-[0.14em] text-[#7F77DD] mb-5"
-                style={{ fontFamily: "var(--font-dm-sans)" }}
-              >
-                Kontakt
-              </p>
-              <h1
-                className="text-4xl md:text-5xl lg:text-[56px] font-semibold text-[#F5F5F0] leading-[1.1] tracking-tight"
-                style={{ fontFamily: "var(--font-fraunces)" }}
-              >
-                Lass uns<br />sprechen.
-              </h1>
-            </FadeIn>
-            <FadeIn delay={0.1}>
-              <p
-                className="mt-5 text-sm text-[#555] leading-relaxed"
-                style={{ fontFamily: "var(--font-dm-sans)" }}
-              >
-                Beschreib mir kurz dein Projekt — ich antworte innerhalb von 48 Stunden
-                und wir schauen, ob wir zusammenpassen.
-              </p>
-            </FadeIn>
-          </div>
-
-          {/* Contact details */}
-          <FadeIn delay={0.18}>
-            <ul className="flex flex-col gap-5">
-              <li className="flex flex-col gap-0.5">
-                <span
-                  className="text-[10px] uppercase tracking-[0.12em] text-[#444]"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  E-Mail
-                </span>
-                <a
-                  href="mailto:eric@schuck-webdesign.de"
-                  className="text-sm text-[#F5F5F0] hover:text-[#7F77DD] transition-colors"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  eric@schuck-webdesign.de
-                </a>
-              </li>
-              <li className="flex flex-col gap-0.5">
-                <span
-                  className="text-[10px] uppercase tracking-[0.12em] text-[#444]"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  Standort
-                </span>
-                <span
-                  className="text-sm text-[#666]"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  Deutschland
-                </span>
-              </li>
-              <li className="flex flex-col gap-0.5">
-                <span
-                  className="text-[10px] uppercase tracking-[0.12em] text-[#444]"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  Antwortzeit
-                </span>
-                <span
-                  className="text-sm text-[#666]"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  Innerhalb von 48h
-                </span>
-              </li>
-            </ul>
-          </FadeIn>
-
-          {/* Availability */}
-          <FadeIn delay={0.26}>
-            <div className="flex items-center gap-2.5 border-t border-white/[0.06] pt-8">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              <span
-                className="text-xs text-[#555]"
-                style={{ fontFamily: "var(--font-dm-sans)" }}
-              >
-                Aktuell verfügbar für neue Projekte
-              </span>
-            </div>
-          </FadeIn>
-        </div>
-      </div>
-
-      {/* ── Light right half ────────────────────────────────────────── */}
+      {/* ── Light right — Form ────────────────────────────────────────── */}
       <div
         data-cursor="dark"
         className="bg-[#F7F5F0] md:w-[55%] flex flex-col justify-center px-8 md:px-14 py-16 md:py-24"
+        style={{
+          backgroundImage: "radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
       >
-        <FadeIn delay={0.12}>
+        <FadeIn>
           <div className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-black/[0.05] max-w-lg w-full mx-auto">
             {isSubmitted ? (
               <div className="flex flex-col items-center text-center py-10 gap-5">
@@ -189,12 +77,18 @@ export default function KontaktPage() {
                   strokeWidth={2}
                 >
                   <circle
-                    cx="24" cy="24" r="22"
+                    cx="24"
+                    cy="24"
+                    r="22"
                     className="stroke-[#7F77DD]/20"
                     strokeWidth={2}
                     fill="none"
                   />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 24l7 7 13-13" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M14 24l7 7 13-13"
+                  />
                 </svg>
                 <h2
                   className="text-2xl font-semibold text-[#1C1C1E]"
@@ -226,55 +120,87 @@ export default function KontaktPage() {
                 </h2>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                   <div>
-                    <label htmlFor="name" className={labelClass} style={{ fontFamily: "var(--font-dm-sans)" }}>
+                    <label
+                      htmlFor="name"
+                      className={labelClass}
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
                       Name
                     </label>
                     <input
-                      id="name" name="name" type="text" required
+                      id="name"
+                      name="name"
+                      type="text"
+                      required
                       placeholder="Dein Name"
-                      value={form.name} onChange={handleChange}
+                      value={form.name}
+                      onChange={handleChange}
                       className={inputClass}
                       style={{ fontFamily: "var(--font-dm-sans)" }}
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="email" className={labelClass} style={{ fontFamily: "var(--font-dm-sans)" }}>
+                    <label
+                      htmlFor="email"
+                      className={labelClass}
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
                       E-Mail
                     </label>
                     <input
-                      id="email" name="email" type="email" required
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
                       placeholder="deine@email.de"
-                      value={form.email} onChange={handleChange}
+                      value={form.email}
+                      onChange={handleChange}
                       className={inputClass}
                       style={{ fontFamily: "var(--font-dm-sans)" }}
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="type" className={labelClass} style={{ fontFamily: "var(--font-dm-sans)" }}>
+                    <label
+                      htmlFor="type"
+                      className={labelClass}
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
                       Projekt-Typ
                     </label>
                     <select
-                      id="type" name="type"
-                      value={form.type} onChange={handleChange}
+                      id="type"
+                      name="type"
+                      value={form.type}
+                      onChange={handleChange}
                       className={inputClass}
                       style={{ fontFamily: "var(--font-dm-sans)" }}
                     >
                       {projektTypes.map((t) => (
-                        <option key={t} value={t} className="bg-white">{t}</option>
+                        <option key={t} value={t} className="bg-white">
+                          {t}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label htmlFor="message" className={labelClass} style={{ fontFamily: "var(--font-dm-sans)" }}>
+                    <label
+                      htmlFor="message"
+                      className={labelClass}
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
                       Nachricht
                     </label>
                     <textarea
-                      id="message" name="message" rows={5} required
+                      id="message"
+                      name="message"
+                      rows={5}
+                      required
                       placeholder="Erzähl mir von deinem Projekt..."
-                      value={form.message} onChange={handleChange}
+                      value={form.message}
+                      onChange={handleChange}
                       className={`${inputClass} resize-none`}
                       style={{ fontFamily: "var(--font-dm-sans)" }}
                     />
@@ -298,6 +224,116 @@ export default function KontaktPage() {
                 </p>
               </>
             )}
+          </div>
+        </FadeIn>
+      </div>
+
+      {/* ── Dark left — Info ─────────────────────────────────────────── */}
+      <div className="relative bg-[#080808] md:w-[45%] flex flex-col items-center justify-center px-8 md:px-12 pt-28 pb-16 md:py-24 overflow-hidden">
+        <ParticleCanvas />
+
+        {/* Atmospheric glow */}
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse 80% 70% at 60% 50%, rgba(127,119,221,0.07) 0%, transparent 70%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.5) 100%)",
+          }}
+        />
+
+        {/* Glass card — centered */}
+        <FadeIn delay={0.15} className="relative z-10 w-full max-w-sm">
+          <div
+            className="rounded-2xl p-8 flex flex-col gap-7"
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              backdropFilter: "blur(2px) saturate(150%)",
+              WebkitBackdropFilter: "blur(2px) saturate(150%)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow:
+                "0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06)",
+            }}
+          >
+            {/* Heading */}
+            <div>
+              <p
+                className="text-[11px] uppercase tracking-[0.14em] text-[#7F77DD] mb-4"
+                style={{ fontFamily: "var(--font-dm-sans)" }}
+              >
+                Kontakt
+              </p>
+              <h1
+                className="text-4xl md:text-[44px] font-semibold text-[#F5F5F0] leading-[1.1] tracking-tight"
+                style={{ fontFamily: "var(--font-fraunces)" }}
+              >
+                Lass uns<br />sprechen.
+              </h1>
+              <p
+                className="mt-4 text-sm text-[#666] leading-relaxed"
+                style={{ fontFamily: "var(--font-dm-sans)" }}
+              >
+                Beschreib mir kurz dein Projekt — ich antworte innerhalb von
+                48 Stunden und wir schauen, ob wir zusammenpassen.
+              </p>
+            </div>
+
+            {/* Contact details */}
+            <ul className="flex flex-col gap-4 border-t border-white/[0.07] pt-6">
+              {[
+                { label: "E-Mail", value: "thericschuck@gmail.com", href: "mailto:thericschuck@gmail.com" },
+                { label: "Telefon", value: "+49 176 3444 5821", href: "tel:+4917634445821" },
+                { label: "Standort", value: "Deutschland" },
+                { label: "Antwortzeit", value: "Innerhalb von 48h" },
+              ].map(({ label, value, href }) => (
+                <li key={label} className="flex flex-col gap-0.5">
+                  <span
+                    className="text-[10px] uppercase tracking-[0.12em] text-[#444]"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    {label}
+                  </span>
+                  {href ? (
+                    <a
+                      href={href}
+                      className="text-sm text-[#E8E8E4] hover:text-[#7F77DD] transition-colors"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {value}
+                    </a>
+                  ) : (
+                    <span
+                      className="text-sm text-[#777]"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {value}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            {/* Availability */}
+            <div className="flex items-center gap-2.5 border-t border-white/[0.07] pt-6">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span
+                className="text-xs text-[#666]"
+                style={{ fontFamily: "var(--font-dm-sans)" }}
+              >
+                Aktuell verfügbar für neue Projekte
+              </span>
+            </div>
           </div>
         </FadeIn>
       </div>

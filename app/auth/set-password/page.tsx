@@ -68,7 +68,7 @@ export default async function SetPasswordPage() {
         </div>
 
         <p className="text-center text-white/20 text-xs mt-6" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          Fragen? Melde dich bei eric@schuck-webdesign.de
+          Fragen? Melde dich bei thericschuck@gmail.com
         </p>
       </div>
     </main>

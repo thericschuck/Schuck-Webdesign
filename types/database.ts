@@ -328,6 +328,8 @@ export type Database = {
           client_id: string
           rating: number
           text: string
+          reviewer_name: string | null
+          reviewer_company: string | null
           status: 'pending' | 'approved' | 'rejected'
           approved_at: string | null
           published: boolean
@@ -339,6 +341,8 @@ export type Database = {
           client_id: string
           rating: number
           text: string
+          reviewer_name?: string | null
+          reviewer_company?: string | null
           status?: 'pending' | 'approved' | 'rejected'
           approved_at?: string | null
           published?: boolean
@@ -350,6 +354,8 @@ export type Database = {
           client_id?: string
           rating?: number
           text?: string
+          reviewer_name?: string | null
+          reviewer_company?: string | null
           status?: 'pending' | 'approved' | 'rejected'
           approved_at?: string | null
           published?: boolean

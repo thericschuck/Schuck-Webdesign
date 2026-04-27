@@ -105,26 +105,29 @@ export function ProjectTabs({ projectId, userId, updates, meetings, changeReques
   return (
     <div>
       {/* Tab bar */}
-      <div className="flex gap-0 border-b border-gray-200 mb-6 overflow-x-auto">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={[
-              'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px',
-              activeTab === tab.id
-                ? 'border-gray-900 text-gray-900'
-                : 'border-transparent text-gray-500 hover:text-gray-700',
-            ].join(' ')}
-          >
-            {tab.label}
-            {tab.id === 'requests' && openRequests > 0 && (
-              <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full leading-none">
-                {openRequests}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="mb-6 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex min-w-max gap-1 border-b border-black/[0.08] pb-1">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={[
+                'flex items-center gap-1.5 px-4 py-2.5 text-sm whitespace-nowrap transition-all rounded-full',
+                activeTab === tab.id
+                  ? 'bg-[#1C1C1E] text-[#F5F5F0]'
+                  : 'text-[#7A746B] hover:text-[#1C1C1E] hover:bg-black/[0.04]',
+              ].join(' ')}
+              style={{ fontFamily: 'var(--font-dm-sans)' }}
+            >
+              {tab.label}
+              {tab.id === 'requests' && openRequests > 0 && (
+                <span className="rounded-full bg-[#F6E7D5] px-1.5 py-0.5 text-xs leading-none text-[#B76B1D]">
+                  {openRequests}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Überblick ── */}

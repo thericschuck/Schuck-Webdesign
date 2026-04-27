@@ -5,6 +5,7 @@ import { motion, useInView, useMotionValue, useSpring, useMotionTemplate, useScr
 import Link from "next/link";
 import { ParticleCanvas } from "@/components/public/ParticleCanvas";
 import { FadeIn } from "@/components/public/FadeIn";
+import { TestimonialsCarousel } from "@/components/public/TestimonialsCarousel";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const WORD_EASE = [0.22, 1, 0.36, 1] as const;
@@ -43,18 +44,23 @@ const SERVICES = [
 
 const FEATURED_PROJECTS = [
   {
-    slug: "projekt-alpha",
-    name: "Projekt Alpha",
-    category: "E-Commerce",
-    desc: "Kompletter Relaunch eines Online-Shops mit neuem Branding und optimiertem Checkout.",
+    slug: "bendix-official",
+    name: "Bendix Official",
+    category: "Artist Website",
+    desc: "Klarer, markanter Webauftritt fuer DJ und Producer Bendix mit Fokus auf Persona und Wirkung.",
   },
   {
-    slug: "projekt-beta",
-    name: "Projekt Beta",
-    category: "Corporate",
+    slug: "three-flies-bar",
+    name: "Three Flies Bar",
+    category: "Hospitality & Events",
     desc: "Website-Relaunch für ein mittelständisches Unternehmen mit Fokus auf Lead-Generierung.",
   },
 ];
+
+FEATURED_PROJECTS[1] = {
+  ...FEATURED_PROJECTS[1],
+  desc: "Atmosphaerische Website fuer eine mobile Cocktailbar mit Fokus auf Erlebnis und Anfragen.",
+};
 
 const PROCESS_STEPS = [
   {
@@ -79,26 +85,6 @@ const PROCESS_STEPS = [
   },
 ];
 
-const TESTIMONIALS = [
-  {
-    quote:
-      "Die Zusammenarbeit war außergewöhnlich professionell. Das Ergebnis hat unsere Erwartungen bei weitem übertroffen. Unsere Conversion-Rate ist seit dem Launch signifikant gestiegen.",
-    name: "Max Mustermann",
-    company: "Unternehmen GmbH",
-  },
-  {
-    quote:
-      "Schnell, zuverlässig und mit einem Blick für Details. Genau das, was wir gesucht haben. Ich würde jederzeit wieder beauftragen.",
-    name: "Anna Schmidt",
-    company: "Studio ABC",
-  },
-  {
-    quote:
-      "Das beste Investment, das wir in diesem Jahr gemacht haben. Die Website spricht endlich die Sprache unserer Kunden.",
-    name: "Thomas Klein",
-    company: "Klein & Partner",
-  },
-];
 
 // ── Micro-components ──────────────────────────────────────────────────────────
 
@@ -124,9 +110,8 @@ function SectionHeadline({
 }) {
   return (
     <h2
-      className={`text-3xl md:text-4xl lg:text-[42px] font-bold leading-tight tracking-tight ${
-        dark ? "text-[#F5F5F0]" : "text-[#1C1C1E]"
-      } ${className}`}
+      className={`text-3xl md:text-4xl lg:text-[42px] font-bold leading-tight tracking-tight ${dark ? "text-[#F5F5F0]" : "text-[#1C1C1E]"
+        } ${className}`}
       style={{ fontFamily: "var(--font-fraunces)" }}
     >
       {children}
@@ -180,17 +165,23 @@ function SplitLine({
         <span
           key={i}
           className="inline-block overflow-hidden"
-          style={{ marginRight: "0.22em" }}
+          style={{
+            marginRight: "0.22em",
+            paddingLeft: "0.06em",
+            marginLeft: "-0.06em",
+            paddingTop: outline ? "0.04em" : "0",
+            paddingBottom: outline ? "0.12em" : "0",
+          }}
         >
           <motion.span
             className="inline-block"
             style={
               outline
                 ? {
-                    color: "var(--outline-fill, transparent)",
-                    WebkitTextStroke: "1px #7F77DD",
-                    fontStyle: "italic",
-                  }
+                  color: "var(--outline-fill, transparent)",
+                  WebkitTextStroke: "1px #7F77DD",
+                  fontStyle: "italic",
+                }
                 : undefined
             }
             initial={{ y: "110%", opacity: 0 }}
@@ -213,7 +204,7 @@ function SplitHeadline() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true });
   const line1 = "Websites,".split(" ");
-  const line2 = "die verkaufen.".split(" ");
+  const line2 = "die verkaufen.".split("split");
   const line2BlockRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -311,11 +302,11 @@ function ServiceIcon({ type }: { type: string }) {
 // ── Sections ──────────────────────────────────────────────────────────────────
 
 const SPARKLE_DEFS = [
-  { top: "12%",  left: "6%",  size: 3, dur: 4.4, dx: 12, dy: -9,  alpha: 0.55 },
-  { top: "68%",  left: "11%", size: 2, dur: 5.9, dx: -8, dy: 11,  alpha: 0.38 },
-  { top: "20%",  left: "89%", size: 4, dur: 3.8, dx: 9,  dy: 7,   alpha: 0.62 },
-  { top: "64%",  left: "84%", size: 2, dur: 6.3, dx: -10, dy: -8, alpha: 0.40 },
-  { top: "42%",  left: "97%", size: 3, dur: 4.9, dx: 7,  dy: -11, alpha: 0.50 },
+  { top: "12%", left: "6%", size: 3, dur: 4.4, dx: 12, dy: -9, alpha: 0.55 },
+  { top: "68%", left: "11%", size: 2, dur: 5.9, dx: -8, dy: 11, alpha: 0.38 },
+  { top: "20%", left: "89%", size: 4, dur: 3.8, dx: 9, dy: 7, alpha: 0.62 },
+  { top: "64%", left: "84%", size: 2, dur: 6.3, dx: -10, dy: -8, alpha: 0.40 },
+  { top: "42%", left: "97%", size: 3, dur: 4.9, dx: 7, dy: -11, alpha: 0.50 },
 ];
 
 function FloatingSparkles() {
@@ -445,21 +436,6 @@ function HeroSection() {
 
       <div className="relative z-10 flex flex-col items-center gap-5 max-w-3xl mx-auto">
         <FloatingSparkles />
-        {/* Status badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: EASE }}
-        >
-          <span
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/[0.04] text-xs text-white/50"
-            style={{ fontFamily: "var(--font-dm-sans)" }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            Verfügbar für neue Projekte
-          </span>
-        </motion.div>
-
         <SplitHeadline />
 
         <motion.p
@@ -508,7 +484,7 @@ function HeroSection() {
       >
         <div className="flex items-center gap-10 md:gap-14 border-t border-white/[0.08] pt-6 px-4">
           {[
-            { value: 40, suffix: "+", label: "Projekte" },
+            { value: 3, suffix: "+", label: "Projekte" },
             { value: 100, suffix: "", label: "PageSpeed" },
             { value: 48, suffix: "h", label: "Reaktionszeit" },
           ].map(({ value, suffix, label }) => (
@@ -605,7 +581,14 @@ function ProblemSolutionSection() {
         </FadeIn>
 
         <motion.div style={{ x: cardX, opacity: cardOpacity }}>
-          <div data-cursor="light" className="bg-[#1C1C1E] rounded-2xl p-8 md:p-10">
+          <div
+            data-cursor="light"
+            className="bg-[#1C1C1E] rounded-2xl p-8 md:p-10 relative overflow-hidden"
+          >
+            <div
+              aria-hidden
+              className="hidden"
+            />
             <SectionLabel>Die Lösung</SectionLabel>
             <h3
               className="text-2xl font-bold text-[#F5F5F0] mb-6 leading-snug tracking-tight"
@@ -669,8 +652,25 @@ function ProblemSolutionSection() {
 }
 
 function ServicesSection() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["end 0.85", "end 0.05"],
+  });
+  const y0 = useTransform(scrollYProgress, [0, 1], [0, -140]);
+  const y1 = useTransform(scrollYProgress, [0.15, 1], [0, -140]);
+  const y2 = useTransform(scrollYProgress, [0.3, 1], [0, -140]);
+  const op0 = useTransform(scrollYProgress, [0.15, 0.65], [1, 0]);
+  const op1 = useTransform(scrollYProgress, [0.28, 0.72], [1, 0]);
+  const op2 = useTransform(scrollYProgress, [0.4, 0.8], [1, 0]);
+  const cardMotion = [
+    { y: y0, opacity: op0 },
+    { y: y1, opacity: op1 },
+    { y: y2, opacity: op2 },
+  ];
+
   return (
-    <section data-cursor="dark" className="bg-[#F7F5F0] px-6 md:px-12 py-24">
+    <section ref={sectionRef} data-cursor="dark" className="bg-[#F7F5F0] px-6 md:px-12 py-24">
       <div className="max-w-6xl mx-auto">
         <FadeIn>
           <SectionLabel>Leistungen</SectionLabel>
@@ -680,47 +680,63 @@ function ServicesSection() {
         </FadeIn>
         <div className="grid md:grid-cols-3 gap-4">
           {SERVICES.map((s, i) => (
-            <FadeIn key={s.title} delay={i * 0.1}>
-              <div data-cursor="light" className="group bg-[#1C1C1E] border border-white/[0.06] rounded-xl p-7 hover:border-white/[0.12] hover:bg-[#222] transition-all duration-300 flex flex-col gap-5 h-full">
-                <div className="w-10 h-10 rounded-lg bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center flex-shrink-0">
-                  <ServiceIcon type={s.icon} />
-                </div>
-                <div className="flex-1">
-                  <h3
-                    className="text-base font-semibold text-[#F5F5F0] mb-2"
+            <motion.div key={s.title} style={cardMotion[i]} className="h-full">
+              <FadeIn delay={i * 0.1} className="h-full">
+                <div data-cursor="light" className="group relative bg-[#1C1C1E] border border-white/6 rounded-xl p-7 hover:border-white/12 hover:bg-[#222] transition-all duration-300 flex flex-col gap-5 h-full overflow-hidden">
+                  {/* Background number */}
+                  <span
+                    aria-hidden
+                    className="absolute bottom-0 right-3 leading-none select-none pointer-events-none"
+                    style={{
+                      fontFamily: "var(--font-fraunces)",
+                      fontSize: "clamp(80px, 10vw, 130px)",
+                      fontWeight: 700,
+                      color: "rgba(255,255,255,0.04)",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <div className="w-10 h-10 rounded-lg bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center flex-shrink-0">
+                    <ServiceIcon type={s.icon} />
+                  </div>
+                  <div className="flex-1">
+                    <h3
+                      className="text-base font-semibold text-[#F5F5F0] mb-2"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {s.title}
+                    </h3>
+                    <p
+                      className="text-sm text-[#888] leading-relaxed"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {s.desc}
+                    </p>
+                  </div>
+                  <Link
+                    href={s.href}
+                    className="text-sm text-[#7F77DD] hover:text-[#9B95E8] transition-colors flex items-center gap-1 mt-auto"
                     style={{ fontFamily: "var(--font-dm-sans)" }}
                   >
-                    {s.title}
-                  </h3>
-                  <p
-                    className="text-sm text-[#888] leading-relaxed"
-                    style={{ fontFamily: "var(--font-dm-sans)" }}
-                  >
-                    {s.desc}
-                  </p>
+                    Mehr erfahren
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Link>
                 </div>
-                <Link
-                  href={s.href}
-                  className="text-sm text-[#7F77DD] hover:text-[#9B95E8] transition-colors flex items-center gap-1 mt-auto"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  Mehr erfahren
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </Link>
-              </div>
-            </FadeIn>
+              </FadeIn>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -729,8 +745,24 @@ function ServicesSection() {
 }
 
 function ProjectsSection() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start end", "start start"],
+  });
+  const y = useTransform(scrollYProgress, [0, 1], [80, 0]);
+
   return (
-    <section className="bg-[#0b0b0b] px-6 md:px-12 py-24">
+    <motion.section
+      ref={sectionRef}
+      style={{
+        y,
+        borderRadius: "50% 50% 0 0 / 90px 90px 0 0",
+        marginTop: "-90px",
+        paddingTop: "110px",
+      }}
+      className="bg-[#0b0b0b] px-6 md:px-12 pb-24 relative z-10"
+    >
       <div className="max-w-6xl mx-auto">
         <FadeIn>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
@@ -752,7 +784,7 @@ function ProjectsSection() {
           {FEATURED_PROJECTS.map((p, i) => (
             <FadeIn key={p.slug} delay={i * 0.1}>
               <Link href={`/projekte/${p.slug}`} className="group block">
-                <div className="aspect-[4/3] bg-[#161616] rounded-xl border border-white/[0.06] mb-4 overflow-hidden group-hover:border-white/[0.12] transition-all duration-300 relative">
+                <div className="aspect-4/3 bg-[#161616] rounded-xl border border-white/6 mb-4 overflow-hidden group-hover:border-white/12 transition-all duration-300 relative">
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                   <div className="absolute bottom-4 left-4">
                     <span
@@ -799,59 +831,153 @@ function ProjectsSection() {
           ))}
         </div>
       </div>
+    </motion.section>
+  );
+}
+
+const PORTAL_FEATURES = [
+  {
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+      </svg>
+    ),
+    title: "Projektstatus",
+    desc: "Live-Updates zu deinem Projekt — Meilensteine, aktuelle Phase und nächste Schritte. Kein Nachfragen nötig.",
+  },
+  {
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+      </svg>
+    ),
+    title: "Dokumente & Designs",
+    desc: "Alle Lieferungen — Mockups, Verträge, Exportdateien — zentral und jederzeit abrufbar.",
+  },
+  {
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+      </svg>
+    ),
+    title: "Direkter Upload",
+    desc: "Logos, Texte, Bilder — direkt ins Portal. Kein E-Mail-Chaos, kein verlorenes Feedback.",
+  },
+];
+
+function ProcessSection() {
+  const cardRef = useRef(null);
+  const cardInView = useInView(cardRef, { once: true, margin: "0px" });
+
+  return (
+    <section className="bg-[#080808] px-4 md:px-6 pt-24 pb-0">
+      <div className="max-w-7xl mx-auto">
+        <motion.div
+          ref={cardRef}
+          data-cursor="dark"
+          initial={{ opacity: 0, y: 60 }}
+          animate={cardInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="bg-white rounded-t-3xl px-10 md:px-16 pt-14 pb-16"
+          style={{ boxShadow: "0 -4px 60px rgba(0,0,0,0.2)" }}
+        >
+          <p className="text-[11px] uppercase tracking-[0.14em] text-[#7F77DD] mb-3" style={{ fontFamily: "var(--font-dm-sans)" }}>
+            Prozess
+          </p>
+          <h2 className="text-3xl md:text-4xl lg:text-[42px] font-bold leading-tight tracking-tight text-[#1C1C1E] mb-14 max-w-md" style={{ fontFamily: "var(--font-fraunces)" }}>
+            So arbeiten wir zusammen.
+          </h2>
+
+          <div className="grid md:grid-cols-4 gap-8 relative">
+            <motion.div
+              aria-hidden
+              className="hidden md:block absolute origin-left"
+              initial={{ scaleX: 0 }}
+              animate={cardInView ? { scaleX: 1 } : {}}
+              transition={{ delay: 0.5, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              style={{ top: "19px", left: "20px", right: "20px", height: "1px", background: "rgba(28,28,30,0.12)" }}
+            />
+            {PROCESS_STEPS.map((step, i) => (
+              <motion.div
+                key={step.num}
+                initial={{ opacity: 0, y: 20 }}
+                animate={cardInView ? { opacity: 1, y: 0 } : {}}
+                transition={{ delay: 0.3 + i * 0.15, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                whileHover={{ y: -5, transition: { duration: 0.22, ease: "easeOut" } }}
+                className="group cursor-default"
+              >
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center mb-5 relative z-10 transition-all duration-200 group-hover:border-[#7F77DD] group-hover:bg-[#7F77DD]/8 group-hover:shadow-[0_0_0_5px_rgba(127,119,221,0.12)]"
+                  style={{ background: "white", border: "1.5px solid rgba(28,28,30,0.14)" }}
+                >
+                  <span className="text-xs font-semibold text-[#1C1C1E] group-hover:text-[#7F77DD] transition-colors duration-200" style={{ fontFamily: "var(--font-dm-sans)" }}>
+                    {step.num}
+                  </span>
+                </div>
+                <h3 className="text-sm font-semibold text-[#1C1C1E] mb-2 group-hover:text-[#7F77DD] transition-colors duration-200" style={{ fontFamily: "var(--font-dm-sans)" }}>
+                  {step.title}
+                </h3>
+                <p className="text-sm text-[#888] leading-relaxed group-hover:text-[#666] transition-colors duration-200" style={{ fontFamily: "var(--font-dm-sans)" }}>
+                  {step.desc}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
     </section>
   );
 }
 
-function ProcessSection() {
+function PortalSection() {
   return (
-    <section data-cursor="dark" className="bg-[#F7F5F0] px-6 md:px-12 py-24">
-      <div className="max-w-6xl mx-auto">
+    <section data-cursor="dark" className="bg-white px-6 md:px-12 pb-20 rounded-b-3xl overflow-hidden">
+      <div className="max-w-7xl mx-auto">
+        <div className="border-t border-black/[0.07] mb-14" />
         <FadeIn>
-          <SectionLabel>Prozess</SectionLabel>
-          <SectionHeadline dark={false} className="mb-16 max-w-md">
-            So arbeiten wir zusammen.
-          </SectionHeadline>
-        </FadeIn>
+          <div className="grid md:grid-cols-2 gap-10 items-center">
+            {/* Left */}
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-[#7F77DD] mb-2" style={{ fontFamily: "var(--font-dm-sans)" }}>
+                Kundenportal
+              </p>
+              <h2 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-[#1C1C1E] mb-4" style={{ fontFamily: "var(--font-fraunces)" }}>
+                Dein eigener Bereich.
+              </h2>
+              <p className="text-sm text-[#666] leading-relaxed mb-6 max-w-xs" style={{ fontFamily: "var(--font-dm-sans)" }}>
+                Jeder Kunde bekommt Zugang zu einem persönlichen Portal — transparent, direkt und ohne Umwege.
+              </p>
+              <Link
+                href="/kundenportal"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-[#1C1C1E] hover:text-[#7F77DD] transition-colors duration-200"
+                style={{ fontFamily: "var(--font-dm-sans)" }}
+              >
+                Portal ansehen
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </Link>
+            </div>
 
-        <div className="grid md:grid-cols-4 gap-8 relative">
-          <div
-            className="hidden md:block absolute"
-            style={{
-              top: "20px",
-              left: "calc(12.5% + 20px)",
-              right: "calc(12.5% + 20px)",
-              height: "1px",
-              borderTop: "1px dashed rgba(28,28,30,0.15)",
-            }}
-          />
-          {PROCESS_STEPS.map((step, i) => (
-            <FadeIn key={step.num} delay={i * 0.1}>
-              <div>
-                <div className="w-10 h-10 rounded-full border border-[#1C1C1E]/20 bg-[#F7F5F0] flex items-center justify-center mb-5 relative z-10">
-                  <span
-                    className="text-xs font-semibold text-[#1C1C1E]"
-                    style={{ fontFamily: "var(--font-dm-sans)" }}
-                  >
-                    {step.num}
-                  </span>
+            {/* Right — compact feature list */}
+            <div className="flex flex-col gap-3">
+              {PORTAL_FEATURES.map((f) => (
+                <div
+                  key={f.title}
+                  className="flex items-center gap-4 rounded-xl px-5 py-4 border border-black/6 bg-[#F7F5F0]"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD] shrink-0">
+                    {f.icon}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#1C1C1E]" style={{ fontFamily: "var(--font-dm-sans)" }}>{f.title}</p>
+                    <p className="text-xs text-[#888]" style={{ fontFamily: "var(--font-dm-sans)" }}>{f.desc.split("—")[0].trim()}</p>
+                  </div>
                 </div>
-                <h3
-                  className="text-sm font-semibold text-[#1C1C1E] mb-2"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  {step.title}
-                </h3>
-                <p
-                  className="text-sm text-[#888] leading-relaxed"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  {step.desc}
-                </p>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
+              ))}
+            </div>
+          </div>
+        </FadeIn>
       </div>
     </section>
   );
@@ -867,37 +993,7 @@ function TestimonialsSection() {
             Was Kunden sagen.
           </SectionHeadline>
         </FadeIn>
-        <div className="grid md:grid-cols-3 gap-4">
-          {TESTIMONIALS.map((t, i) => (
-            <FadeIn key={t.name} delay={i * 0.1}>
-              <div className="bg-[#0f0f0f] border border-white/[0.07] rounded-xl p-7 flex flex-col gap-4 h-full">
-                <span className="text-[38px] leading-none text-[#7F77DD]/25 font-serif select-none -mb-2">
-                  "
-                </span>
-                <p
-                  className="text-sm text-[#888] leading-relaxed flex-1"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  {t.quote}
-                </p>
-                <div className="border-t border-white/[0.06] pt-4 mt-auto">
-                  <p
-                    className="text-sm font-semibold text-[#E8E8E4]"
-                    style={{ fontFamily: "var(--font-dm-sans)" }}
-                  >
-                    {t.name}
-                  </p>
-                  <p
-                    className="text-xs text-[#555] mt-0.5"
-                    style={{ fontFamily: "var(--font-dm-sans)" }}
-                  >
-                    {t.company}
-                  </p>
-                </div>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
+        <TestimonialsCarousel />
       </div>
     </section>
   );
@@ -905,7 +1001,23 @@ function TestimonialsSection() {
 
 function AboutSection() {
   return (
-    <section data-cursor="dark" className="bg-[#F7F5F0] px-6 md:px-12 py-24">
+    <section data-cursor="dark" className="relative bg-[#F7F5F0] px-6 md:px-12 py-24 z-10">
+      <div
+        aria-hidden
+        className="absolute -top-16 left-0 w-full h-16 pointer-events-none"
+        style={{
+          background: "#F7F5F0",
+          clipPath: "polygon(0 100%, 100% 18%, 100% 100%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute -bottom-[63px] left-0 w-full h-16 pointer-events-none"
+        style={{
+          background: "#F7F5F0",
+          clipPath: "polygon(0 0, 100% 0, 0 88%)",
+        }}
+      />
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
         <FadeIn>
           <div className="aspect-[3/4] bg-[#E2DDD5] rounded-2xl max-w-sm" />
@@ -1022,6 +1134,7 @@ export default function HomePage() {
       <ServicesSection />
       <ProjectsSection />
       <ProcessSection />
+      <PortalSection />
       <TestimonialsSection />
       <AboutSection />
       <FinalCtaSection />

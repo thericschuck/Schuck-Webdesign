@@ -3,29 +3,37 @@ import { createClient } from '@/lib/supabase/server'
 import { StatusTimeline } from '@/components/portal/StatusTimeline'
 import type { ProjectStatus } from '@/types/database'
 
+const BANNER_STARS = [
+  { top: '18%', left: '14%', size: 3, alpha: 0.45 },
+  { top: '28%', left: '36%', size: 2, alpha: 0.28 },
+  { top: '20%', left: '78%', size: 4, alpha: 0.55 },
+  { top: '62%', left: '64%', size: 2, alpha: 0.22 },
+  { top: '70%', left: '23%', size: 3, alpha: 0.32 },
+  { top: '54%', left: '88%', size: 2, alpha: 0.26 },
+]
+
 const STATUS_LABEL: Record<ProjectStatus, string> = {
-  briefing:    'Briefing',
-  design:      'Design',
+  briefing: 'Briefing',
+  design: 'Design',
   development: 'Entwicklung',
-  review:      'Review',
-  live:        'Live',
+  review: 'Review',
+  live: 'Live',
 }
 
 const STATUS_COLOR: Record<ProjectStatus, string> = {
-  briefing:    'bg-gray-100 text-gray-500',
-  design:      'bg-blue-50 text-blue-700',
-  development: 'bg-amber-50 text-amber-700',
-  review:      'bg-purple-50 text-purple-700',
-  live:        'bg-green-50 text-green-700',
+  briefing: 'bg-[#ECE7DD] text-[#6B655D]',
+  design: 'bg-[#EAE9FF] text-[#6159C6]',
+  development: 'bg-[#F6E7D5] text-[#B76B1D]',
+  review: 'bg-[#EEE5FF] text-[#7A59C9]',
+  live: 'bg-[#E2F4EA] text-[#227A4A]',
 }
 
-// Farbiger Top-Akzentstreifen pro Status
 const STATUS_ACCENT: Record<ProjectStatus, string> = {
-  briefing:    'bg-gray-300',
-  design:      'bg-blue-400',
-  development: 'bg-amber-400',
-  review:      'bg-purple-400',
-  live:        'bg-green-400',
+  briefing: 'bg-[#D4CCC0]',
+  design: 'bg-[#7F77DD]',
+  development: 'bg-[#E39A4B]',
+  review: 'bg-[#9A72E1]',
+  live: 'bg-[#3DA86C]',
 }
 
 function formatRelative(iso: string) {
@@ -49,13 +57,14 @@ export default async function PortalDashboardPage() {
 
   if (!client) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
-        <p className="text-gray-500 text-sm">Kein Kundeneintrag gefunden. Bitte kontaktiere uns.</p>
+      <div className="rounded-[24px] border border-black/[0.06] bg-[#F1EEE7] p-8 text-center">
+        <p className="text-sm text-[#7C756B]" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+          Kein Kundeneintrag gefunden. Bitte kontaktiere uns.
+        </p>
       </div>
     )
   }
 
-  // Alle Projekte + ihre Updates
   const { data: projects } = await supabase
     .from('projects')
     .select(`
@@ -65,7 +74,6 @@ export default async function PortalDashboardPage() {
     .eq('client_id', client.id)
     .order('created_at', { ascending: false })
 
-  // Letzte 3 Dokumente
   const { data: documents } = await supabase
     .from('documents')
     .select('id, name, created_at')
@@ -74,21 +82,54 @@ export default async function PortalDashboardPage() {
     .limit(3)
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
+      <div
+        className="relative overflow-hidden rounded-[32px] border border-white/[0.06] bg-[#080808] px-7 py-8 md:px-10 md:py-10"
+        style={{ boxShadow: '0 14px 48px rgba(0,0,0,0.18)' }}
+      >
+        <div className="absolute -top-10 -right-10 h-52 w-52 rounded-full bg-[#7F77DD]/10 blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-12 left-1/3 h-64 w-64 rounded-full bg-[#7F77DD]/8 blur-3xl pointer-events-none" />
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(ellipse 70% 55% at 50% 42%, rgba(127,119,221,0.08) 0%, transparent 72%)',
+          }}
+        />
+        {BANNER_STARS.map((star, i) => (
+          <span
+            key={i}
+            aria-hidden
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              top: star.top,
+              left: star.left,
+              width: `${star.size}px`,
+              height: `${star.size}px`,
+              background: `rgba(235,235,245,${star.alpha})`,
+              boxShadow:
+                i % 2 === 0 ? `0 0 10px rgba(127,119,221,${star.alpha * 0.45})` : 'none',
+            }}
+          />
+        ))}
 
-      {/* Welcome Banner */}
-      <div className="relative rounded-2xl overflow-hidden bg-gray-950 px-7 py-8">
-        {/* Dekorative Kreise */}
-        <div className="absolute -top-10 -right-10 w-52 h-52 rounded-full bg-blue-500/10 blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-12 left-1/3 w-64 h-64 rounded-full bg-indigo-500/8 blur-3xl pointer-events-none" />
-
-        <p className="text-xs font-medium text-white/40 uppercase tracking-widest mb-2">
-          Willkommen zurück
+        <p
+          className="relative z-10 mb-3 text-[11px] uppercase tracking-[0.14em] text-[#7F77DD]"
+          style={{ fontFamily: 'var(--font-dm-sans)' }}
+        >
+          Willkommen zurueck
         </p>
-        <h1 className="text-3xl font-semibold text-white tracking-tight">
+        <h1
+          className="relative z-10 text-4xl md:text-5xl tracking-tight text-[#F5F5F0]"
+          style={{ fontFamily: 'var(--font-fraunces)' }}
+        >
           {client.company_name}
         </h1>
-        <p className="text-sm text-white/50 mt-1.5">
+        <p
+          className="relative z-10 mt-3 text-sm text-white/50"
+          style={{ fontFamily: 'var(--font-dm-sans)' }}
+        >
           {(projects ?? []).length === 0
             ? 'Noch kein Projekt angelegt.'
             : (projects ?? []).length === 1
@@ -97,18 +138,22 @@ export default async function PortalDashboardPage() {
         </p>
       </div>
 
-      {/* Projekte */}
       <section>
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <h2
+          className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#999]"
+          style={{ fontFamily: 'var(--font-dm-sans)' }}
+        >
           {(projects ?? []).length === 1 ? 'Dein Projekt' : 'Deine Projekte'}
         </h2>
 
         {(projects ?? []).length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-white p-10 text-center">
-            <p className="text-sm text-gray-400">Noch kein Projekt angelegt.</p>
+          <div className="rounded-[24px] border border-black/[0.06] bg-[#F1EEE7] p-10 text-center">
+            <p className="text-sm text-[#7C756B]" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Noch kein Projekt angelegt.
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {(projects ?? []).map((project) => {
               const sortedUpdates = [...(project.project_updates ?? [])].sort(
                 (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -120,42 +165,68 @@ export default async function PortalDashboardPage() {
                 <Link
                   key={project.id}
                   href={`/portal/project?id=${project.id}`}
-                  className="group relative block rounded-2xl border border-white/80 bg-white shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                  className="group relative block overflow-hidden rounded-[26px] border border-black/[0.06] bg-[#F7F5F0] transition-all duration-200 hover:-translate-y-0.5"
+                  style={{ boxShadow: '0 6px 24px rgba(0,0,0,0.06)' }}
                 >
-                  {/* Farbiger Akzentstreifen oben */}
                   <div className={`h-1 w-full ${STATUS_ACCENT[status]}`} />
 
                   <div className="p-5">
-                    {/* Card header */}
-                    <div className="flex items-start justify-between gap-3 mb-4">
-                      <h3 className="text-base font-semibold text-gray-900 leading-snug">{project.title}</h3>
-                      <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${STATUS_COLOR[status]}`}>
-                          {STATUS_LABEL[status]}
-                        </span>
-                      </div>
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <h3
+                        className="text-xl leading-snug text-[#1C1C1E]"
+                        style={{ fontFamily: 'var(--font-fraunces)' }}
+                      >
+                        {project.title}
+                      </h3>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_COLOR[status]}`}
+                        style={{ fontFamily: 'var(--font-dm-sans)' }}
+                      >
+                        {STATUS_LABEL[status]}
+                      </span>
                     </div>
 
                     {project.description && (
-                      <p className="text-xs text-gray-400 -mt-2 mb-4 truncate">{project.description}</p>
+                      <p
+                        className="mb-4 -mt-2 truncate text-xs text-[#8A847B]"
+                        style={{ fontFamily: 'var(--font-dm-sans)' }}
+                      >
+                        {project.description}
+                      </p>
                     )}
 
-                    {/* Status-Timeline */}
                     <StatusTimeline status={status} />
 
-                    {/* Letztes Update */}
-                    <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-start justify-between gap-4">
+                    <div className="mt-4 flex items-start justify-between gap-4 border-t border-black/[0.06] pt-3.5">
                       {lastUpdate ? (
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-gray-600 leading-snug line-clamp-1">{lastUpdate.message}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{formatRelative(lastUpdate.created_at)}</p>
+                          <p
+                            className="line-clamp-1 text-xs leading-snug text-[#55504A]"
+                            style={{ fontFamily: 'var(--font-dm-sans)' }}
+                          >
+                            {lastUpdate.message}
+                          </p>
+                          <p
+                            className="mt-0.5 text-xs text-[#9C968B]"
+                            style={{ fontFamily: 'var(--font-dm-sans)' }}
+                          >
+                            {formatRelative(lastUpdate.created_at)}
+                          </p>
                         </div>
                       ) : (
-                        <p className="text-xs text-gray-300 flex-1">Noch keine Updates</p>
+                        <p
+                          className="flex-1 text-xs text-[#B8B1A6]"
+                          style={{ fontFamily: 'var(--font-dm-sans)' }}
+                        >
+                          Noch keine Updates
+                        </p>
                       )}
                       <svg
-                        className="w-4 h-4 text-gray-300 group-hover:text-gray-500 shrink-0 mt-0.5 transition-colors"
-                        fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+                        className="mt-0.5 h-4 w-4 shrink-0 text-[#C2BBB0] transition-colors group-hover:text-[#7F77DD]"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        viewBox="0 0 24 24"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
@@ -168,41 +239,67 @@ export default async function PortalDashboardPage() {
         )}
       </section>
 
-      {/* Letzte Dokumente */}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Dokumente</h2>
-          <Link href="/portal/documents" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">
+        <div className="mb-3 flex items-center justify-between">
+          <h2
+            className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#999]"
+            style={{ fontFamily: 'var(--font-dm-sans)' }}
+          >
+            Dokumente
+          </h2>
+          <Link
+            href="/portal/documents"
+            className="text-xs text-[#8A847B] transition-colors hover:text-[#1C1C1E]"
+            style={{ fontFamily: 'var(--font-dm-sans)' }}
+          >
             Alle anzeigen →
           </Link>
         </div>
 
-        <div className="rounded-xl border border-white/80 bg-white shadow-sm overflow-hidden">
+        <div
+          className="overflow-hidden rounded-[26px] border border-black/[0.06] bg-[#F7F5F0]"
+          style={{ boxShadow: '0 6px 24px rgba(0,0,0,0.06)' }}
+        >
           {documents && documents.length > 0 ? (
-            <ul className="divide-y divide-gray-50">
+            <ul className="divide-y divide-black/[0.05]">
               {documents.map((doc) => (
                 <li key={doc.id} className="flex items-center gap-3 px-4 py-3">
-                  <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="h-4 w-4 shrink-0 text-[#C1BAAF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
-                  <p className="text-sm text-gray-700 truncate flex-1">{doc.name}</p>
-                  <span className="text-xs text-gray-400 shrink-0">{formatRelative(doc.created_at)}</span>
+                  <p
+                    className="flex-1 truncate text-sm text-[#3D3833]"
+                    style={{ fontFamily: 'var(--font-dm-sans)' }}
+                  >
+                    {doc.name}
+                  </p>
+                  <span
+                    className="shrink-0 text-xs text-[#9C968B]"
+                    style={{ fontFamily: 'var(--font-dm-sans)' }}
+                  >
+                    {formatRelative(doc.created_at)}
+                  </span>
                 </li>
               ))}
             </ul>
           ) : (
             <div className="px-4 py-6 text-center">
-              <p className="text-sm text-gray-400">Noch keine Dokumente.</p>
+              <p className="text-sm text-[#8A847B]" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Noch keine Dokumente.
+              </p>
             </div>
           )}
-          <div className="px-4 py-3 border-t border-gray-50">
-            <Link href="/portal/upload" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">
+          <div className="border-t border-black/[0.05] px-4 py-3">
+            <Link
+              href="/portal/upload"
+              className="text-xs text-[#8A847B] transition-colors hover:text-[#1C1C1E]"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}
+            >
               Dateien hochladen →
             </Link>
           </div>
         </div>
       </section>
-
     </div>
   )
 }

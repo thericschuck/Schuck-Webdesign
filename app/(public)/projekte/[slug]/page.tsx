@@ -1,23 +1,9 @@
 import Link from "next/link";
-
-const slugs = [
-  "projekt-alpha",
-  "projekt-beta",
-  "projekt-gamma",
-  "projekt-delta",
-  "projekt-epsilon",
-  "projekt-zeta",
-];
+import { notFound } from "next/navigation";
+import { getProjectBySlug, projects } from "../projects-data";
 
 export function generateStaticParams() {
-  return slugs.map((slug) => ({ slug }));
-}
-
-function capitalizeSlug(slug: string): string {
-  return slug
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  return projects.map((project) => ({ slug: project.slug }));
 }
 
 export default async function ProjektDetailPage({
@@ -26,16 +12,18 @@ export default async function ProjektDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const displayName = capitalizeSlug(slug);
+  const project = getProjectBySlug(slug);
+
+  if (!project) {
+    notFound();
+  }
 
   return (
     <main>
-      {/* Project Header */}
-      <section style={{ backgroundColor: "#080808" }} className="pt-36 pb-0 px-6 md:px-12">
-        <div className="max-w-6xl mx-auto">
-          {/* Category badge */}
+      <section style={{ backgroundColor: "#080808" }} className="px-6 pb-0 pt-36 md:px-12">
+        <div className="mx-auto max-w-6xl">
           <span
-            className="inline-block text-xs font-medium uppercase tracking-widest px-3 py-1 rounded-full mb-6"
+            className="mb-6 inline-block rounded-full px-3 py-1 text-xs font-medium uppercase tracking-widest"
             style={{
               color: "#7F77DD",
               backgroundColor: "rgba(127, 119, 221, 0.1)",
@@ -43,57 +31,103 @@ export default async function ProjektDetailPage({
               fontFamily: "var(--font-dm-sans)",
             }}
           >
-            Platzhalter-Kategorie
+            {project.category}
           </span>
 
-          {/* Headline */}
           <h1
-            className="text-5xl md:text-6xl font-normal leading-tight mb-8"
+            className="mb-8 text-5xl font-normal leading-tight md:text-6xl"
             style={{
               fontFamily: "var(--font-fraunces)",
               color: "#F5F5F0",
             }}
           >
-            {displayName} — Platzhalter-Projektname
+            {project.name}
           </h1>
 
-          {/* Meta */}
           <div
-            className="flex flex-wrap gap-6"
+            className="mb-8 flex flex-wrap gap-6"
             style={{ fontFamily: "var(--font-dm-sans)" }}
           >
             <span className="text-sm" style={{ color: "#555" }}>
-              <span style={{ color: "#888" }}>Branche:</span> Platzhalter
+              <span style={{ color: "#888" }}>Typ:</span> {project.category}
             </span>
             <span className="text-sm" style={{ color: "#555" }}>
-              <span style={{ color: "#888" }}>Jahr:</span> 2024
+              <span style={{ color: "#888" }}>Website:</span>{" "}
+              <a
+                href={project.url}
+                target="_blank"
+                rel="noreferrer"
+                className="transition-colors duration-200 hover:text-white"
+              >
+                {project.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              </a>
             </span>
+          </div>
+
+          <p
+            className="max-w-2xl text-base md:text-lg"
+            style={{
+              fontFamily: "var(--font-dm-sans)",
+              color: "#8A8A8F",
+            }}
+          >
+            {project.intro}
+          </p>
+        </div>
+      </section>
+
+      <section style={{ backgroundColor: "#080808" }} className="px-6 pb-0 pt-8 md:px-12">
+        <div className="mx-auto max-w-6xl">
+          <div
+            className="relative aspect-video w-full overflow-hidden rounded-2xl border"
+            style={{
+              backgroundColor: "#101010",
+              borderColor: "rgba(255,255,255,0.06)",
+            }}
+          >
+            <div className={`absolute inset-0 bg-gradient-to-br ${project.accent} opacity-90`} />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.34))]" />
+            <div className="absolute left-6 top-6">
+              <p
+                className="text-xs uppercase tracking-[0.3em]"
+                style={{
+                  color: "rgba(245,245,240,0.45)",
+                  fontFamily: "var(--font-dm-sans)",
+                }}
+              >
+                Case Study
+              </p>
+            </div>
+            <div className="absolute inset-x-6 bottom-6 md:inset-x-10 md:bottom-10">
+              <p
+                className="text-3xl leading-none md:text-5xl"
+                style={{
+                  color: "#F5F5F0",
+                  fontFamily: "var(--font-fraunces)",
+                }}
+              >
+                {project.name}
+              </p>
+              <p
+                className="mt-3 max-w-xl text-sm md:text-base"
+                style={{
+                  color: "rgba(245,245,240,0.62)",
+                  fontFamily: "var(--font-dm-sans)",
+                }}
+              >
+                {project.shortDesc}
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Hero Image */}
-      <section style={{ backgroundColor: "#080808" }} className="px-6 md:px-12 pt-8 pb-0">
-        <div className="max-w-6xl mx-auto">
-          <div
-            className="aspect-video w-full rounded-2xl border"
-            style={{
-              backgroundColor: "#1a1a1a",
-              borderColor: "rgba(255,255,255,0.06)",
-            }}
-          />
-        </div>
-      </section>
-
-      {/* Details Section */}
-      <section style={{ backgroundColor: "#F7F5F0" }} className="px-6 md:px-12 py-20">
-        <div className="max-w-6xl mx-auto">
-          {/* Two-column: task + solution */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-14">
-            {/* Left: Die Aufgabe */}
+      <section style={{ backgroundColor: "#F7F5F0" }} className="px-6 py-20 md:px-12">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-14 grid grid-cols-1 gap-12 md:grid-cols-2">
             <div>
               <h2
-                className="text-2xl font-normal mb-4"
+                className="mb-4 text-2xl font-normal"
                 style={{
                   fontFamily: "var(--font-fraunces)",
                   color: "#1C1C1E",
@@ -105,76 +139,67 @@ export default async function ProjektDetailPage({
                 className="text-base leading-relaxed"
                 style={{ fontFamily: "var(--font-dm-sans)", color: "#444" }}
               >
-                Platzhaltertext für die Aufgabenstellung. Hier wird beschrieben,
-                welche Herausforderungen der Kunde hatte und was das Ziel des
-                Projekts war. Eine kurze, prägnante Zusammenfassung der
-                Ausgangssituation und des Briefings.
+                {project.challenge}
               </p>
             </div>
 
-            {/* Right: Die Lösung */}
             <div>
               <h2
-                className="text-2xl font-normal mb-4"
+                className="mb-4 text-2xl font-normal"
                 style={{
                   fontFamily: "var(--font-fraunces)",
                   color: "#1C1C1E",
                 }}
               >
-                Die Lösung
+                Die Loesung
               </h2>
               <p
                 className="text-base leading-relaxed"
                 style={{ fontFamily: "var(--font-dm-sans)", color: "#444" }}
               >
-                Platzhaltertext für die Lösung. Hier wird erklärt, welcher
-                Ansatz gewählt wurde, welche Designentscheidungen getroffen
-                wurden und wie die technische Umsetzung aussah. Ergebnis und
-                Impact des Projekts.
+                {project.solution}
               </p>
             </div>
           </div>
 
-          {/* Technologies */}
           <div>
             <h3
-              className="text-sm font-medium uppercase tracking-widest mb-4"
+              className="mb-4 text-sm font-medium uppercase tracking-widest"
               style={{ fontFamily: "var(--font-dm-sans)", color: "#888" }}
             >
               Technologien
             </h3>
             <div className="flex flex-wrap gap-2">
-              {["Next.js", "React", "TypeScript", "Tailwind CSS", "Supabase"].map(
-                (tech) => (
-                  <span
-                    key={tech}
-                    className="text-xs px-3 py-1 rounded-full border"
-                    style={{
-                      backgroundColor: "rgba(28, 28, 30, 0.1)",
-                      color: "#1C1C1E",
-                      borderColor: "rgba(28, 28, 30, 0.15)",
-                      fontFamily: "var(--font-dm-sans)",
-                    }}
-                  >
-                    {tech}
-                  </span>
-                )
-              )}
+              {project.stack.map((tech) => (
+                <span
+                  key={tech}
+                  className="rounded-full border px-3 py-1 text-xs"
+                  style={{
+                    backgroundColor: "rgba(28, 28, 30, 0.1)",
+                    color: "#1C1C1E",
+                    borderColor: "rgba(28, 28, 30, 0.15)",
+                    fontFamily: "var(--font-dm-sans)",
+                  }}
+                >
+                  {tech}
+                </span>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Next Project Bar */}
-      <section style={{ backgroundColor: "#080808" }} className="px-6 md:px-12 py-12">
-        <div className="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-4">
-          <Link
-            href="/projekte"
+      <section style={{ backgroundColor: "#080808" }} className="px-6 py-12 md:px-12">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+          <a
+            href={project.url}
+            target="_blank"
+            rel="noreferrer"
             className="text-sm transition-colors duration-200 hover:text-white"
             style={{ fontFamily: "var(--font-dm-sans)", color: "#555" }}
           >
-            Nächstes Projekt →
-          </Link>
+            Live ansehen -&gt;
+          </a>
           <Link
             href="/projekte"
             className="text-sm transition-colors duration-200 hover:text-white"

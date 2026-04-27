@@ -15,14 +15,14 @@ export function CustomCursor() {
     if (typeof window === "undefined") return;
     if (window.matchMedia("(hover: none)").matches) return;
 
-    const outer = outerRef.current;
-    const innerWrap = innerWrapRef.current;
-    const inner = innerRef.current;
+    const outer = outerRef.current!;
+    const innerWrap = innerWrapRef.current!;
+    const inner = innerRef.current!;
     if (!outer || !innerWrap || !inner) return;
 
     document.documentElement.classList.add("custom-cursor");
 
-    const LERP = 0.20;
+    const LERP = 0.38;
 
     function getTheme(el: Element): "dark" | "" {
       // Walk up the DOM — the most specific ancestor wins

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { FadeIn } from "@/components/public/FadeIn";
 
@@ -22,6 +23,131 @@ const CheckIcon = () => (
     />
   </svg>
 );
+
+function ShootingStarsBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationFrame = 0;
+    let width = 0;
+    let height = 0;
+    let stars: { x: number; y: number; r: number; a: number }[] = [];
+    let shootingStars: {
+      x: number;
+      y: number;
+      angle: number;
+      speed: number;
+      length: number;
+      width: number;
+      life: number;
+      decay: number;
+      color: string;
+    }[] = [];
+
+    const resize = () => {
+      const parent = canvas.parentElement;
+      if (!parent) return;
+      width = parent.clientWidth;
+      height = parent.clientHeight;
+      canvas.width = width;
+      canvas.height = height;
+
+      stars = Array.from({ length: 55 }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        r: Math.random() * 0.9 + 0.2,
+        a: Math.random() * 0.22 + 0.04,
+      }));
+    };
+
+    const spawnShootingStar = () => {
+      if (Math.random() > 0.018) return;
+      const fromTop = Math.random() < 0.7;
+      const x = fromTop
+        ? Math.random() * width * 1.2 - width * 0.1
+        : -20;
+      const y = fromTop ? -20 : Math.random() * height * 0.6;
+      const angle = fromTop
+        ? Math.PI / 4 + (Math.random() - 0.5) * 0.4
+        : (Math.random() - 0.5) * 0.25;
+
+      shootingStars.push({
+        x,
+        y,
+        angle,
+        speed: 3 + Math.random() * 2.2,
+        length: 70 + Math.random() * 55,
+        width: 1 + Math.random() * 0.7,
+        life: 1,
+        decay: 0.012 + Math.random() * 0.008,
+        color: Math.random() < 0.35 ? "127,119,221" : "235,235,245",
+      });
+    };
+
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      for (const star of stars) {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,200,230,${star.a})`;
+        ctx.fill();
+      }
+
+      spawnShootingStar();
+      shootingStars = shootingStars.filter((star) => star.life > 0);
+
+      for (const star of shootingStars) {
+        const dx = Math.cos(star.angle) * star.speed;
+        const dy = Math.sin(star.angle) * star.speed;
+        star.x += dx;
+        star.y += dy;
+        star.life -= star.decay;
+
+        if (star.life <= 0) continue;
+
+        const tailX = star.x - Math.cos(star.angle) * star.length;
+        const tailY = star.y - Math.sin(star.angle) * star.length;
+        const gradient = ctx.createLinearGradient(tailX, tailY, star.x, star.y);
+        gradient.addColorStop(0, `rgba(${star.color},0)`);
+        gradient.addColorStop(0.6, `rgba(${star.color},${star.life * 0.12})`);
+        gradient.addColorStop(1, `rgba(${star.color},${star.life * 0.7})`);
+
+        ctx.beginPath();
+        ctx.moveTo(tailX, tailY);
+        ctx.lineTo(star.x, star.y);
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = star.width * star.life;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.width * 1.35 * star.life, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${star.color},${star.life * 0.65})`;
+        ctx.fill();
+      }
+
+      animationFrame = window.requestAnimationFrame(draw);
+    };
+
+    resize();
+    draw();
+    window.addEventListener("resize", resize);
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden />;
+}
 
 const services = [
   {
@@ -79,8 +205,9 @@ const services = [
 
 type Service = (typeof services)[number];
 
-function ServiceBlock({ service }: { service: Service }) {
+function ServiceBlock({ service, index }: { service: Service; index: number }) {
   const isDark = service.theme === "dark";
+  const hasWaveTop = index > 0;
   const headlineColor = isDark ? "#F5F5F0" : "#1C1C1E";
   const descColor = isDark ? "#888" : "#555";
   const bulletColor = isDark ? "#aaa" : "#444";
@@ -161,14 +288,26 @@ function ServiceBlock({ service }: { service: Service }) {
     </div>
   );
 
-  const ImageBlock = (
+  const numColor = isDark ? "rgba(255,255,255,1.54)" : "rgba(0,0,0,0.155)";
+
+  const NumberBlock = (
     <div
-      className="aspect-video md:aspect-square w-full rounded-2xl"
-      style={{
-        backgroundColor: service.imageBg,
-        border: `1px solid ${service.imageBorder}`,
-      }}
-    />
+      aria-hidden
+      className="relative w-full min-h-[180px] md:min-h-[320px] flex items-center justify-center overflow-visible"
+    >
+      <span
+        className="leading-none select-none pointer-events-none"
+        style={{
+          fontFamily: "var(--font-fraunces)",
+          fontSize: "clamp(150px, 28vw, 280px)",
+          fontWeight: 700,
+          color: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+          lineHeight: 1,
+        }}
+      >
+        {String(index + 1).padStart(2, "0")}
+      </span>
+    </div>
   );
 
   return (
@@ -176,19 +315,34 @@ function ServiceBlock({ service }: { service: Service }) {
       style={{
         backgroundColor: isDark ? "#080808" : "#F7F5F0",
       }}
-      className="py-20 px-6 md:px-12"
+      className={`relative px-6 md:px-12 ${hasWaveTop ? "pt-32 md:pt-36 pb-20" : "py-20"}`}
     >
+      {hasWaveTop ? (
+        <div aria-hidden className="absolute top-0 left-0 w-full overflow-hidden leading-none">
+          <svg
+            viewBox="0 0 1440 120"
+            preserveAspectRatio="none"
+            className="block h-[60px] md:h-[88px] w-full"
+          >
+            <path
+              d="M0,0 L0,42 C130,78 280,86 430,64 C570,44 675,18 800,26 C940,36 1080,74 1220,68 C1310,64 1385,50 1440,40 L1440,0 Z"
+              fill={isDark ? "#F7F5F0" : "#080808"}
+            />
+          </svg>
+        </div>
+      ) : null}
+
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           {service.contentRight ? (
             <>
-              <FadeIn delay={0.05}>{ImageBlock}</FadeIn>
+              <FadeIn delay={0.05}>{NumberBlock}</FadeIn>
               <FadeIn delay={0.12}>{ContentBlock}</FadeIn>
             </>
           ) : (
             <>
               <FadeIn delay={0.05}>{ContentBlock}</FadeIn>
-              <FadeIn delay={0.12}>{ImageBlock}</FadeIn>
+              <FadeIn delay={0.12}>{NumberBlock}</FadeIn>
             </>
           )}
         </div>
@@ -201,7 +355,16 @@ export default function LeistungenPage() {
   return (
     <main>
       {/* Page Header */}
-      <section style={{ backgroundColor: "#080808" }} className="pt-36 pb-20 px-6 md:px-12">
+      <section style={{ backgroundColor: "#080808" }} className="relative overflow-hidden pt-36 pb-20 px-6 md:px-12">
+        <ShootingStarsBackground />
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse 70% 55% at 50% 32%, rgba(127,119,221,0.05) 0%, transparent 72%)",
+          }}
+        />
         <div className="max-w-6xl mx-auto">
           <FadeIn delay={0}>
             <span
@@ -240,8 +403,8 @@ export default function LeistungenPage() {
       </section>
 
       {/* Service Blocks */}
-      {services.map((service) => (
-        <ServiceBlock key={service.id} service={service} />
+      {services.map((service, i) => (
+        <ServiceBlock key={service.id} service={service} index={i} />
       ))}
 
       {/* Final CTA */}

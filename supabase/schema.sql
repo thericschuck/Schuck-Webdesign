@@ -464,3 +464,8 @@ create policy "storage: Client löscht eigene Dateien"
       select id::text from public.clients where profile_id = auth.uid()
     )
   );
+
+-- 7. Reviewer-Name und Firma direkt in reviews speichern (kein Join nötig für öffentliche Anzeige)
+alter table public.reviews
+  add column if not exists reviewer_name    text,
+  add column if not exists reviewer_company text;
