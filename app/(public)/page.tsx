@@ -1,118 +1,138 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import { motion, useInView, useSpring, useTransform } from "framer-motion";
+import { useRef, useState, useEffect } from "react";
+import { motion, useInView } from "framer-motion";
 import Link from "next/link";
+import { ParticleCanvas } from "@/components/public/ParticleCanvas";
+import { FadeIn } from "@/components/public/FadeIn";
 
-// ─── Browser Mockup with 3D Tilt ───────────────────────────────────────────
+const EASE = [0.22, 1, 0.36, 1] as const;
+const WORD_EASE = [0.22, 1, 0.36, 1] as const;
 
-function BrowserMockup() {
-  const ref = useRef<HTMLDivElement>(null);
+// ── Data ─────────────────────────────────────────────────────────────────────
 
-  const rawX = useSpring(0, { stiffness: 120, damping: 20 });
-  const rawY = useSpring(0, { stiffness: 120, damping: 20 });
+const LOGOS = [
+  "Unternehmen A",
+  "Studio B",
+  "Brand C",
+  "Agentur D",
+  "Firma E",
+  "Projekt F",
+];
 
-  const rotateX = useTransform(rawY, [-0.5, 0.5], [8, -8]);
-  const rotateY = useTransform(rawX, [-0.5, 0.5], [-10, 10]);
+const SERVICES = [
+  {
+    icon: "monitor",
+    title: "Webdesign & UI/UX",
+    desc: "Durchdachte Interfaces, die konvertieren. Von der ersten Wireframe-Idee bis zum finalen Design — nutzerzentriert und konversionsorientiert.",
+    href: "/leistungen",
+  },
+  {
+    icon: "code",
+    title: "Development",
+    desc: "Performante Umsetzung mit modernem Tech Stack. Next.js, React, TypeScript — blitzschnell, sauber und skalierbar.",
+    href: "/leistungen",
+  },
+  {
+    icon: "gauge",
+    title: "Performance & SEO",
+    desc: "100 PageSpeed. Technisch makellose Websites, die Google liebt und Nutzer begeistern — messbar und nachhaltig.",
+    href: "/leistungen",
+  },
+];
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+const FEATURED_PROJECTS = [
+  {
+    slug: "projekt-alpha",
+    name: "Projekt Alpha",
+    category: "E-Commerce",
+    desc: "Kompletter Relaunch eines Online-Shops mit neuem Branding und optimiertem Checkout.",
+  },
+  {
+    slug: "projekt-beta",
+    name: "Projekt Beta",
+    category: "Corporate",
+    desc: "Website-Relaunch für ein mittelständisches Unternehmen mit Fokus auf Lead-Generierung.",
+  },
+];
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = el.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width - 0.5;
-      const y = (e.clientY - rect.top) / rect.height - 0.5;
-      rawX.set(x);
-      rawY.set(y);
-    };
+const PROCESS_STEPS = [
+  {
+    num: "01",
+    title: "Kennenlernen",
+    desc: "Briefing, Zieldefinition, Budgetrahmen. Ich verstehe dein Business und deine Kunden.",
+  },
+  {
+    num: "02",
+    title: "Konzept",
+    desc: "Sitemap, Wireframes, Styleguide. Der Plan steht, bevor eine Zeile Code geschrieben wird.",
+  },
+  {
+    num: "03",
+    title: "Umsetzung",
+    desc: "Design und Entwicklung in enger Abstimmung. Wöchentliche Updates, keine Überraschungen.",
+  },
+  {
+    num: "04",
+    title: "Launch",
+    desc: "Testing, Optimierung, Go-Live. Inklusive Einweisung und Support danach.",
+  },
+];
 
-    const handleMouseLeave = () => {
-      rawX.set(0);
-      rawY.set(0);
-    };
+const TESTIMONIALS = [
+  {
+    quote:
+      "Die Zusammenarbeit war außergewöhnlich professionell. Das Ergebnis hat unsere Erwartungen bei weitem übertroffen. Unsere Conversion-Rate ist seit dem Launch signifikant gestiegen.",
+    name: "Max Mustermann",
+    company: "Unternehmen GmbH",
+  },
+  {
+    quote:
+      "Schnell, zuverlässig und mit einem Blick für Details. Genau das, was wir gesucht haben. Ich würde jederzeit wieder beauftragen.",
+    name: "Anna Schmidt",
+    company: "Studio ABC",
+  },
+  {
+    quote:
+      "Das beste Investment, das wir in diesem Jahr gemacht haben. Die Website spricht endlich die Sprache unserer Kunden.",
+    name: "Thomas Klein",
+    company: "Klein & Partner",
+  },
+];
 
-    el.addEventListener("mousemove", handleMouseMove);
-    el.addEventListener("mouseleave", handleMouseLeave);
-    return () => {
-      el.removeEventListener("mousemove", handleMouseMove);
-      el.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, [rawX, rawY]);
+// ── Micro-components ──────────────────────────────────────────────────────────
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div ref={ref} className="relative w-full max-w-[520px] cursor-default select-none">
-      <motion.div
-        style={{
-          rotateX,
-          rotateY,
-          transformStyle: "preserve-3d",
-          perspective: "1000px",
-        }}
-        className="relative rounded-2xl overflow-hidden border border-white/10 shadow-[0_32px_80px_rgba(0,0,0,0.7)]"
-      >
-        {/* Title bar */}
-        <div className="bg-[#1a1a1a] px-4 py-3 flex items-center gap-3 border-b border-white/10">
-          <span className="w-3 h-3 rounded-full bg-[#ff5f57]" />
-          <span className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
-          <span className="w-3 h-3 rounded-full bg-[#28c840]" />
-          <div className="ml-4 flex-1 bg-[#2a2a2a] rounded-md px-3 py-1 text-xs text-white/30 font-mono">
-            schuck-webdesign.de
-          </div>
-        </div>
-
-        {/* Page content mockup */}
-        <div className="bg-[#111111] p-6 min-h-[320px] flex flex-col gap-5">
-          {/* Nav */}
-          <div className="flex items-center justify-between">
-            <div className="w-20 h-3 rounded-full bg-white/20" />
-            <div className="flex gap-4">
-              <div className="w-12 h-2 rounded-full bg-white/10" />
-              <div className="w-12 h-2 rounded-full bg-white/10" />
-              <div className="w-16 h-6 rounded-full bg-white/20" />
-            </div>
-          </div>
-
-          {/* Hero text lines */}
-          <div className="mt-4 flex flex-col gap-3">
-            <div className="w-4/5 h-5 rounded-full bg-white/25" />
-            <div className="w-3/5 h-5 rounded-full bg-white/25" />
-            <div className="w-4/5 h-3 rounded-full bg-white/10 mt-2" />
-            <div className="w-3/4 h-3 rounded-full bg-white/10" />
-          </div>
-
-          {/* CTA buttons */}
-          <div className="flex gap-3 mt-2">
-            <div className="w-28 h-9 rounded-lg bg-white/30" />
-            <div className="w-28 h-9 rounded-lg border border-white/20" />
-          </div>
-
-          {/* Cards row */}
-          <div className="mt-auto grid grid-cols-3 gap-3">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="rounded-xl bg-white/5 border border-white/10 p-3 flex flex-col gap-2"
-              >
-                <div className="w-full h-16 rounded-lg bg-white/10" />
-                <div className="w-4/5 h-2 rounded-full bg-white/15" />
-                <div className="w-3/5 h-2 rounded-full bg-white/10" />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Reflection overlay */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent rounded-2xl" />
-      </motion.div>
-
-      {/* Glow */}
-      <div className="absolute -inset-8 -z-10 bg-white/5 blur-3xl rounded-full" />
-    </div>
+    <p
+      className="text-[11px] uppercase tracking-[0.14em] text-[#7F77DD] mb-3"
+      style={{ fontFamily: "var(--font-dm-sans)" }}
+    >
+      {children}
+    </p>
   );
 }
 
-// ─── Animated Counter ───────────────────────────────────────────────────────
+function SectionHeadline({
+  children,
+  dark = true,
+  className = "",
+}: {
+  children: React.ReactNode;
+  dark?: boolean;
+  className?: string;
+}) {
+  return (
+    <h2
+      className={`text-3xl md:text-4xl lg:text-[42px] font-bold leading-tight tracking-tight ${
+        dark ? "text-[#F5F5F0]" : "text-[#1C1C1E]"
+      } ${className}`}
+      style={{ fontFamily: "var(--font-fraunces)" }}
+    >
+      {children}
+    </h2>
+  );
+}
 
 function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
   const [count, setCount] = useState(0);
@@ -121,21 +141,17 @@ function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
 
   useEffect(() => {
     if (!inView) return;
-    let start = 0;
-    const duration = 1400;
-    const step = 16;
-    const increment = target / (duration / step);
-
+    let current = 0;
+    const increment = target / (1400 / 16);
     const timer = setInterval(() => {
-      start += increment;
-      if (start >= target) {
+      current += increment;
+      if (current >= target) {
         setCount(target);
         clearInterval(timer);
       } else {
-        setCount(Math.floor(start));
+        setCount(Math.floor(current));
       }
-    }, step);
-
+    }, 16);
     return () => clearInterval(timer);
   }, [inView, target]);
 
@@ -147,131 +163,411 @@ function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
   );
 }
 
-// ─── Fade-in wrapper ────────────────────────────────────────────────────────
-
-function FadeIn({
-  children,
-  delay = 0,
-  y = 24,
-  className = "",
+function SplitLine({
+  words,
+  startIndex,
+  outline = false,
+  inView,
 }: {
-  children: React.ReactNode;
-  delay?: number;
-  y?: number;
-  className?: string;
+  words: string[];
+  startIndex: number;
+  outline?: boolean;
+  inView: boolean;
 }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
-
   return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.7, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className={className}
-    >
-      {children}
-    </motion.div>
+    <>
+      {words.map((word, i) => (
+        <span
+          key={i}
+          className="inline-block overflow-hidden"
+          style={{ marginRight: "0.22em" }}
+        >
+          <motion.span
+            className="inline-block"
+            style={
+              outline
+                ? {
+                    color: "transparent",
+                    WebkitTextStroke: "1px #7F77DD",
+                    fontStyle: "italic",
+                  }
+                : undefined
+            }
+            initial={{ y: "110%", opacity: 0 }}
+            animate={inView ? { y: "0%", opacity: 1 } : {}}
+            transition={{
+              delay: 0.05 + (startIndex + i) * 0.07,
+              duration: 0.6,
+              ease: WORD_EASE,
+            }}
+          >
+            {word}
+          </motion.span>
+        </span>
+      ))}
+    </>
   );
 }
 
-// ─── Page ───────────────────────────────────────────────────────────────────
-
-export default function HomePage() {
+function SplitHeadline() {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true });
+  const line1 = "Websites,".split(" ");
+  const line2 = "die verkaufen.".split(" ");
   return (
-    <main className="bg-[#0a0a0a] text-white min-h-screen overflow-x-hidden">
-      {/* ── Hero ── */}
-      <section className="relative min-h-screen flex flex-col justify-center px-6 md:px-12 lg:px-20 pt-24 pb-16">
-        {/* Subtle grid background */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
-            backgroundSize: "60px 60px",
-          }}
+    <h1
+      ref={ref}
+      className="text-[clamp(48px,7vw,86px)] font-bold leading-[1.05] tracking-tight text-[#F5F5F0]"
+      style={{ fontFamily: "var(--font-playfair)" }}
+    >
+      <span className="block">
+        <SplitLine words={line1} startIndex={0} inView={inView} />
+      </span>
+      <span className="block">
+        <SplitLine
+          words={line2}
+          startIndex={line1.length}
+          outline
+          inView={inView}
         />
+      </span>
+    </h1>
+  );
+}
 
-        {/* Radial glow top-left */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute top-0 left-0 w-[600px] h-[600px] -translate-x-1/3 -translate-y-1/3 rounded-full opacity-20"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)",
-          }}
+function ServiceIcon({ type }: { type: string }) {
+  const cls = "w-5 h-5 text-[#7F77DD]";
+  if (type === "monitor")
+    return (
+      <svg
+        className={cls}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        viewBox="0 0 24 24"
+      >
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8 21h8M12 17v4"
         />
+      </svg>
+    );
+  if (type === "code")
+    return (
+      <svg
+        className={cls}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"
+        />
+      </svg>
+    );
+  return (
+    <svg
+      className={cls}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+      />
+    </svg>
+  );
+}
 
-        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-12 lg:gap-16 max-w-7xl mx-auto w-full">
-          {/* ── Left: Text ── */}
-          <div className="flex-1 flex flex-col gap-6 max-w-xl">
-            {/* Badge */}
-            <FadeIn delay={0}>
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/15 bg-white/5 text-sm text-white/60 w-fit">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                Aktuell verfügbar für neue Projekte
-              </span>
-            </FadeIn>
+// ── Sections ──────────────────────────────────────────────────────────────────
 
-            {/* Headline */}
-            <FadeIn delay={0.1}>
-              <h1
-                className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold leading-[1.1] tracking-tight"
+function HeroSection() {
+  return (
+    <section className="relative min-h-screen flex flex-col items-center justify-center px-6 text-center overflow-hidden bg-[#080808]">
+      <ParticleCanvas />
+
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 55% at 50% 48%, rgba(127,119,221,0.055) 0%, transparent 70%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 100% 100% at 50% 50%, transparent 35%, rgba(0,0,0,0.55) 100%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute left-0 right-0 pointer-events-none"
+        style={{
+          top: "50%",
+          height: "1px",
+          background:
+            "linear-gradient(90deg, transparent 0%, rgba(127,119,221,0.06) 30%, rgba(127,119,221,0.06) 70%, transparent 100%)",
+        }}
+      />
+
+      <div className="relative z-10 flex flex-col items-center gap-5 max-w-3xl mx-auto">
+        {/* Status badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: EASE }}
+        >
+          <span
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/[0.04] text-xs text-white/50"
+            style={{ fontFamily: "var(--font-dm-sans)" }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            Verfügbar für neue Projekte
+          </span>
+        </motion.div>
+
+        <SplitHeadline />
+
+        <motion.p
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55, duration: 0.6, ease: EASE }}
+          className="text-sm text-[#666] leading-relaxed max-w-[340px]"
+          style={{ fontFamily: "var(--font-dm-sans)" }}
+        >
+          Performante Websites, die Leads generieren, Vertrauen aufbauen und
+          dein Unternehmen wachsen lassen.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.6, ease: EASE }}
+          className="flex items-center gap-6 mt-1"
+        >
+          <Link
+            href="/kontakt"
+            className="bg-[#F5F5F0] text-[#080808] px-6 py-2.5 rounded-md text-sm font-semibold hover:-translate-y-0.5 hover:bg-white transition-all duration-150"
+            style={{ fontFamily: "var(--font-dm-sans)" }}
+          >
+            Projekt starten
+          </Link>
+          <Link
+            href="/projekte"
+            className="text-sm text-[#555] hover:text-white/60 transition-colors"
+            style={{ fontFamily: "var(--font-dm-sans)" }}
+          >
+            Portfolio ansehen →
+          </Link>
+        </motion.div>
+      </div>
+
+      {/* Trust stats at bottom */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.0, duration: 0.8 }}
+        className="absolute bottom-10 left-0 right-0 z-10 flex justify-center"
+      >
+        <div className="flex items-center gap-10 md:gap-14 border-t border-white/[0.08] pt-6 px-4">
+          {[
+            { value: 40, suffix: "+", label: "Projekte" },
+            { value: 100, suffix: "", label: "PageSpeed" },
+            { value: 48, suffix: "h", label: "Reaktionszeit" },
+          ].map(({ value, suffix, label }) => (
+            <div key={label} className="flex flex-col items-center gap-0.5">
+              <span
+                className="text-2xl font-bold text-[#F5F5F0] tabular-nums"
                 style={{ fontFamily: "var(--font-playfair)" }}
               >
-                Websites,{" "}
-                <span className="italic text-white/70">die verkaufen.</span>
-                <br />
-                Nicht nur existieren.
-              </h1>
-            </FadeIn>
-
-            {/* Subtext */}
-            <FadeIn delay={0.2}>
-              <p
-                className="text-base sm:text-lg text-white/50 leading-relaxed max-w-md"
+                <Counter target={value} suffix={suffix} />
+              </span>
+              <span
+                className="text-[10px] text-[#555] uppercase tracking-[0.1em]"
                 style={{ fontFamily: "var(--font-dm-sans)" }}
               >
-                Wir bauen performante Websites, die Leads generieren, Vertrauen
-                aufbauen und dein Unternehmen wachsen lassen — nicht nur gut
-                aussehen.
-              </p>
-            </FadeIn>
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </section>
+  );
+}
 
-            {/* CTAs */}
-            <FadeIn delay={0.3}>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-white text-black text-sm font-semibold hover:bg-white/90 transition-colors"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  Projekt starten
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    viewBox="0 0 24 24"
+function SocialProofSection() {
+  const doubled = [...LOGOS, ...LOGOS];
+  return (
+    <div className="border-y border-white/[0.05] bg-[#0c0c0c] py-4 overflow-hidden">
+      <div
+        className="flex items-center gap-12"
+        style={{
+          width: "max-content",
+          animation: "marquee 30s linear infinite",
+        }}
+      >
+        {doubled.map((name, i) => (
+          <div key={i} className="flex items-center gap-3 flex-shrink-0">
+            <div className="w-[90px] h-6 bg-white/[0.07] rounded" />
+            <span
+              className="text-xs text-white/20 sr-only"
+              style={{ fontFamily: "var(--font-dm-sans)" }}
+            >
+              {name}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProblemSolutionSection() {
+  return (
+    <section className="bg-[#F7F5F0] px-6 md:px-12 py-24">
+      <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-start">
+        <FadeIn>
+          <div>
+            <SectionLabel>Das Problem</SectionLabel>
+            <SectionHeadline dark={false} className="mb-8">
+              Die meisten Websites verschenken Umsatz.
+            </SectionHeadline>
+            <div className="flex flex-col gap-5">
+              {[
+                "Zu langsam geladen — Besucher springen ab, bevor sie ankommen.",
+                "Kein klarer Call-to-Action — niemand weiß, was er tun soll.",
+                "Veraltetes Design — Vertrauen wird zerstört bevor es entsteht.",
+                "Nicht für Mobile optimiert — 60 % deiner Kunden kommen vom Handy.",
+              ].map((pain) => (
+                <div key={pain} className="flex items-start gap-3">
+                  <span className="mt-[7px] w-1 h-1 rounded-full bg-[#aaa] flex-shrink-0" />
+                  <p
+                    className="text-sm text-[#666] leading-relaxed"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M17 8l4 4m0 0l-4 4m4-4H3"
-                    />
-                  </svg>
-                </Link>
+                    {pain}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </FadeIn>
 
+        <FadeIn delay={0.15}>
+          <div className="bg-[#1C1C1E] rounded-2xl p-8 md:p-10">
+            <SectionLabel>Die Lösung</SectionLabel>
+            <h3
+              className="text-2xl font-bold text-[#F5F5F0] mb-6 leading-snug tracking-tight"
+              style={{ fontFamily: "var(--font-fraunces)" }}
+            >
+              Websites, die für dich verkaufen — rund um die Uhr.
+            </h3>
+            <div className="flex flex-col gap-5">
+              {[
+                {
+                  title: "Conversion First",
+                  desc: "Jedes Element hat einen Grund. Design folgt Strategie, nicht Geschmack.",
+                },
+                {
+                  title: "100 PageSpeed",
+                  desc: "Kein Bloat, kein Overhead. Technisch auf dem höchsten Stand.",
+                },
+                {
+                  title: "Ergebnisorientiert",
+                  desc: "Ich liefere keine Websites. Ich liefere messbares Wachstum.",
+                },
+              ].map(({ title, desc }) => (
+                <div key={title} className="flex items-start gap-3">
+                  <span className="mt-0.5 text-[#7F77DD] flex-shrink-0">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </span>
+                  <div>
+                    <p
+                      className="text-sm font-semibold text-[#F5F5F0]"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {title}
+                    </p>
+                    <p
+                      className="text-xs text-[#888] mt-0.5 leading-relaxed"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </FadeIn>
+      </div>
+    </section>
+  );
+}
+
+function ServicesSection() {
+  return (
+    <section className="bg-[#080808] px-6 md:px-12 py-24">
+      <div className="max-w-6xl mx-auto">
+        <FadeIn>
+          <SectionLabel>Leistungen</SectionLabel>
+          <SectionHeadline className="mb-14 max-w-md">
+            Was ich für dich tue.
+          </SectionHeadline>
+        </FadeIn>
+        <div className="grid md:grid-cols-3 gap-4">
+          {SERVICES.map((s, i) => (
+            <FadeIn key={s.title} delay={i * 0.1}>
+              <div className="group bg-[#0f0f0f] border border-white/[0.07] rounded-xl p-7 hover:border-white/[0.14] transition-all duration-300 flex flex-col gap-5 h-full">
+                <div className="w-10 h-10 rounded-lg bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center flex-shrink-0">
+                  <ServiceIcon type={s.icon} />
+                </div>
+                <div className="flex-1">
+                  <h3
+                    className="text-base font-semibold text-[#F5F5F0] mb-2"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    {s.title}
+                  </h3>
+                  <p
+                    className="text-sm text-[#666] leading-relaxed"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    {s.desc}
+                  </p>
+                </div>
                 <Link
-                  href="/work"
-                  className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
+                  href={s.href}
+                  className="text-sm text-[#7F77DD] hover:text-[#9B95E8] transition-colors flex items-center gap-1 mt-auto"
                   style={{ fontFamily: "var(--font-dm-sans)" }}
                 >
-                  Arbeit ansehen
+                  Mehr erfahren
                   <svg
-                    className="w-4 h-4"
+                    className="w-3.5 h-3.5"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={2}
@@ -286,54 +582,309 @@ export default function HomePage() {
                 </Link>
               </div>
             </FadeIn>
-          </div>
-
-          {/* ── Right: Browser Mockup ── */}
-          <FadeIn delay={0.25} y={32} className="flex-1 flex justify-center lg:justify-end w-full">
-            <BrowserMockup />
-          </FadeIn>
+          ))}
         </div>
+      </div>
+    </section>
+  );
+}
 
-        {/* ── Stats row ── */}
-        <div className="relative z-10 max-w-7xl mx-auto w-full mt-16 lg:mt-20">
-          <FadeIn delay={0.4}>
-            <div className="border-t border-white/10 pt-10 grid grid-cols-3 gap-8 max-w-lg">
-              {[
-                { value: 40, suffix: "+", label: "Projekte umgesetzt" },
-                { value: 98, suffix: "%", label: "Kundenzufriedenheit" },
-                { value: 3, suffix: "×", label: "Mehr Leads im Schnitt" },
-              ].map((stat) => (
-                <div key={stat.label} className="flex flex-col gap-1">
-                  <span
-                    className="text-3xl sm:text-4xl font-bold tabular-nums"
-                    style={{ fontFamily: "var(--font-playfair)" }}
-                  >
-                    <Counter target={stat.value} suffix={stat.suffix} />
-                  </span>
-                  <span
-                    className="text-xs sm:text-sm text-white/40 leading-tight"
-                    style={{ fontFamily: "var(--font-dm-sans)" }}
-                  >
-                    {stat.label}
+function ProjectsSection() {
+  return (
+    <section className="bg-[#0b0b0b] px-6 md:px-12 py-24">
+      <div className="max-w-6xl mx-auto">
+        <FadeIn>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
+            <div>
+              <SectionLabel>Projekte</SectionLabel>
+              <SectionHeadline>Ausgewählte Arbeiten.</SectionHeadline>
+            </div>
+            <Link
+              href="/projekte"
+              className="text-sm text-[#555] hover:text-[#F5F5F0] transition-colors flex-shrink-0 pb-1"
+              style={{ fontFamily: "var(--font-dm-sans)" }}
+            >
+              Alle Projekte ansehen →
+            </Link>
+          </div>
+        </FadeIn>
+
+        <div className="grid md:grid-cols-2 gap-5">
+          {FEATURED_PROJECTS.map((p, i) => (
+            <FadeIn key={p.slug} delay={i * 0.1}>
+              <Link href={`/projekte/${p.slug}`} className="group block">
+                <div className="aspect-[4/3] bg-[#161616] rounded-xl border border-white/[0.06] mb-4 overflow-hidden group-hover:border-white/[0.12] transition-all duration-300 relative">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                  <div className="absolute bottom-4 left-4">
+                    <span
+                      className="text-[10px] uppercase tracking-[0.1em] text-[#7F77DD] bg-[#7F77DD]/10 px-2.5 py-1 rounded-full border border-[#7F77DD]/20"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {p.category}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-start justify-between gap-4 px-1">
+                  <div>
+                    <h3
+                      className="text-base font-semibold text-[#F5F5F0] mb-1"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {p.name}
+                    </h3>
+                    <p
+                      className="text-sm text-[#555]"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {p.desc}
+                    </p>
+                  </div>
+                  <span className="text-[#444] group-hover:text-[#F5F5F0] transition-colors flex-shrink-0 mt-0.5">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M17 8l4 4m0 0l-4 4m4-4H3"
+                      />
+                    </svg>
                   </span>
                 </div>
-              ))}
-            </div>
-          </FadeIn>
+              </Link>
+            </FadeIn>
+          ))}
         </div>
+      </div>
+    </section>
+  );
+}
 
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-30">
-          <span className="text-xs tracking-widest uppercase" style={{ fontFamily: "var(--font-dm-sans)" }}>
-            Scroll
-          </span>
-          <motion.div
-            animate={{ y: [0, 6, 0] }}
-            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-            className="w-px h-8 bg-white/50"
+function ProcessSection() {
+  return (
+    <section className="bg-[#F7F5F0] px-6 md:px-12 py-24">
+      <div className="max-w-6xl mx-auto">
+        <FadeIn>
+          <SectionLabel>Prozess</SectionLabel>
+          <SectionHeadline dark={false} className="mb-16 max-w-md">
+            So arbeiten wir zusammen.
+          </SectionHeadline>
+        </FadeIn>
+
+        <div className="grid md:grid-cols-4 gap-8 relative">
+          <div
+            className="hidden md:block absolute"
+            style={{
+              top: "20px",
+              left: "calc(12.5% + 20px)",
+              right: "calc(12.5% + 20px)",
+              height: "1px",
+              borderTop: "1px dashed rgba(28,28,30,0.15)",
+            }}
           />
+          {PROCESS_STEPS.map((step, i) => (
+            <FadeIn key={step.num} delay={i * 0.1}>
+              <div>
+                <div className="w-10 h-10 rounded-full border border-[#1C1C1E]/20 bg-[#F7F5F0] flex items-center justify-center mb-5 relative z-10">
+                  <span
+                    className="text-xs font-semibold text-[#1C1C1E]"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    {step.num}
+                  </span>
+                </div>
+                <h3
+                  className="text-sm font-semibold text-[#1C1C1E] mb-2"
+                  style={{ fontFamily: "var(--font-dm-sans)" }}
+                >
+                  {step.title}
+                </h3>
+                <p
+                  className="text-sm text-[#888] leading-relaxed"
+                  style={{ fontFamily: "var(--font-dm-sans)" }}
+                >
+                  {step.desc}
+                </p>
+              </div>
+            </FadeIn>
+          ))}
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
+
+function TestimonialsSection() {
+  return (
+    <section className="bg-[#080808] px-6 md:px-12 py-24">
+      <div className="max-w-6xl mx-auto">
+        <FadeIn>
+          <SectionLabel>Stimmen</SectionLabel>
+          <SectionHeadline className="mb-14 max-w-md">
+            Was Kunden sagen.
+          </SectionHeadline>
+        </FadeIn>
+        <div className="grid md:grid-cols-3 gap-4">
+          {TESTIMONIALS.map((t, i) => (
+            <FadeIn key={t.name} delay={i * 0.1}>
+              <div className="bg-[#0f0f0f] border border-white/[0.07] rounded-xl p-7 flex flex-col gap-4 h-full">
+                <span className="text-[38px] leading-none text-[#7F77DD]/25 font-serif select-none -mb-2">
+                  "
+                </span>
+                <p
+                  className="text-sm text-[#888] leading-relaxed flex-1"
+                  style={{ fontFamily: "var(--font-dm-sans)" }}
+                >
+                  {t.quote}
+                </p>
+                <div className="border-t border-white/[0.06] pt-4 mt-auto">
+                  <p
+                    className="text-sm font-semibold text-[#E8E8E4]"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    {t.name}
+                  </p>
+                  <p
+                    className="text-xs text-[#555] mt-0.5"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    {t.company}
+                  </p>
+                </div>
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AboutSection() {
+  return (
+    <section className="bg-[#F7F5F0] px-6 md:px-12 py-24">
+      <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
+        <FadeIn>
+          <div className="aspect-[3/4] bg-[#E2DDD5] rounded-2xl max-w-sm" />
+        </FadeIn>
+        <FadeIn delay={0.15}>
+          <div className="flex flex-col gap-5">
+            <div>
+              <SectionLabel>Über mich</SectionLabel>
+              <SectionHeadline dark={false} className="mb-5">
+                Ich bin Eric. Webdesigner aus Leidenschaft.
+              </SectionHeadline>
+            </div>
+            <p
+              className="text-sm text-[#666] leading-relaxed"
+              style={{ fontFamily: "var(--font-dm-sans)" }}
+            >
+              Platzhalter-Text. Hier steht deine persönliche Geschichte —
+              warum du machst was du machst, was dich antreibt und was deine
+              Kunden an dir schätzen. Authentisch, direkt und auf den Punkt.
+            </p>
+            <p
+              className="text-sm text-[#666] leading-relaxed"
+              style={{ fontFamily: "var(--font-dm-sans)" }}
+            >
+              Zweiter Absatz. Hintergrund, Werte, Arbeitsweise. Was du anders
+              machst als die anderen.
+            </p>
+            <Link
+              href="/ueber-mich"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[#1C1C1E] hover:text-[#7F77DD] transition-colors mt-2"
+              style={{ fontFamily: "var(--font-dm-sans)" }}
+            >
+              Mehr über mich
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </Link>
+          </div>
+        </FadeIn>
+      </div>
+    </section>
+  );
+}
+
+function FinalCtaSection() {
+  return (
+    <section className="bg-[#080808] px-6 md:px-12 py-28 relative overflow-hidden">
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 55% 60% at 50% 50%, rgba(127,119,221,0.05) 0%, transparent 70%)",
+        }}
+      />
+      <div className="max-w-xl mx-auto text-center relative z-10">
+        <FadeIn>
+          <SectionLabel>Bereit?</SectionLabel>
+          <SectionHeadline className="mb-5">
+            Lass uns dein Projekt starten.
+          </SectionHeadline>
+          <p
+            className="text-sm text-[#666] mb-8 leading-relaxed"
+            style={{ fontFamily: "var(--font-dm-sans)" }}
+          >
+            Kostenloses Erstgespräch — 30 Minuten, kein Druck, kein Pitch. Nur
+            ein offenes Gespräch darüber, was du brauchst.
+          </p>
+          <Link
+            href="/kontakt"
+            className="inline-flex items-center gap-2 bg-[#F5F5F0] text-[#080808] px-8 py-3.5 rounded-md text-sm font-semibold hover:-translate-y-0.5 hover:bg-white transition-all duration-150"
+            style={{ fontFamily: "var(--font-dm-sans)" }}
+          >
+            Kostenloses Erstgespräch
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M17 8l4 4m0 0l-4 4m4-4H3"
+              />
+            </svg>
+          </Link>
+        </FadeIn>
+      </div>
+    </section>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function HomePage() {
+  return (
+    <main>
+      <HeroSection />
+      <SocialProofSection />
+      <ProblemSolutionSection />
+      <ServicesSection />
+      <ProjectsSection />
+      <ProcessSection />
+      <TestimonialsSection />
+      <AboutSection />
+      <FinalCtaSection />
     </main>
   );
 }

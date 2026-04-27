@@ -4,11 +4,15 @@
       "Read(//c/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/**)",
       "Bash(npm install *)",
       "Bash(npx tsc *)",
-      "Read(//c/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Privat/athena-finance/**)"
+      "Read(//c/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Privat/athena-finance/**)",
+      "Read(//c/Users/eschu/Downloads/**)",
+      "Bash(cat)",
+      "Read(//tmp/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign",
-      "C:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\graphify-out"
+      "C:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\graphify-out",
+      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(public)\\projekte"
     ]
   }
 }
