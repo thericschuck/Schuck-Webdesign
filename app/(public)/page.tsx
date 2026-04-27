@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { motion, useInView } from "framer-motion";
+import { motion, useInView, useMotionValue, useSpring, useMotionTemplate, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
 import { ParticleCanvas } from "@/components/public/ParticleCanvas";
 import { FadeIn } from "@/components/public/FadeIn";
@@ -187,7 +187,7 @@ function SplitLine({
             style={
               outline
                 ? {
-                    color: "transparent",
+                    color: "var(--outline-fill, transparent)",
                     WebkitTextStroke: "1px #7F77DD",
                     fontStyle: "italic",
                   }
@@ -214,6 +214,23 @@ function SplitHeadline() {
   const inView = useInView(ref, { once: true });
   const line1 = "Websites,".split(" ");
   const line2 = "die verkaufen.".split(" ");
+  const line2BlockRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const block = line2BlockRef.current;
+    if (!block) return;
+    const onMove = (e: MouseEvent) => {
+      const rect = block.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dist = Math.sqrt((e.clientX - cx) ** 2 + (e.clientY - cy) ** 2);
+      const alpha = Math.max(0, 1 - dist / 160) * 0.18;
+      block.style.setProperty("--outline-fill", `rgba(127,119,221,${alpha.toFixed(3)})`);
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
+
   return (
     <h1
       ref={ref}
@@ -223,7 +240,11 @@ function SplitHeadline() {
       <span className="block">
         <SplitLine words={line1} startIndex={0} inView={inView} />
       </span>
-      <span className="block">
+      <span
+        ref={line2BlockRef}
+        className="block"
+        style={{ ["--outline-fill" as string]: "transparent" }}
+      >
         <SplitLine
           words={line2}
           startIndex={line1.length}
@@ -289,9 +310,103 @@ function ServiceIcon({ type }: { type: string }) {
 
 // ── Sections ──────────────────────────────────────────────────────────────────
 
-function HeroSection() {
+const SPARKLE_DEFS = [
+  { top: "12%",  left: "6%",  size: 3, dur: 4.4, dx: 12, dy: -9,  alpha: 0.55 },
+  { top: "68%",  left: "11%", size: 2, dur: 5.9, dx: -8, dy: 11,  alpha: 0.38 },
+  { top: "20%",  left: "89%", size: 4, dur: 3.8, dx: 9,  dy: 7,   alpha: 0.62 },
+  { top: "64%",  left: "84%", size: 2, dur: 6.3, dx: -10, dy: -8, alpha: 0.40 },
+  { top: "42%",  left: "97%", size: 3, dur: 4.9, dx: 7,  dy: -11, alpha: 0.50 },
+];
+
+function FloatingSparkles() {
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center px-6 text-center overflow-hidden bg-[#080808]">
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {SPARKLE_DEFS.map((s, i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full"
+          style={{
+            top: s.top,
+            left: s.left,
+            width: s.size,
+            height: s.size,
+            background: `rgba(180,174,255,${s.alpha})`,
+            boxShadow: `0 0 ${s.size * 4}px ${s.size * 2}px rgba(127,119,221,${s.alpha * 0.45})`,
+          }}
+          animate={{
+            x: [0, s.dx, 0, -s.dx * 0.6, 0],
+            y: [0, s.dy * 0.5, s.dy, 0, 0],
+            opacity: [s.alpha, s.alpha + 0.28, s.alpha * 0.65, s.alpha + 0.18, s.alpha],
+            scale: [1, 1.45, 0.85, 1.25, 1],
+          }}
+          transition={{ duration: s.dur, repeat: Infinity, ease: "easeInOut", delay: i * 0.65 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MagneticLink({
+  href,
+  className,
+  style,
+  children,
+  cursorDark = false,
+}: {
+  href: string;
+  className?: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+  cursorDark?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const sx = useSpring(x, { stiffness: 200, damping: 20 });
+  const sy = useSpring(y, { stiffness: 200, damping: 20 });
+
+  const onMove = (e: React.MouseEvent) => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    x.set((e.clientX - (rect.left + rect.width / 2)) * 0.10);
+    y.set((e.clientY - (rect.top + rect.height / 2)) * 0.07);
+  };
+  const onLeave = () => { x.set(0); y.set(0); };
+
+  return (
+    <div ref={ref} onMouseMove={onMove} onMouseLeave={onLeave} {...(cursorDark ? { "data-cursor": "dark" } : {})}>
+      <motion.div style={{ x: sx, y: sy }}>
+        <Link href={href} className={className} style={style}>{children}</Link>
+      </motion.div>
+    </div>
+  );
+}
+
+function HeroSection() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const mx = useMotionValue(-9999);
+  const my = useMotionValue(-9999);
+  const smx = useSpring(mx, { stiffness: 180, damping: 28 });
+  const smy = useSpring(my, { stiffness: 180, damping: 28 });
+  const spotlight = useMotionTemplate`radial-gradient(300px circle at ${smx}px ${smy}px, rgba(127,119,221,0.075) 0%, transparent 70%)`;
+
+  const onMove = (e: React.MouseEvent<HTMLElement>) => {
+    const r = sectionRef.current?.getBoundingClientRect();
+    if (!r) return;
+    mx.set(e.clientX - r.left);
+    my.set(e.clientY - r.top);
+  };
+  const onLeave = () => {
+    mx.set(-9999); my.set(-9999);
+  };
+
+  return (
+    <section
+      ref={sectionRef}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      className="relative min-h-screen flex flex-col items-center justify-center px-6 text-center overflow-hidden bg-[#080808]"
+    >
       <ParticleCanvas />
 
       <div
@@ -321,7 +436,15 @@ function HeroSection() {
         }}
       />
 
+      {/* Mouse spotlight */}
+      <motion.div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none z-[5]"
+        style={{ background: spotlight }}
+      />
+
       <div className="relative z-10 flex flex-col items-center gap-5 max-w-3xl mx-auto">
+        <FloatingSparkles />
         {/* Status badge */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -356,19 +479,22 @@ function HeroSection() {
           transition={{ delay: 0.7, duration: 0.6, ease: EASE }}
           className="flex items-center gap-6 mt-1"
         >
-          <Link
+          <MagneticLink
             href="/kontakt"
+            cursorDark
             className="bg-[#F5F5F0] text-[#080808] px-6 py-2.5 rounded-md text-sm font-semibold hover:-translate-y-0.5 hover:bg-white transition-all duration-150"
             style={{ fontFamily: "var(--font-dm-sans)" }}
           >
             Projekt starten
-          </Link>
+          </MagneticLink>
           <Link
             href="/projekte"
-            className="text-sm text-[#555] hover:text-white/60 transition-colors"
+            className="ghost-link text-sm text-[#666] hover:text-[#F5F5F0] transition-colors duration-250"
             style={{ fontFamily: "var(--font-dm-sans)" }}
           >
-            Portfolio ansehen →
+            Portfolio ansehen
+            <span className="ghost-arrow" aria-hidden>→</span>
+            <span className="ghost-underline" aria-hidden />
           </Link>
         </motion.div>
       </div>
@@ -410,7 +536,7 @@ function HeroSection() {
 function SocialProofSection() {
   const doubled = [...LOGOS, ...LOGOS];
   return (
-    <div className="border-y border-white/[0.05] bg-[#0c0c0c] py-4 overflow-hidden">
+    <div className="border-y border-white/[0.05] bg-[#0c0c0c] py-4 overflow-hidden relative z-0">
       <div
         className="flex items-center gap-12"
         style={{
@@ -435,8 +561,21 @@ function SocialProofSection() {
 }
 
 function ProblemSolutionSection() {
+  const sectionRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start end", "center center"],
+  });
+  const cardX = useTransform(scrollYProgress, [0, 1], ["18%", "0%"]);
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.4], [0, 1]);
+
   return (
-    <section className="bg-[#F7F5F0] px-6 md:px-12 py-24">
+    <section
+      ref={sectionRef}
+      data-cursor="dark"
+      className="bg-[#F7F5F0] px-6 md:px-12 py-24 relative z-10 overflow-hidden"
+      style={{ borderRadius: "56px 56px 0 0", marginTop: "-56px" }}
+    >
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-start">
         <FadeIn>
           <div>
@@ -465,8 +604,8 @@ function ProblemSolutionSection() {
           </div>
         </FadeIn>
 
-        <FadeIn delay={0.15}>
-          <div className="bg-[#1C1C1E] rounded-2xl p-8 md:p-10">
+        <motion.div style={{ x: cardX, opacity: cardOpacity }}>
+          <div data-cursor="light" className="bg-[#1C1C1E] rounded-2xl p-8 md:p-10">
             <SectionLabel>Die Lösung</SectionLabel>
             <h3
               className="text-2xl font-bold text-[#F5F5F0] mb-6 leading-snug tracking-tight"
@@ -523,7 +662,7 @@ function ProblemSolutionSection() {
               ))}
             </div>
           </div>
-        </FadeIn>
+        </motion.div>
       </div>
     </section>
   );
@@ -531,18 +670,18 @@ function ProblemSolutionSection() {
 
 function ServicesSection() {
   return (
-    <section className="bg-[#080808] px-6 md:px-12 py-24">
+    <section data-cursor="dark" className="bg-[#F7F5F0] px-6 md:px-12 py-24">
       <div className="max-w-6xl mx-auto">
         <FadeIn>
           <SectionLabel>Leistungen</SectionLabel>
-          <SectionHeadline className="mb-14 max-w-md">
+          <SectionHeadline dark={false} className="mb-14 max-w-md">
             Was ich für dich tue.
           </SectionHeadline>
         </FadeIn>
         <div className="grid md:grid-cols-3 gap-4">
           {SERVICES.map((s, i) => (
             <FadeIn key={s.title} delay={i * 0.1}>
-              <div className="group bg-[#0f0f0f] border border-white/[0.07] rounded-xl p-7 hover:border-white/[0.14] transition-all duration-300 flex flex-col gap-5 h-full">
+              <div data-cursor="light" className="group bg-[#1C1C1E] border border-white/[0.06] rounded-xl p-7 hover:border-white/[0.12] hover:bg-[#222] transition-all duration-300 flex flex-col gap-5 h-full">
                 <div className="w-10 h-10 rounded-lg bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center flex-shrink-0">
                   <ServiceIcon type={s.icon} />
                 </div>
@@ -554,7 +693,7 @@ function ServicesSection() {
                     {s.title}
                   </h3>
                   <p
-                    className="text-sm text-[#666] leading-relaxed"
+                    className="text-sm text-[#888] leading-relaxed"
                     style={{ fontFamily: "var(--font-dm-sans)" }}
                   >
                     {s.desc}
@@ -666,7 +805,7 @@ function ProjectsSection() {
 
 function ProcessSection() {
   return (
-    <section className="bg-[#F7F5F0] px-6 md:px-12 py-24">
+    <section data-cursor="dark" className="bg-[#F7F5F0] px-6 md:px-12 py-24">
       <div className="max-w-6xl mx-auto">
         <FadeIn>
           <SectionLabel>Prozess</SectionLabel>
@@ -766,7 +905,7 @@ function TestimonialsSection() {
 
 function AboutSection() {
   return (
-    <section className="bg-[#F7F5F0] px-6 md:px-12 py-24">
+    <section data-cursor="dark" className="bg-[#F7F5F0] px-6 md:px-12 py-24">
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
         <FadeIn>
           <div className="aspect-[3/4] bg-[#E2DDD5] rounded-2xl max-w-sm" />
@@ -847,6 +986,7 @@ function FinalCtaSection() {
           </p>
           <Link
             href="/kontakt"
+            data-cursor="dark"
             className="inline-flex items-center gap-2 bg-[#F5F5F0] text-[#080808] px-8 py-3.5 rounded-md text-sm font-semibold hover:-translate-y-0.5 hover:bg-white transition-all duration-150"
             style={{ fontFamily: "var(--font-dm-sans)" }}
           >

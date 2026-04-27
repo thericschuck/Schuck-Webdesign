@@ -16,9 +16,167 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
 }
 
 @keyframes marquee {
   from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ─── Custom cursor ──────────────────────────────────────────── */
+html.custom-cursor,
+html.custom-cursor *,
+html.custom-cursor a,
+html.custom-cursor button {
+  cursor: none !important;
+}
+
+.cursor-outer {
+  position: fixed;
+  top: 0; left: 0;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(245, 245, 240, 0.45);
+  background: transparent;
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+  transition:
+    width  0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    height 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 0.25s ease,
+    border-color 0.25s ease,
+    opacity 0.15s ease;
+}
+.cursor-outer[data-state="hover"] {
+  width: 48px;
+  height: 48px;
+  background: rgba(245, 245, 240, 0.10);
+  border-color: rgba(245, 245, 240, 0.75);
+}
+
+/* Dark theme — light-background sections */
+.cursor-outer[data-theme="dark"] {
+  border-color: rgba(8, 8, 8, 0.40);
+}
+.cursor-outer[data-theme="dark"][data-state="hover"] {
+  background: rgba(8, 8, 8, 0.08);
+  border-color: rgba(8, 8, 8, 0.70);
+}
+
+.cursor-inner-wrap {
+  position: fixed;
+  top: 0; left: 0;
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+}
+.cursor-inner {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #F5F5F0;
+  margin: -2.5px 0 0 -2.5px;
+  transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.25s ease;
+}
+.cursor-inner[data-state="hover"] {
+  opacity: 0;
+  transform: scale(0);
+}
+.cursor-inner[data-theme="dark"] {
+  background: #080808;
+}
+
+/* ─── Navbar link dot ────────────────────────────────────────── */
+.nav-link {
+  position: relative;
+}
+.nav-dot {
+  position: absolute;
+  bottom: -5px; left: 50%;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: #F5F5F0;
+  transform: translateX(-50%) scale(0);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+.nav-link:hover .nav-dot,
+.nav-link[data-active="true"] .nav-dot {
+  transform: translateX(-50%) scale(1);
+}
+.nav-link[data-active="true"] {
+  color: rgba(245, 245, 240, 1) !important;
+}
+
+/* ─── Nav CTA shimmer ────────────────────────────────────────── */
+@keyframes cta-shimmer {
+  from { transform: translateX(-160%) skewX(-15deg); }
+  to   { transform: translateX(360%)  skewX(-15deg); }
+}
+.nav-cta {
+  position: relative;
+  overflow: hidden;
+}
+.nav-cta::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 40%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  transform: translateX(-160%) skewX(-15deg);
+}
+.nav-cta:hover::after {
+  animation: cta-shimmer 0.55s ease forwards;
+}
+
+/* ─── Ghost link underline grow ──────────────────────────────── */
+.ghost-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding-bottom: 1px;
+}
+.ghost-underline {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 1px;
+  width: 0;
+  background: currentColor;
+  opacity: 0.5;
+  transition: width 0.3s ease;
+}
+.ghost-link:hover .ghost-underline {
+  width: 100%;
+}
+.ghost-arrow {
+  display: inline-block;
+  transition: transform 0.25s ease;
+}
+.ghost-link:hover .ghost-arrow {
+  transform: translateX(4px);
+}
+
+/* ─── prefers-reduced-motion ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .cursor-outer,
+  .cursor-inner,
+  .nav-dot,
+  .nav-cta::after,
+  .ghost-underline,
+  .ghost-arrow {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ─── Touch devices: restore default cursor ──────────────────── */
+@media (hover: none) {
+  html.custom-cursor,
+  html.custom-cursor *,
+  html.custom-cursor a,
+  html.custom-cursor button {
+    cursor: auto !important;
+  }
 }

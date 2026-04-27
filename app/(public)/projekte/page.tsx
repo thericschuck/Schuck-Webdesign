@@ -99,14 +99,16 @@ export default function ProjektePage() {
             <FadeIn key={project.slug} delay={i * 0.05}>
               <Link
                 href={`/projekte/${project.slug}`}
-                className="group flex flex-col gap-3 cursor-pointer"
+                className="group flex flex-col gap-3 hover:-translate-y-1.5 transition-transform duration-300 ease-out"
               >
                 {/* Image placeholder */}
                 <div className="relative aspect-video rounded-xl overflow-hidden border border-white/[0.07] bg-[#161616]">
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-white/[0.02] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {/* Zoom layer */}
+                  <div className="absolute inset-0 bg-[#161616] group-hover:scale-[1.03] transition-transform duration-300 ease-out" />
+                  {/* Dark overlay */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 ease-out z-10" />
                   {/* Category badge */}
-                  <div className="absolute bottom-3 left-3">
+                  <div className="absolute bottom-3 left-3 z-20">
                     <span
                       className="text-xs font-medium px-2.5 py-1 rounded-full"
                       style={{
@@ -118,6 +120,12 @@ export default function ProjektePage() {
                     >
                       {project.category}
                     </span>
+                  </div>
+                  {/* Arrow icon */}
+                  <div className="absolute right-3 bottom-3 z-20 opacity-0 translate-x-[-8px] group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 ease-out">
+                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
                   </div>
                 </div>
 

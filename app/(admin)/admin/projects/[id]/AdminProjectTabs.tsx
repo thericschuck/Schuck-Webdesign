@@ -1,12 +1,9 @@
 'use client'
 
 import { useActionState, useState, useRef, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import {
   addMeeting,
   deleteMeeting,
-  adminSendMessage,
-  markMessagesRead,
   updateChangeRequestStatus,
   saveRequestNote,
   approveReview,
@@ -25,14 +22,6 @@ type Meeting = {
   duration_minutes: number | null
   notes: string | null
   action_items: unknown
-}
-type Message = {
-  id: string
-  sender_id: string
-  sender_role: 'admin' | 'client'
-  content: string
-  read: boolean
-  created_at: string
 }
 type ChangeRequest = {
   id: string
@@ -59,7 +48,6 @@ type Props = {
   adminId: string
   updates: Update[]
   meetings: Meeting[]
-  messages: Message[]
   changeRequests: ChangeRequest[]
   reviews: Review[]
 }
@@ -67,7 +55,6 @@ type Props = {
 const TABS = [
   { id: 'updates' as const, label: 'Updates' },
   { id: 'meetings' as const, label: 'Besprechungen' },
-  { id: 'messages' as const, label: 'Kommunikation' },
   { id: 'requests' as const, label: 'Anfragen' },
   { id: 'reviews' as const, label: 'Bewertungen' },
 ]
@@ -97,61 +84,15 @@ function formatDateTime(s: string) {
 }
 
 export function AdminProjectTabs({
-  projectId, adminId, updates, meetings, messages, changeRequests, reviews,
+  projectId, adminId, updates, meetings, changeRequests, reviews,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('updates')
   const [showMeetingForm, setShowMeetingForm] = useState(false)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
 
-  // Live messages via Realtime
-  const [liveMessages, setLiveMessages] = useState<Message[]>(messages)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // Supabase Realtime — subscribe to new messages for this project
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`admin-chat-${projectId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `project_id=eq.${projectId}`,
-      }, (payload) => {
-        const newMsg = payload.new as Message
-        setLiveMessages((prev) =>
-          prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]
-        )
-      })
-      .subscribe()
-    return () => { channel.unsubscribe() }
-  }, [projectId])
-
-  // Sync if server re-renders with newer initial data
-  useEffect(() => {
-    setLiveMessages((prev) => {
-      const byId = new Map(messages.map((m) => [m.id, m]))
-      prev.forEach((m) => { if (!byId.has(m.id)) byId.set(m.id, m) })
-      return [...byId.values()].sort(
-        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      )
-    })
-  }, [messages])
-
-  // Auto-scroll to bottom when messages tab is active or new message arrives
-  useEffect(() => {
-    if (activeTab === 'messages') {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [liveMessages, activeTab])
-
   // Add meeting
   const [meetingState, meetingAction, meetingPending] = useActionState<ActionResult | null, FormData>(addMeeting, null)
   const meetingFormRef = useRef<HTMLFormElement>(null)
-
-  // Send message
-  const [msgState, msgAction, msgPending] = useActionState<ActionResult | null, FormData>(adminSendMessage, null)
-  const msgFormRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     if (meetingState?.status === 'success') {
@@ -160,11 +101,6 @@ export function AdminProjectTabs({
     }
   }, [meetingState])
 
-  useEffect(() => {
-    if (msgState?.status === 'success') msgFormRef.current?.reset()
-  }, [msgState])
-
-  const unreadFromClients = liveMessages.filter((m) => m.sender_role === 'client' && !m.read).length
   const pendingReviews = reviews.filter((r) => r.status === 'pending').length
   const openRequests = changeRequests.filter((cr) => cr.status === 'open' || cr.status === 'in_progress').length
 
@@ -185,11 +121,6 @@ export function AdminProjectTabs({
             style={{ fontFamily: 'var(--font-dm-sans)' }}
           >
             {tab.label}
-            {tab.id === 'messages' && unreadFromClients > 0 && (
-              <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full leading-none">
-                {unreadFromClients}
-              </span>
-            )}
             {tab.id === 'reviews' && pendingReviews > 0 && (
               <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full leading-none">
                 {pendingReviews}
@@ -447,91 +378,6 @@ export function AdminProjectTabs({
               })}
             </div>
           )}
-        </div>
-      )}
-
-      {/* ── Kommunikation ── */}
-      {activeTab === 'messages' && (
-        <div className="flex flex-col gap-4">
-          {unreadFromClients > 0 && (
-            <form action={markMessagesRead}>
-              <input type="hidden" name="project_id" value={projectId} />
-              <button
-                type="submit"
-                className="text-xs text-gray-500 hover:text-gray-700 underline transition-colors"
-                style={{ fontFamily: 'var(--font-dm-sans)' }}
-              >
-                Alle als gelesen markieren
-              </button>
-            </form>
-          )}
-
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="p-5 space-y-4 min-h-48 max-h-96 overflow-y-auto">
-              {liveMessages.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-8" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                  Noch keine Nachrichten.
-                </p>
-              ) : (
-                liveMessages.map((msg) => {
-                  const isAdmin = msg.sender_id === adminId
-                  return (
-                    <div key={msg.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
-                      {!isAdmin && (
-                        <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-600 font-medium shrink-0 mt-1 mr-2">
-                          K
-                        </div>
-                      )}
-                      <div className={[
-                        'max-w-xs lg:max-w-sm rounded-2xl px-4 py-2.5 text-sm',
-                        isAdmin
-                          ? 'bg-gray-900 text-white rounded-br-sm'
-                          : 'bg-gray-100 text-gray-900 rounded-bl-sm',
-                      ].join(' ')}>
-                        <p className="leading-relaxed" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                          {msg.content}
-                        </p>
-                        <p className={`text-xs mt-1 ${isAdmin ? 'text-white/50' : 'text-gray-400'}`} style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                          {formatDateTime(msg.created_at)}
-                          {!isAdmin && !msg.read && (
-                            <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-red-400 align-middle" />
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-            <div className="border-t border-gray-100 p-4">
-              <form ref={msgFormRef} action={msgAction} className="flex gap-2">
-                <input type="hidden" name="project_id" value={projectId} />
-                <input
-                  name="content"
-                  type="text"
-                  required
-                  disabled={msgPending}
-                  placeholder="Antwort eingeben…"
-                  className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50"
-                  style={{ fontFamily: 'var(--font-dm-sans)' }}
-                />
-                <button
-                  type="submit"
-                  disabled={msgPending}
-                  className="px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 disabled:opacity-50 transition-colors shrink-0"
-                  style={{ fontFamily: 'var(--font-dm-sans)' }}
-                >
-                  {msgPending ? '…' : 'Senden'}
-                </button>
-              </form>
-              {msgState?.status === 'error' && (
-                <p className="text-xs text-red-600 mt-2" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                  {msgState.message}
-                </p>
-              )}
-            </div>
-          </div>
         </div>
       )}
 

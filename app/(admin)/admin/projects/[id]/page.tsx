@@ -55,7 +55,6 @@ export default async function ProjectDetailPage({
   const [
     { data: updates },
     { data: meetings },
-    { data: messages },
     { data: changeRequests },
     { data: reviews },
   ] = await Promise.all([
@@ -69,11 +68,6 @@ export default async function ProjectDetailPage({
       .select('id, title, meeting_date, duration_minutes, notes, action_items')
       .eq('project_id', id)
       .order('meeting_date', { ascending: false }),
-    supabase
-      .from('messages')
-      .select('id, sender_id, sender_role, content, read, created_at')
-      .eq('project_id', id)
-      .order('created_at', { ascending: true }),
     supabase
       .from('change_requests')
       .select('id, title, description, status, admin_notes, submitted_by, created_at')
@@ -198,7 +192,6 @@ export default async function ProjectDetailPage({
             adminId={user!.id}
             updates={updates ?? []}
             meetings={meetings ?? []}
-            messages={messages ?? []}
             changeRequests={changeRequests ?? []}
             reviews={reviews ?? []}
           />

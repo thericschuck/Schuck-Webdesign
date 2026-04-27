@@ -154,56 +154,6 @@ export async function deleteMeeting(formData: FormData): Promise<void> {
   revalidatePath(`/admin/projects/${projectId}`)
 }
 
-// ── Messages ─────────────────────────────────────────────────────────────────
-
-type SendMessageResult = { status: 'error'; message: string } | { status: 'success' }
-
-export async function adminSendMessage(
-  _prev: SendMessageResult | null,
-  formData: FormData
-): Promise<SendMessageResult> {
-  const supabase = await assertAdmin()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { status: 'error', message: 'Nicht eingeloggt.' }
-
-  const projectId = formData.get('project_id') as string
-  const content = formData.get('content')
-
-  if (!content || typeof content !== 'string' || !content.trim()) {
-    return { status: 'error', message: 'Nachricht darf nicht leer sein.' }
-  }
-
-  const { error } = await supabase.from('messages').insert({
-    project_id: projectId,
-    sender_id: user.id,
-    sender_role: 'admin',
-    content: content.trim(),
-  })
-
-  if (error) {
-    console.error('[adminSendMessage]', error.message)
-    return { status: 'error', message: 'Fehler beim Senden.' }
-  }
-
-  revalidatePath(`/admin/projects/${projectId}`)
-  return { status: 'success' }
-}
-
-export async function markMessagesRead(formData: FormData): Promise<void> {
-  const supabase = await assertAdmin()
-  const projectId = formData.get('project_id') as string
-
-  await supabase
-    .from('messages')
-    .update({ read: true })
-    .eq('project_id', projectId)
-    .eq('sender_role', 'client')
-    .eq('read', false)
-
-  revalidatePath(`/admin/projects/${projectId}`)
-  revalidatePath('/admin/dashboard')
-}
-
 // ── Change Requests ───────────────────────────────────────────────────────────
 
 export async function saveRequestNote(formData: FormData): Promise<void> {

@@ -1,8 +1,7 @@
 'use client'
 
 import { useActionState, useState, useRef, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { sendMessage, submitChangeRequest, submitReview } from './actions'
+import { submitChangeRequest, submitReview } from './actions'
 
 type ActionResult = { status: 'success' } | { status: 'error'; message: string }
 
@@ -14,14 +13,6 @@ type Meeting = {
   duration_minutes: number | null
   notes: string | null
   action_items: unknown
-}
-type Message = {
-  id: string
-  sender_id: string
-  sender_role: 'admin' | 'client'
-  content: string
-  read: boolean
-  created_at: string
 }
 type ChangeRequest = {
   id: string
@@ -44,7 +35,6 @@ type Props = {
   userId: string
   updates: Update[]
   meetings: Meeting[]
-  messages: Message[]
   changeRequests: ChangeRequest[]
   existingReview: Review
 }
@@ -52,7 +42,6 @@ type Props = {
 const TABS = [
   { id: 'overview' as const, label: 'Überblick' },
   { id: 'meetings' as const, label: 'Besprechungen' },
-  { id: 'messages' as const, label: 'Kommunikation' },
   { id: 'requests' as const, label: 'Anfragen' },
   { id: 'review' as const, label: 'Bewertung' },
 ]
@@ -89,55 +78,8 @@ function StarIcon({ filled }: { filled: boolean }) {
   )
 }
 
-export function ProjectTabs({ projectId, userId, updates, meetings, messages, changeRequests, existingReview }: Props) {
+export function ProjectTabs({ projectId, userId, updates, meetings, changeRequests, existingReview }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('overview')
-
-  // Live messages via Realtime
-  const [liveMessages, setLiveMessages] = useState<Message[]>(messages)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // Supabase Realtime — subscribe to new messages for this project
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`portal-chat-${projectId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `project_id=eq.${projectId}`,
-      }, (payload) => {
-        const newMsg = payload.new as Message
-        setLiveMessages((prev) =>
-          prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]
-        )
-      })
-      .subscribe()
-    return () => { channel.unsubscribe() }
-  }, [projectId])
-
-  // Sync when server re-renders with updated initial data
-  useEffect(() => {
-    setLiveMessages((prev) => {
-      const byId = new Map(messages.map((m) => [m.id, m]))
-      prev.forEach((m) => { if (!byId.has(m.id)) byId.set(m.id, m) })
-      return [...byId.values()].sort(
-        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      )
-    })
-  }, [messages])
-
-  // Auto-scroll when messages tab is active or new message arrives
-  useEffect(() => {
-    if (activeTab === 'messages') {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [liveMessages, activeTab])
-
-  // Message form
-  const boundSendMessage = sendMessage.bind(null, projectId)
-  const [msgState, msgAction, msgPending] = useActionState<ActionResult | null, FormData>(boundSendMessage, null)
-  const msgFormRef = useRef<HTMLFormElement>(null)
 
   // Change request form
   const boundSubmitCR = submitChangeRequest.bind(null, projectId)
@@ -152,17 +94,12 @@ export function ProjectTabs({ projectId, userId, updates, meetings, messages, ch
   const [hoverRating, setHoverRating] = useState(0)
 
   useEffect(() => {
-    if (msgState?.status === 'success') msgFormRef.current?.reset()
-  }, [msgState])
-
-  useEffect(() => {
     if (crState?.status === 'success') {
       crFormRef.current?.reset()
       setShowCRForm(false)
     }
   }, [crState])
 
-  const unreadAdminMessages = liveMessages.filter((m) => m.sender_role === 'admin' && !m.read).length
   const openRequests = changeRequests.filter((cr) => cr.status === 'open' || cr.status === 'in_progress').length
 
   return (
@@ -181,9 +118,6 @@ export function ProjectTabs({ projectId, userId, updates, meetings, messages, ch
             ].join(' ')}
           >
             {tab.label}
-            {tab.id === 'messages' && unreadAdminMessages > 0 && (
-              <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-            )}
             {tab.id === 'requests' && openRequests > 0 && (
               <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full leading-none">
                 {openRequests}
@@ -252,61 +186,6 @@ export function ProjectTabs({ projectId, userId, updates, meetings, messages, ch
               )
             })
           )}
-        </div>
-      )}
-
-      {/* ── Kommunikation ── */}
-      {activeTab === 'messages' && (
-        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-          <div className="p-5 space-y-4 min-h-48 max-h-96 overflow-y-auto">
-            {liveMessages.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">
-                Noch keine Nachrichten. Stell uns einfach eine Frage!
-              </p>
-            ) : (
-              liveMessages.map((msg) => {
-                const isClient = msg.sender_id === userId
-                return (
-                  <div key={msg.id} className={`flex ${isClient ? 'justify-end' : 'justify-start'}`}>
-                    <div className={[
-                      'max-w-xs lg:max-w-sm rounded-2xl px-4 py-2.5 text-sm',
-                      isClient
-                        ? 'bg-gray-900 text-white rounded-br-sm'
-                        : 'bg-gray-100 text-gray-900 rounded-bl-sm',
-                    ].join(' ')}>
-                      <p className="leading-relaxed">{msg.content}</p>
-                      <p className={`text-xs mt-1 ${isClient ? 'text-white/50' : 'text-gray-400'}`}>
-                        {formatDateTime(msg.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-          <div className="border-t border-gray-100 p-4">
-            <form ref={msgFormRef} action={msgAction} className="flex gap-2">
-              <input
-                name="content"
-                type="text"
-                required
-                disabled={msgPending}
-                placeholder="Nachricht eingeben…"
-                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={msgPending}
-                className="px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 disabled:opacity-50 transition-colors shrink-0"
-              >
-                {msgPending ? '…' : 'Senden'}
-              </button>
-            </form>
-            {msgState?.status === 'error' && (
-              <p className="text-xs text-red-600 mt-2">{msgState.message}</p>
-            )}
-          </div>
         </div>
       )}
 

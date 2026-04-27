@@ -8,7 +8,6 @@ const NAV_LINKS = [
   { href: '/portal',            label: 'Dashboard' },
   { href: '/portal/project',    label: 'Mein Projekt' },
   { href: '/portal/documents',  label: 'Dokumente' },
-  { href: '/portal/upload',     label: 'Dateien hochladen' },
   { href: '/portal/settings',   label: 'Einstellungen' },
 ]
 
@@ -24,18 +23,18 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
   const displayName = fullName || email
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-gray-100">
+    <header className="sticky top-0 z-30 bg-gray-950 border-b border-white/8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <Link href="/portal" className="text-sm font-semibold tracking-tight">
+          <Link href="/portal" className="text-sm font-semibold tracking-tight text-white">
             Schuck Webdesign
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-0.5">
             {NAV_LINKS.map((link) => {
-              const active = pathname === link.href
+              const active = pathname === link.href || (link.href !== '/portal' && pathname.startsWith(link.href))
               return (
                 <Link
                   key={link.href}
@@ -43,8 +42,8 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
                   className={[
                     'px-3 py-1.5 rounded-md text-sm transition-colors',
                     active
-                      ? 'bg-gray-100 text-gray-900 font-medium'
-                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50',
+                      ? 'bg-white/10 text-white font-medium'
+                      : 'text-white/50 hover:text-white hover:bg-white/6',
                   ].join(' ')}
                 >
                   {link.label}
@@ -55,11 +54,11 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
 
           {/* User + Logout */}
           <div className="hidden md:flex items-center gap-3">
-            <span className="text-xs text-gray-500 max-w-35 truncate">{displayName}</span>
+            <span className="text-xs text-white/40 max-w-35 truncate">{displayName}</span>
             <form action="/auth/logout" method="POST">
               <button
                 type="submit"
-                className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+                className="text-xs text-white/40 hover:text-white/80 transition-colors"
               >
                 Abmelden
               </button>
@@ -68,7 +67,7 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
 
           {/* Mobile Hamburger */}
           <button
-            className="md:hidden p-2 rounded-md text-gray-500 hover:text-gray-900"
+            className="md:hidden p-2 rounded-md text-white/50 hover:text-white transition-colors"
             onClick={() => setMenuOpen((v) => !v)}
             aria-label="Menü"
           >
@@ -87,29 +86,29 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 flex flex-col gap-1">
+        <div className="md:hidden border-t border-white/8 bg-gray-950 px-4 py-3 flex flex-col gap-0.5">
           {NAV_LINKS.map((link) => {
-            const active = pathname === link.href
+            const active = pathname === link.href || (link.href !== '/portal' && pathname.startsWith(link.href))
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
                 className={[
-                  'px-3 py-2 rounded-md text-sm',
+                  'px-3 py-2.5 rounded-md text-sm',
                   active
-                    ? 'bg-gray-100 text-gray-900 font-medium'
-                    : 'text-gray-600 hover:bg-gray-50',
+                    ? 'bg-white/10 text-white font-medium'
+                    : 'text-white/50 hover:text-white hover:bg-white/6',
                 ].join(' ')}
               >
                 {link.label}
               </Link>
             )
           })}
-          <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
-            <span className="text-xs text-gray-400 truncate max-w-50">{displayName}</span>
+          <div className="mt-2 pt-2.5 border-t border-white/8 flex items-center justify-between">
+            <span className="text-xs text-white/30 truncate max-w-50">{displayName}</span>
             <form action="/auth/logout" method="POST">
-              <button type="submit" className="text-xs text-gray-400 hover:text-gray-700">
+              <button type="submit" className="text-xs text-white/40 hover:text-white/80 transition-colors">
                 Abmelden
               </button>
             </form>

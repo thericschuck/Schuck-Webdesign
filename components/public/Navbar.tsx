@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 const NAV_LINKS = [
@@ -11,7 +12,7 @@ const NAV_LINKS = [
 
 function Logo() {
   return (
-    <Link href="/" className="flex flex-col items-start leading-none group">
+    <Link href="/" className="flex flex-col items-center leading-none group">
       <div className="flex items-baseline">
         <span
           style={{
@@ -57,7 +58,6 @@ function Logo() {
           color: "rgba(245,245,240,0.28)",
           marginTop: "3px",
           display: "block",
-          paddingLeft: "1px",
         }}
       >
         Webdesign
@@ -68,6 +68,7 @@ function Logo() {
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -77,11 +78,17 @@ export function Navbar() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         scrolled
-          ? "bg-[#080808]/90 backdrop-blur-md border-b border-white/[0.06]"
+          ? "border-b border-white/[0.07]"
           : "bg-transparent"
       }`}
+      style={scrolled ? {
+        background: "rgba(8,8,8,0.55)",
+        backdropFilter: "blur(24px) saturate(160%)",
+        WebkitBackdropFilter: "blur(24px) saturate(160%)",
+        boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.35)",
+      } : undefined}
     >
       <div className="max-w-6xl mx-auto px-6 md:px-12 h-16 flex items-center justify-between">
         <Logo />
@@ -91,17 +98,19 @@ export function Navbar() {
             <Link
               key={label}
               href={href}
-              className="text-sm text-white/40 hover:text-white/75 transition-colors"
+              className="nav-link text-sm text-white/40 hover:text-white transition-colors duration-200 pb-2"
+              data-active={pathname === href ? "true" : undefined}
               style={{ fontFamily: "var(--font-dm-sans)" }}
             >
               {label}
+              <span className="nav-dot" aria-hidden />
             </Link>
           ))}
         </div>
 
         <Link
           href="/kontakt"
-          className="hidden md:inline-flex items-center px-5 py-2 rounded-md border border-white/10 text-sm text-white/55 hover:text-white hover:border-white/25 transition-all"
+          className="nav-cta hidden md:inline-flex items-center px-5 py-2 rounded-md border border-white/10 text-sm text-white/55 hover:text-white hover:border-white/25 transition-all"
           style={{ fontFamily: "var(--font-dm-sans)" }}
         >
           Projekt starten

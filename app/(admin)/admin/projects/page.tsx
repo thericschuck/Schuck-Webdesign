@@ -43,7 +43,19 @@ export default async function ProjectsPage({
     query = query.eq('status', status as ProjectStatus)
   }
 
-  const { data: projects } = await query
+  const [{ data: projects }, { data: unreadMsgs }] = await Promise.all([
+    query,
+    supabase
+      .from('messages')
+      .select('project_id')
+      .eq('sender_role', 'client')
+      .eq('read', false),
+  ])
+
+  const unreadByProject = new Map<string, number>()
+  unreadMsgs?.forEach((m) => {
+    unreadByProject.set(m.project_id, (unreadByProject.get(m.project_id) ?? 0) + 1)
+  })
 
   return (
     <div className="flex flex-col gap-6">
@@ -121,9 +133,16 @@ export default async function ProjectsPage({
                 return (
                   <tr key={project.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
-                      <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {project.title}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                          {project.title}
+                        </p>
+                        {(unreadByProject.get(project.id) ?? 0) > 0 && (
+                          <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full leading-none font-medium">
+                            {unreadByProject.get(project.id)}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                         {project.start_date
                           ? `Start: ${new Date(project.start_date).toLocaleDateString('de-DE')}`
