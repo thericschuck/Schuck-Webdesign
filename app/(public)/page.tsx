@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { motion, useInView, useMotionValue, useSpring, useMotionTemplate, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { ParticleCanvas } from "@/components/public/ParticleCanvas";
 import { FadeIn } from "@/components/public/FadeIn";
 import { TestimonialsCarousel } from "@/components/public/TestimonialsCarousel";
@@ -47,20 +48,19 @@ const FEATURED_PROJECTS = [
     slug: "bendix-official",
     name: "Bendix Official",
     category: "Artist Website",
-    desc: "Klarer, markanter Webauftritt fuer DJ und Producer Bendix mit Fokus auf Persona und Wirkung.",
+    desc: "Klarer, markanter Webauftritt für DJ und Producer Bendix mit Fokus auf Persona und Wirkung.",
+    image: "/bendixofficial.webp",
+    blurDataURL: "data:image/webp;base64,UklGRjAAAABXRUJQVlA4ICQAAAAwAQCdASoQAAkABUB8JYwAA3AA/vAi9c8cGZ3lHS6ohkvAAAA=",
   },
   {
     slug: "three-flies-bar",
     name: "Three Flies Bar",
     category: "Hospitality & Events",
-    desc: "Website-Relaunch für ein mittelständisches Unternehmen mit Fokus auf Lead-Generierung.",
+    desc: "Atmosphärische Website für eine mobile Cocktailbar mit Fokus auf Erlebnis und Anfragen.",
+    image: "/threefliesbar.webp",
+    blurDataURL: "data:image/webp;base64,UklGRjAAAABXRUJQVlA4ICQAAACwAQCdASoQAAkABUB8JYwAAsaU/RqAAP7r/yOJW6F5USgoAAA=",
   },
 ];
-
-FEATURED_PROJECTS[1] = {
-  ...FEATURED_PROJECTS[1],
-  desc: "Atmosphaerische Website fuer eine mobile Cocktailbar mit Fokus auf Erlebnis und Anfragen.",
-};
 
 const PROCESS_STEPS = [
   {
@@ -784,8 +784,17 @@ function ProjectsSection() {
           {FEATURED_PROJECTS.map((p, i) => (
             <FadeIn key={p.slug} delay={i * 0.1}>
               <Link href={`/projekte/${p.slug}`} className="group block">
-                <div className="aspect-4/3 bg-[#161616] rounded-xl border border-white/6 mb-4 overflow-hidden group-hover:border-white/12 transition-all duration-300 relative">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                <div className="aspect-4/3 rounded-xl border border-white/6 mb-4 overflow-hidden group-hover:border-white/12 transition-all duration-300 relative bg-[#161616]">
+                  <Image
+                    src={p.image}
+                    alt={p.name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+                    placeholder="blur"
+                    blurDataURL={p.blurDataURL}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
                   <div className="absolute bottom-4 left-4">
                     <span
                       className="text-[10px] uppercase tracking-[0.1em] text-[#7F77DD] bg-[#7F77DD]/10 px-2.5 py-1 rounded-full border border-[#7F77DD]/20"
@@ -865,9 +874,24 @@ const PORTAL_FEATURES = [
   },
 ];
 
+const STEP_DURATION = 3200;
+
 function ProcessSection() {
   const cardRef = useRef(null);
   const cardInView = useInView(cardRef, { once: true, margin: "0px" });
+  const [activeStep, setActiveStep] = useState(-1);
+
+  useEffect(() => {
+    if (!cardInView) return;
+    const start = setTimeout(() => {
+      setActiveStep(0);
+      const interval = setInterval(() => {
+        setActiveStep((prev) => (prev + 1) % PROCESS_STEPS.length);
+      }, STEP_DURATION);
+      return () => clearInterval(interval);
+    }, 1400);
+    return () => clearTimeout(start);
+  }, [cardInView]);
 
   return (
     <section className="bg-[#080808] px-4 md:px-6 pt-24 pb-0">
@@ -888,40 +912,79 @@ function ProcessSection() {
             So arbeiten wir zusammen.
           </h2>
 
-          <div className="grid md:grid-cols-4 gap-8 relative">
-            <motion.div
-              aria-hidden
-              className="hidden md:block absolute origin-left"
-              initial={{ scaleX: 0 }}
-              animate={cardInView ? { scaleX: 1 } : {}}
-              transition={{ delay: 0.5, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-              style={{ top: "19px", left: "20px", right: "20px", height: "1px", background: "rgba(28,28,30,0.12)" }}
-            />
-            {PROCESS_STEPS.map((step, i) => (
-              <motion.div
-                key={step.num}
-                initial={{ opacity: 0, y: 20 }}
-                animate={cardInView ? { opacity: 1, y: 0 } : {}}
-                transition={{ delay: 0.3 + i * 0.15, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                whileHover={{ y: -5, transition: { duration: 0.22, ease: "easeOut" } }}
-                className="group cursor-default"
-              >
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center mb-5 relative z-10 transition-all duration-200 group-hover:border-[#7F77DD] group-hover:bg-[#7F77DD]/8 group-hover:shadow-[0_0_0_5px_rgba(127,119,221,0.12)]"
-                  style={{ background: "white", border: "1.5px solid rgba(28,28,30,0.14)" }}
+          <div className="grid md:grid-cols-4 gap-8">
+            {PROCESS_STEPS.map((step, i) => {
+              const isActive = i === activeStep;
+              const isPast = activeStep > 0 && i < activeStep;
+              const segmentFilled = activeStep > i;
+              return (
+                <motion.div
+                  key={step.num}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={cardInView ? { opacity: 1, y: 0 } : {}}
+                  transition={{ delay: 0.3 + i * 0.15, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                  className="cursor-default relative"
                 >
-                  <span className="text-xs font-semibold text-[#1C1C1E] group-hover:text-[#7F77DD] transition-colors duration-200" style={{ fontFamily: "var(--font-dm-sans)" }}>
-                    {step.num}
-                  </span>
-                </div>
-                <h3 className="text-sm font-semibold text-[#1C1C1E] mb-2 group-hover:text-[#7F77DD] transition-colors duration-200" style={{ fontFamily: "var(--font-dm-sans)" }}>
-                  {step.title}
-                </h3>
-                <p className="text-sm text-[#888] leading-relaxed group-hover:text-[#666] transition-colors duration-200" style={{ fontFamily: "var(--font-dm-sans)" }}>
-                  {step.desc}
-                </p>
-              </motion.div>
-            ))}
+                  {/* Connector to next step: starts after current circle, ends at next circle's left edge */}
+                  {i < PROCESS_STEPS.length - 1 && (
+                    <div
+                      aria-hidden
+                      className="hidden md:block absolute"
+                      style={{ top: "19px", left: "40px", right: "-32px", height: "1px" }}
+                    >
+                      <div className="absolute inset-0" style={{ background: "rgba(28,28,30,0.10)" }} />
+                      <motion.div
+                        className="absolute inset-y-0 left-0 right-0 origin-left"
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: segmentFilled ? 1 : 0 }}
+                        transition={{ duration: 0.9, ease: [0.32, 0.72, 0, 1] }}
+                        style={{ background: "linear-gradient(90deg, #7F77DD, #b0a8f0)" }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Number circle */}
+                  <motion.div
+                    animate={
+                      isActive
+                        ? { backgroundColor: "#7F77DD", borderColor: "#7F77DD" }
+                        : isPast
+                        ? { backgroundColor: "rgba(127,119,221,0.10)", borderColor: "rgba(127,119,221,0.30)" }
+                        : { backgroundColor: "#ffffff", borderColor: "rgba(28,28,30,0.14)" }
+                    }
+                    transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                    className="w-10 h-10 rounded-full flex items-center justify-center mb-5 relative z-10"
+                    style={{ border: "1.5px solid rgba(28,28,30,0.14)" }}
+                  >
+                    <motion.span
+                      animate={{ color: isActive ? "#ffffff" : isPast ? "#7F77DD" : "#1C1C1E" }}
+                      transition={{ duration: 0.5 }}
+                      className="text-xs font-semibold"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {step.num}
+                    </motion.span>
+                  </motion.div>
+
+                  <motion.h3
+                    animate={{ color: isActive ? "#7F77DD" : "#1C1C1E" }}
+                    transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                    className="text-sm font-semibold mb-2"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    {step.title}
+                  </motion.h3>
+                  <motion.p
+                    animate={{ color: isActive ? "#555" : "#999" }}
+                    transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                    className="text-sm leading-relaxed"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    {step.desc}
+                  </motion.p>
+                </motion.div>
+              );
+            })}
           </div>
         </motion.div>
       </div>
@@ -1020,7 +1083,16 @@ function AboutSection() {
       />
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
         <FadeIn>
-          <div className="aspect-[3/4] bg-[#E2DDD5] rounded-2xl max-w-sm" />
+          <div className="relative aspect-[3/4] rounded-2xl max-w-sm overflow-hidden">
+              <Image
+                src="/profilbild.webp"
+                alt="Eric Schuck – Webdesigner"
+                fill
+                sizes="(max-width: 768px) 100vw, 380px"
+                className="object-cover object-top"
+                priority
+              />
+            </div>
         </FadeIn>
         <FadeIn delay={0.15}>
           <div className="flex flex-col gap-5">

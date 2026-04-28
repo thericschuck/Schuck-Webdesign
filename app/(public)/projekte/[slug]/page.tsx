@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getProjectBySlug, projects } from "../projects-data";
 
@@ -85,14 +86,25 @@ export default async function ProjektDetailPage({
               borderColor: "rgba(255,255,255,0.06)",
             }}
           >
-            <div className={`absolute inset-0 bg-gradient-to-br ${project.accent} opacity-90`} />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.34))]" />
+            <Image
+              src={project.image}
+              alt={project.name}
+              fill
+              sizes="(max-width: 768px) 100vw, 1152px"
+              className="object-cover"
+              placeholder="blur"
+              blurDataURL={project.blurDataURL}
+              priority
+            />
+            {/* gradient only behind bottom text */}
+            <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
             <div className="absolute left-6 top-6">
               <p
                 className="text-xs uppercase tracking-[0.3em]"
                 style={{
-                  color: "rgba(245,245,240,0.45)",
+                  color: "rgba(245,245,240,0.7)",
                   fontFamily: "var(--font-dm-sans)",
+                  textShadow: "0 1px 8px rgba(0,0,0,0.6)",
                 }}
               >
                 Case Study
@@ -151,7 +163,7 @@ export default async function ProjektDetailPage({
                   color: "#1C1C1E",
                 }}
               >
-                Die Loesung
+                Die Lösung
               </h2>
               <p
                 className="text-base leading-relaxed"

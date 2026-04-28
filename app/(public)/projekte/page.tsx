@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { FadeIn } from "@/components/public/FadeIn";
 import { projects } from "./projects-data";
 
@@ -160,7 +161,7 @@ export default function ProjektePage() {
                 border: "1px solid rgba(127, 119, 221, 0.2)",
               }}
             >
-              Ausgewaehlte Projekte
+              Ausgewählte Projekte
             </span>
           </FadeIn>
           <FadeIn delay={0.08}>
@@ -182,7 +183,7 @@ export default function ProjektePage() {
                 color: "#666",
               }}
             >
-              Von Artist Branding ueber Event-Hospitality bis zum privaten Portfolio:
+              Von Artist Branding über Event-Hospitality bis zum privaten Portfolio:
               hier sieht man, wie unterschiedlich ein Webauftritt je nach Ziel funktionieren muss.
             </p>
           </FadeIn>
@@ -201,10 +202,17 @@ export default function ProjektePage() {
                 className="group flex flex-col gap-3 transition-transform duration-300 ease-out hover:-translate-y-1.5"
               >
                 <div className="relative aspect-video overflow-hidden rounded-xl border border-white/[0.07] bg-[#101010]">
-                  <div
-                    className={`absolute inset-0 bg-gradient-to-br ${project.accent} opacity-90 transition-transform duration-500 ease-out group-hover:scale-[1.04]`}
+                  <Image
+                    src={project.image}
+                    alt={project.name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                    className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                    placeholder="blur"
+                    blurDataURL={project.blurDataURL}
+                    priority={i === 0}
                   />
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.34))]" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-black/10 transition-opacity duration-300 group-hover:opacity-90" />
                   <div className="absolute left-3 top-3 z-20">
                     <p
                       className="text-[11px] uppercase tracking-[0.28em]"
@@ -216,27 +224,16 @@ export default function ProjektePage() {
                       {String(i + 1).padStart(2, "0")}
                     </p>
                   </div>
-                  <div className="absolute inset-x-3 top-1/2 z-10 -translate-y-1/2">
+                  <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-4.25rem)] flex-col items-start gap-2">
                     <p
-                      className="text-2xl leading-none md:text-[2rem]"
+                      className="text-xs md:text-sm"
                       style={{
-                        color: "rgba(245,245,240,0.92)",
-                        fontFamily: "var(--font-fraunces)",
-                      }}
-                    >
-                      {project.name}
-                    </p>
-                    <p
-                      className="mt-3 text-xs md:text-sm"
-                      style={{
-                        color: "rgba(245,245,240,0.5)",
+                        color: "rgba(245,245,240,0.62)",
                         fontFamily: "var(--font-dm-sans)",
                       }}
                     >
                       {project.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                     </p>
-                  </div>
-                  <div className="absolute bottom-3 left-3 z-20">
                     <span
                       className="rounded-full px-2.5 py-1 text-xs font-medium"
                       style={{

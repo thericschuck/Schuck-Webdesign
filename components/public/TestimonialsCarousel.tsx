@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 
 type ReviewRow = {
@@ -35,10 +36,15 @@ function Stars({ rating }: { rating: number }) {
   )
 }
 
+const SLIDE_DURATION = 0.38
+const SLIDE_EASE = [0.32, 0.72, 0, 1]
+
 export function TestimonialsCarousel() {
   const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [idx, setIdx] = useState(0)
+  const [dir, setDir] = useState<1 | -1>(1)
   const [loaded, setLoaded] = useState(false)
+  const animating = useRef(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -54,94 +60,147 @@ export function TestimonialsCarousel() {
       })
   }, [])
 
+  function go(direction: 1 | -1) {
+    if (animating.current || reviews.length <= 1) return
+    animating.current = true
+    setDir(direction)
+    setIdx((i) => (i + direction + reviews.length) % reviews.length)
+    setTimeout(() => { animating.current = false }, SLIDE_DURATION * 1000 + 50)
+  }
+
   if (!loaded || reviews.length === 0) return null
 
   const r = reviews[idx]
-  const name = r.reviewer_name ?? 'Kunde'
-  const company = r.reviewer_company
-
-  const prev = () => setIdx((i) => (i - 1 + reviews.length) % reviews.length)
-  const next = () => setIdx((i) => (i + 1) % reviews.length)
 
   return (
-    <div className="flex flex-col items-center gap-8">
-      {/* Card */}
-      <div
-        className="w-full max-w-2xl mx-auto bg-[#0f0f0f] border border-white/[0.07] rounded-2xl px-10 pt-9 pb-8 flex flex-col gap-5"
-        style={{ boxShadow: '0 0 60px rgba(127,119,221,0.035)' }}
-      >
-        <Stars rating={r.rating} />
-        <span
-          className="text-[52px] leading-none text-[#7F77DD]/15 select-none -mb-3"
-          style={{ fontFamily: 'Georgia, serif' }}
-        >
-          "
-        </span>
-        <p
-          className="text-base text-[#999] leading-relaxed"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        >
-          {r.text}
-        </p>
-        <div className="border-t border-white/[0.07] pt-5 mt-1">
-          <p
-            className="text-sm font-semibold text-[#E8E8E4]"
-            style={{ fontFamily: 'var(--font-dm-sans)' }}
-          >
-            {name}
-          </p>
-          {company && (
-            <p
-              className="text-xs text-[#555] mt-0.5"
-              style={{ fontFamily: 'var(--font-dm-sans)' }}
-            >
-              {company}
-            </p>
-          )}
-        </div>
-      </div>
+    <div className="flex items-center gap-4 md:gap-7 w-full max-w-3xl mx-auto">
 
-      {/* Navigation */}
+      {/* ── Prev ── */}
       {reviews.length > 1 && (
-        <div className="flex items-center gap-5">
-          <button
-            onClick={prev}
-            aria-label="Vorherige Bewertung"
-            className="w-9 h-9 rounded-full border border-white/10 flex items-center justify-center text-white/30 hover:text-white/60 hover:border-white/25 transition-all"
-          >
-            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
+        <button
+          onClick={() => go(-1)}
+          aria-label="Vorherige Bewertung"
+          className="group shrink-0 w-11 h-11 md:w-13 md:h-13 rounded-full flex items-center justify-center transition-all duration-200"
+          style={{
+            background: 'rgba(255,255,255,0.10)',
+            border: '1px solid rgba(255,255,255,0.22)',
+            backdropFilter: 'blur(8px)',
+          }}
+          onMouseEnter={e => {
+            const el = e.currentTarget
+            el.style.background = 'rgba(255,255,255,0.18)'
+            el.style.border = '1px solid rgba(255,255,255,0.45)'
+          }}
+          onMouseLeave={e => {
+            const el = e.currentTarget
+            el.style.background = 'rgba(255,255,255,0.10)'
+            el.style.border = '1px solid rgba(255,255,255,0.22)'
+          }}
+        >
+          <svg width="16" height="16" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2.2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
 
-          <div className="flex items-center gap-2">
+      {/* ── Card + dots ── */}
+      <div className="flex-1 flex flex-col gap-5">
+
+        {/* Overflow clip so sliding card doesn't overflow */}
+        <div className="overflow-hidden rounded-2xl">
+          <AnimatePresence initial={false} custom={dir} mode="popLayout">
+            <motion.div
+              key={idx}
+              custom={dir}
+              initial={{ x: `${dir * 55}%`, opacity: 0 }}
+              animate={{ x: '0%', opacity: 1 }}
+              exit={{ x: `${dir * -55}%`, opacity: 0 }}
+              transition={{ duration: SLIDE_DURATION, ease: SLIDE_EASE }}
+              className="w-full bg-[#0f0f0f] border border-white/[0.07] px-8 pt-8 pb-7 flex flex-col gap-5"
+              style={{ boxShadow: '0 0 60px rgba(127,119,221,0.04)' }}
+            >
+              <Stars rating={r.rating} />
+              <span
+                className="text-[48px] leading-none text-[#7F77DD]/15 select-none -mb-3"
+                style={{ fontFamily: 'Georgia, serif' }}
+              >
+                "
+              </span>
+              <p
+                className="text-base text-[#999] leading-relaxed"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                {r.text}
+              </p>
+              <div className="border-t border-white/[0.07] pt-5 mt-1">
+                <p
+                  className="text-sm font-semibold text-[#E8E8E4]"
+                  style={{ fontFamily: 'var(--font-dm-sans)' }}
+                >
+                  {r.reviewer_name ?? 'Kunde'}
+                </p>
+                {r.reviewer_company && (
+                  <p
+                    className="text-xs text-[#555] mt-0.5"
+                    style={{ fontFamily: 'var(--font-dm-sans)' }}
+                  >
+                    {r.reviewer_company}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Dots */}
+        {reviews.length > 1 && (
+          <div className="flex items-center justify-center gap-2">
             {reviews.map((_, i) => (
               <button
                 key={i}
-                onClick={() => setIdx(i)}
+                onClick={() => go(i > idx ? 1 : -1)}
                 aria-label={`Bewertung ${i + 1}`}
                 className="transition-all duration-300"
                 style={{
                   width: i === idx ? '18px' : '6px',
                   height: '6px',
                   borderRadius: '99px',
-                  background: i === idx ? '#7F77DD' : 'rgba(255,255,255,0.12)',
+                  background: i === idx ? '#7F77DD' : 'rgba(255,255,255,0.18)',
                 }}
               />
             ))}
           </div>
+        )}
+      </div>
 
-          <button
-            onClick={next}
-            aria-label="Nächste Bewertung"
-            className="w-9 h-9 rounded-full border border-white/10 flex items-center justify-center text-white/30 hover:text-white/60 hover:border-white/25 transition-all"
-          >
-            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
+      {/* ── Next ── */}
+      {reviews.length > 1 && (
+        <button
+          onClick={() => go(1)}
+          aria-label="Nächste Bewertung"
+          className="shrink-0 w-11 h-11 md:w-13 md:h-13 rounded-full flex items-center justify-center transition-all duration-200"
+          style={{
+            background: 'rgba(255,255,255,0.10)',
+            border: '1px solid rgba(255,255,255,0.22)',
+            backdropFilter: 'blur(8px)',
+          }}
+          onMouseEnter={e => {
+            const el = e.currentTarget
+            el.style.background = 'rgba(255,255,255,0.18)'
+            el.style.border = '1px solid rgba(255,255,255,0.45)'
+          }}
+          onMouseLeave={e => {
+            const el = e.currentTarget
+            el.style.background = 'rgba(255,255,255,0.10)'
+            el.style.border = '1px solid rgba(255,255,255,0.22)'
+          }}
+        >
+          <svg width="16" height="16" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2.2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       )}
+
     </div>
   )
 }

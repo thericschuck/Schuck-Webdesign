@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, useInView } from "framer-motion";
 import { FadeIn } from "@/components/public/FadeIn";
 import { ParticleCanvas } from "@/components/public/ParticleCanvas";
@@ -9,7 +10,7 @@ import { ParticleCanvas } from "@/components/public/ParticleCanvas";
 const stackGroups = [
   {
     label: "Design",
-    tags: ["Figma", "Adobe XD", "Framer", "Prototyping"],
+    tags: ["Figma", "Claude Design"],
   },
   {
     label: "Development",
@@ -25,21 +26,21 @@ const stackGroups = [
   },
   {
     label: "Tools",
-    tags: ["Git", "VS Code", "Linear", "Notion", "Google Analytics"],
+    tags: ["Git", "VS Code", "Notion", "Google Analytics"],
   },
 ];
 
 const values = [
   {
     title: "Ehrlichkeit",
-    text: "Ich sage dir, was ich wirklich denke - auch wenn es unbequem ist. Keine leeren Versprechen, keine uebertriebenen Erwartungen.",
+    text: "Ich sage dir, was ich wirklich denke - auch wenn es unbequem ist. Keine leeren Versprechen, keine übertriebenen Erwartungen.",
   },
   {
     title: "Geschwindigkeit",
     text: "Schnelle Reaktionen, kurze Feedback-Zyklen, puenktliche Lieferungen. Deine Zeit ist genauso wertvoll wie meine.",
   },
   {
-    title: "Qualitaet",
+    title: "Qualität",
     text: "Ich liefere keine Websites von der Stange. Jedes Projekt bekommt die Aufmerksamkeit, die es verdient - im Design und im Code.",
   },
 ];
@@ -75,8 +76,17 @@ export default function UeberMichPage() {
         <div className="relative z-10 max-w-6xl mx-auto">
           <div className="grid md:grid-cols-[minmax(280px,380px)_1fr] gap-10 md:gap-16 items-center">
             <FadeIn>
-              <div className="aspect-[3/4] bg-[#1a1a1a]/90 rounded-[28px] border border-white/[0.08] max-w-sm w-full overflow-hidden relative">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(127,119,221,0.18),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))]" />
+              <div className="aspect-[3/4] rounded-[28px] border border-white/[0.08] max-w-sm w-full overflow-hidden relative">
+                <Image
+                  src="/profilbild.webp"
+                  alt="Eric Schuck – Webdesigner"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 380px"
+                  className="object-cover object-top"
+                  priority
+                />
+                {/* subtle violet overlay */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(127,119,221,0.12),transparent_50%)] pointer-events-none" />
               </div>
             </FadeIn>
 
@@ -97,7 +107,7 @@ export default function UeberMichPage() {
                     className="text-xs font-semibold uppercase tracking-widest text-[#7F77DD]"
                     style={{ fontFamily: "var(--font-dm-sans)" }}
                   >
-                    Ueber mich
+                    Über mich
                   </span>
 
                   <h1
@@ -105,7 +115,7 @@ export default function UeberMichPage() {
                     style={{ fontFamily: "var(--font-fraunces)" }}
                   >
                     Ich bin Eric.{" "}
-                    <span className="italic">Webdesigner aus Ueberzeugung.</span>
+                    <span className="italic">Webdesigner aus Überzeugung.</span>
                   </h1>
 
                   <p
@@ -116,7 +126,7 @@ export default function UeberMichPage() {
                     funktionieren. Fuer mich ist Webdesign kein reines
                     Handwerk - es ist die Schnittstelle zwischen Aesthetik,
                     Psychologie und Technik. Jedes Projekt beginnt mit dem
-                    Verstaendnis deines Unternehmens.
+                    Verständnis deines Unternehmens.
                   </p>
                   <p
                     className="text-sm text-[#8A8A8A] leading-relaxed max-w-xl"
@@ -137,7 +147,7 @@ export default function UeberMichPage() {
                       className="text-xs text-[#8A8A8A]"
                       style={{ fontFamily: "var(--font-dm-sans)" }}
                     >
-                      Aktuell verfuegbar fuer neue Projekte
+                      Aktuell verfügbar für neue Projekte
                     </span>
                   </div>
                 </div>
@@ -207,7 +217,7 @@ export default function UeberMichPage() {
         data-cursor="dark"
         className="bg-[#F7F5F0] px-6 md:px-12 pt-[118px] pb-24 relative z-10"
         style={{
-          borderRadius: "0 0 50% 50% / 0 0 90px 90px",
+          borderRadius: "0",
           marginTop: "-90px",
         }}
       >
@@ -303,7 +313,7 @@ export default function UeberMichPage() {
                 className="text-sm text-[#8A8A8A] mb-8 max-w-md mx-auto leading-relaxed"
                 style={{ fontFamily: "var(--font-dm-sans)" }}
               >
-                Du hast ein Projekt im Kopf? Ich hoere mir alles an -
+                Du hast ein Projekt im Kopf? Ich höre mir alles an -
                 unverbindlich und ohne Verkaufsdruck. Schreib mir einfach.
               </p>
 
