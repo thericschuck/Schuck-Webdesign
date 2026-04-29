@@ -6,7 +6,7 @@ import { createProject } from './actions'
 type State = { status: 'error'; message: string } | null
 
 type Props = {
-  clients: { id: string; company_name: string }[]
+  clients: { id: string; company_name: string; status: string }[]
   preselectedClientId?: string
 }
 
@@ -39,7 +39,9 @@ export function NewProjectForm({ clients, preselectedClientId }: Props) {
           >
             <option value="" disabled>Kunden auswählen…</option>
             {clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.company_name}</option>
+              <option key={c.id} value={c.id}>
+                {c.company_name}{c.status === 'pending' ? ' (Einladung ausstehend)' : ''}
+              </option>
             ))}
           </select>
         </div>

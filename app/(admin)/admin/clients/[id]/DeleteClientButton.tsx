@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { deleteClient } from './actions'
 
 export function DeleteClientButton({
@@ -10,6 +11,7 @@ export function DeleteClientButton({
   clientId: string
   companyName: string
 }) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,11 +19,12 @@ export function DeleteClientButton({
   const handleDelete = () => {
     setError(null)
     startTransition(async () => {
-      try {
-        await deleteClient(clientId)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Unbekannter Fehler.')
+      const result = await deleteClient(clientId)
+      if (result.status === 'error') {
+        setError(result.message)
         setShowConfirm(false)
+      } else {
+        router.push('/admin/clients')
       }
     })
   }

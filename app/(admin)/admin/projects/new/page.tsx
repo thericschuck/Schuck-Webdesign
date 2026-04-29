@@ -12,8 +12,8 @@ export default async function NewProjectPage({
 
   const { data: clients } = await supabase
     .from('clients')
-    .select('id, company_name')
-    .eq('status', 'active')
+    .select('id, company_name, status')
+    .in('status', ['active', 'pending'])
     .order('company_name', { ascending: true })
 
   return (

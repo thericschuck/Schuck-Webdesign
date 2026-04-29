@@ -4,7 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
-export async function deleteClient(clientId: string): Promise<void> {
+type DeleteResult = { status: 'error'; message: string } | { status: 'success' }
+
+export async function deleteClient(clientId: string): Promise<DeleteResult> {
   const supabase = await createClient()
 
   const {
@@ -19,7 +21,6 @@ export async function deleteClient(clientId: string): Promise<void> {
     .single()
   if (adminProfile?.role !== 'admin') redirect('/portal')
 
-  // profile_id des Kunden ermitteln
   const { data: client } = await supabase
     .from('clients')
     .select('profile_id')
@@ -27,7 +28,7 @@ export async function deleteClient(clientId: string): Promise<void> {
     .single()
 
   if (!client) {
-    throw new Error('Kunde nicht gefunden.')
+    return { status: 'error', message: 'Kunde nicht gefunden.' }
   }
 
   // Auth-User löschen → kaskadiert: profiles → clients → projects → documents
@@ -36,8 +37,8 @@ export async function deleteClient(clientId: string): Promise<void> {
 
   if (error) {
     console.error('[deleteClient] deleteUser error:', error.message)
-    throw new Error('Fehler beim Löschen des Kunden: ' + error.message)
+    return { status: 'error', message: 'Fehler beim Löschen des Kunden: ' + error.message }
   }
 
-  redirect('/admin/clients')
+  return { status: 'success' }
 }
