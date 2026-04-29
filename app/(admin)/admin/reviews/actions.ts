@@ -46,9 +46,9 @@ export async function updateReview(
     .update({
       text: data.text,
       rating: data.rating,
-      reviewer_name: data.reviewer_name || undefined,
-      reviewer_company: data.reviewer_company || undefined,
-      project_id: data.project_id ?? undefined,
+      reviewer_name: data.reviewer_name || null,
+      reviewer_company: data.reviewer_company || null,
+      project_id: data.project_id ?? null,
     })
     .eq('id', id)
   revalidatePath('/admin/reviews')
@@ -66,10 +66,10 @@ export async function createReview(data: {
   await supabase.from('reviews').insert({
     text: data.text,
     rating: data.rating,
-    reviewer_name: data.reviewer_name || undefined,
-    reviewer_company: data.reviewer_company || undefined,
-    project_id: data.project_id ?? undefined,
-    client_id: undefined,
+    reviewer_name: data.reviewer_name || null,
+    reviewer_company: data.reviewer_company || null,
+    project_id: data.project_id ?? null,
+    client_id: null,
     status: 'approved',
     approved_at: new Date().toISOString(),
     published: data.published,

@@ -324,8 +324,8 @@ export type Database = {
       reviews: {
         Row: {
           id: string
-          project_id: string
-          client_id: string
+          project_id: string | null
+          client_id: string | null
           rating: number
           text: string
           reviewer_name: string | null
@@ -337,8 +337,8 @@ export type Database = {
         }
         Insert: {
           id?: string
-          project_id: string
-          client_id: string
+          project_id?: string | null
+          client_id?: string | null
           rating: number
           text: string
           reviewer_name?: string | null
@@ -350,8 +350,8 @@ export type Database = {
         }
         Update: {
           id?: string
-          project_id?: string
-          client_id?: string
+          project_id?: string | null
+          client_id?: string | null
           rating?: number
           text?: string
           reviewer_name?: string | null
