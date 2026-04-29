@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="16" fill="#0d0d0d"/>
+  <!-- left bracket -->
+  <text x="6" y="74"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="70" font-weight="200"
+        fill="rgba(245,245,240,0.42)">[</text>
+  <!-- S -->
+  <text x="51" y="72"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="54" font-weight="700"
+        fill="#F5F5F0" text-anchor="middle">S</text>
+  <!-- right bracket -->
+  <text x="76" y="74"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="70" font-weight="200"
+        fill="rgba(245,245,240,0.42)">]</text>
+</svg>
