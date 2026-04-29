@@ -36,6 +36,55 @@ function Stars({ rating }: { rating: number }) {
   )
 }
 
+const BTN_STYLE = {
+  background: 'rgba(255,255,255,0.10)',
+  border: '1px solid rgba(255,255,255,0.22)',
+  backdropFilter: 'blur(8px)',
+} as const
+
+const BTN_HOVER = {
+  background: 'rgba(255,255,255,0.18)',
+  border: '1px solid rgba(255,255,255,0.45)',
+} as const
+
+function NavBtn({
+  dir,
+  onClick,
+  size = 'md',
+}: {
+  dir: 'prev' | 'next'
+  onClick: () => void
+  size?: 'sm' | 'md'
+}) {
+  const [hovered, setHovered] = useState(false)
+  const dim = size === 'sm' ? 'w-10 h-10' : 'w-11 h-11'
+  return (
+    <button
+      onClick={onClick}
+      aria-label={dir === 'prev' ? 'Vorherige Bewertung' : 'Nächste Bewertung'}
+      className={`shrink-0 ${dim} rounded-full flex items-center justify-center transition-all duration-200`}
+      style={hovered ? BTN_HOVER : BTN_STYLE}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <svg
+        width="15"
+        height="15"
+        fill="none"
+        stroke="rgba(255,255,255,0.85)"
+        strokeWidth={2.2}
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d={dir === 'prev' ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'}
+        />
+      </svg>
+    </button>
+  )
+}
+
 const SLIDE_DURATION = 0.38
 const SLIDE_EASE = [0.32, 0.72, 0, 1]
 
@@ -65,49 +114,49 @@ export function TestimonialsCarousel() {
     animating.current = true
     setDir(direction)
     setIdx((i) => (i + direction + reviews.length) % reviews.length)
-    setTimeout(() => { animating.current = false }, SLIDE_DURATION * 1000 + 50)
+    setTimeout(() => {
+      animating.current = false
+    }, SLIDE_DURATION * 1000 + 50)
   }
 
   if (!loaded || reviews.length === 0) return null
 
   const r = reviews[idx]
+  const hasMultiple = reviews.length > 1
+
+  const dots = hasMultiple ? (
+    <div className="flex items-center gap-2">
+      {reviews.map((_, i) => (
+        <button
+          key={i}
+          onClick={() => go(i > idx ? 1 : -1)}
+          aria-label={`Bewertung ${i + 1}`}
+          className="transition-all duration-300"
+          style={{
+            width: i === idx ? '18px' : '6px',
+            height: '6px',
+            borderRadius: '99px',
+            background:
+              i === idx ? '#7F77DD' : 'rgba(255,255,255,0.18)',
+          }}
+        />
+      ))}
+    </div>
+  ) : null
 
   return (
-    <div className="flex items-center gap-4 md:gap-7 w-full max-w-3xl mx-auto">
+    <div className="w-full">
+      {/* ── Desktop: [←] [card] [→] ─────────────────────────────────────── */}
+      <div className="flex items-center gap-6 md:gap-7">
+        {/* Prev — desktop only */}
+        {hasMultiple && (
+          <div className="hidden md:block">
+            <NavBtn dir="prev" onClick={() => go(-1)} />
+          </div>
+        )}
 
-      {/* ── Prev ── */}
-      {reviews.length > 1 && (
-        <button
-          onClick={() => go(-1)}
-          aria-label="Vorherige Bewertung"
-          className="group shrink-0 w-11 h-11 md:w-13 md:h-13 rounded-full flex items-center justify-center transition-all duration-200"
-          style={{
-            background: 'rgba(255,255,255,0.10)',
-            border: '1px solid rgba(255,255,255,0.22)',
-            backdropFilter: 'blur(8px)',
-          }}
-          onMouseEnter={e => {
-            const el = e.currentTarget
-            el.style.background = 'rgba(255,255,255,0.18)'
-            el.style.border = '1px solid rgba(255,255,255,0.45)'
-          }}
-          onMouseLeave={e => {
-            const el = e.currentTarget
-            el.style.background = 'rgba(255,255,255,0.10)'
-            el.style.border = '1px solid rgba(255,255,255,0.22)'
-          }}
-        >
-          <svg width="16" height="16" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2.2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-      )}
-
-      {/* ── Card + dots ── */}
-      <div className="flex-1 flex flex-col gap-5">
-
-        {/* Overflow clip so sliding card doesn't overflow */}
-        <div className="overflow-hidden rounded-2xl">
+        {/* Card */}
+        <div className="flex-1 overflow-hidden rounded-2xl">
           <AnimatePresence initial={false} custom={dir} mode="popLayout">
             <motion.div
               key={idx}
@@ -116,23 +165,23 @@ export function TestimonialsCarousel() {
               animate={{ x: '0%', opacity: 1 }}
               exit={{ x: `${dir * -55}%`, opacity: 0 }}
               transition={{ duration: SLIDE_DURATION, ease: SLIDE_EASE }}
-              className="w-full bg-[#0f0f0f] border border-white/[0.07] px-8 pt-8 pb-7 flex flex-col gap-5"
+              className="w-full bg-[#0f0f0f] border border-white/[0.07] px-6 pt-7 pb-6 md:px-8 md:pt-8 md:pb-7 flex flex-col gap-4"
               style={{ boxShadow: '0 0 60px rgba(127,119,221,0.04)' }}
             >
               <Stars rating={r.rating} />
               <span
-                className="text-[48px] leading-none text-[#7F77DD]/15 select-none -mb-3"
+                className="text-[44px] leading-none text-[#7F77DD]/15 select-none -mb-2"
                 style={{ fontFamily: 'Georgia, serif' }}
               >
                 "
               </span>
               <p
-                className="text-base text-[#999] leading-relaxed"
+                className="text-sm md:text-base text-[#999] leading-relaxed"
                 style={{ fontFamily: 'var(--font-dm-sans)' }}
               >
                 {r.text}
               </p>
-              <div className="border-t border-white/[0.07] pt-5 mt-1">
+              <div className="border-t border-white/[0.07] pt-4 mt-1">
                 <p
                   className="text-sm font-semibold text-[#E8E8E4]"
                   style={{ fontFamily: 'var(--font-dm-sans)' }}
@@ -152,55 +201,29 @@ export function TestimonialsCarousel() {
           </AnimatePresence>
         </div>
 
-        {/* Dots */}
-        {reviews.length > 1 && (
-          <div className="flex items-center justify-center gap-2">
-            {reviews.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => go(i > idx ? 1 : -1)}
-                aria-label={`Bewertung ${i + 1}`}
-                className="transition-all duration-300"
-                style={{
-                  width: i === idx ? '18px' : '6px',
-                  height: '6px',
-                  borderRadius: '99px',
-                  background: i === idx ? '#7F77DD' : 'rgba(255,255,255,0.18)',
-                }}
-              />
-            ))}
+        {/* Next — desktop only */}
+        {hasMultiple && (
+          <div className="hidden md:block">
+            <NavBtn dir="next" onClick={() => go(1)} />
           </div>
         )}
       </div>
 
-      {/* ── Next ── */}
-      {reviews.length > 1 && (
-        <button
-          onClick={() => go(1)}
-          aria-label="Nächste Bewertung"
-          className="shrink-0 w-11 h-11 md:w-13 md:h-13 rounded-full flex items-center justify-center transition-all duration-200"
-          style={{
-            background: 'rgba(255,255,255,0.10)',
-            border: '1px solid rgba(255,255,255,0.22)',
-            backdropFilter: 'blur(8px)',
-          }}
-          onMouseEnter={e => {
-            const el = e.currentTarget
-            el.style.background = 'rgba(255,255,255,0.18)'
-            el.style.border = '1px solid rgba(255,255,255,0.45)'
-          }}
-          onMouseLeave={e => {
-            const el = e.currentTarget
-            el.style.background = 'rgba(255,255,255,0.10)'
-            el.style.border = '1px solid rgba(255,255,255,0.22)'
-          }}
-        >
-          <svg width="16" height="16" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2.2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+      {/* ── Desktop dots ────────────────────────────────────────────────── */}
+      {hasMultiple && (
+        <div className="hidden md:flex justify-center mt-5">
+          {dots}
+        </div>
       )}
 
+      {/* ── Mobile controls: [←] [dots] [→] below card ──────────────────── */}
+      {hasMultiple && (
+        <div className="flex md:hidden items-center justify-between mt-4">
+          <NavBtn dir="prev" onClick={() => go(-1)} size="sm" />
+          {dots}
+          <NavBtn dir="next" onClick={() => go(1)} size="sm" />
+        </div>
+      )}
     </div>
   )
 }

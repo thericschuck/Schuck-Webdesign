@@ -29,3 +29,50 @@ export async function deleteReview(id: string) {
   await supabase.from('reviews').delete().eq('id', id)
   revalidatePath('/admin/reviews')
 }
+
+export async function updateReview(
+  id: string,
+  data: {
+    text: string
+    rating: number
+    reviewer_name: string
+    reviewer_company: string
+    project_id: string | null
+  }
+) {
+  const supabase = createAdminClient()
+  await supabase
+    .from('reviews')
+    .update({
+      text: data.text,
+      rating: data.rating,
+      reviewer_name: data.reviewer_name || null,
+      reviewer_company: data.reviewer_company || null,
+      project_id: data.project_id || null,
+    })
+    .eq('id', id)
+  revalidatePath('/admin/reviews')
+}
+
+export async function createReview(data: {
+  text: string
+  rating: number
+  reviewer_name: string
+  reviewer_company: string
+  project_id: string | null
+  published: boolean
+}) {
+  const supabase = createAdminClient()
+  await supabase.from('reviews').insert({
+    text: data.text,
+    rating: data.rating,
+    reviewer_name: data.reviewer_name,
+    reviewer_company: data.reviewer_company || null,
+    project_id: data.project_id || null,
+    client_id: null,
+    status: 'approved',
+    approved_at: new Date().toISOString(),
+    published: data.published,
+  })
+  revalidatePath('/admin/reviews')
+}

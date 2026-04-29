@@ -653,6 +653,9 @@ function ProblemSolutionSection() {
 
 function ServicesSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const [mobileIdx, setMobileIdx] = useState(0);
+
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ["end 0.85", "end 0.05"],
@@ -669,6 +672,34 @@ function ServicesSection() {
     { y: y2, opacity: op2 },
   ];
 
+  function scrollToCard(idx: number) {
+    const el = mobileScrollRef.current;
+    if (!el) return;
+    const cards = el.querySelectorAll("[data-scard]");
+    const card = cards[idx] as HTMLElement | undefined;
+    if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }
+
+  function goMobile(dir: 1 | -1) {
+    const next = Math.max(0, Math.min(SERVICES.length - 1, mobileIdx + dir));
+    if (next === mobileIdx) return;
+    setMobileIdx(next);
+    scrollToCard(next);
+  }
+
+  function onMobileScroll() {
+    const el = mobileScrollRef.current;
+    if (!el) return;
+    const center = el.getBoundingClientRect().left + el.clientWidth / 2;
+    let closest = 0, closestDist = Infinity;
+    el.querySelectorAll("[data-scard]").forEach((card, i) => {
+      const r = card.getBoundingClientRect();
+      const dist = Math.abs(r.left + r.width / 2 - center);
+      if (dist < closestDist) { closestDist = dist; closest = i; }
+    });
+    setMobileIdx(closest);
+  }
+
   return (
     <section ref={sectionRef} data-cursor="dark" className="bg-[#F7F5F0] px-6 md:px-12 py-24">
       <div className="max-w-6xl mx-auto">
@@ -678,11 +709,17 @@ function ServicesSection() {
             Was ich für dich tue.
           </SectionHeadline>
         </FadeIn>
-        <div className="grid md:grid-cols-3 gap-4">
+        <div
+          ref={mobileScrollRef}
+          onScroll={onMobileScroll}
+          className="overflow-x-auto -mx-6 pb-4 snap-x snap-mandatory md:overflow-visible md:mx-0 md:pb-0"
+          style={{ scrollbarWidth: "none", touchAction: "pan-x" } as React.CSSProperties}
+        >
+          <div className="flex gap-4 px-[11vw] min-w-max md:grid md:grid-cols-3 md:min-w-0 md:px-0">
           {SERVICES.map((s, i) => (
-            <motion.div key={s.title} style={cardMotion[i]} className="h-full">
-              <FadeIn delay={i * 0.1} className="h-full">
-                <div data-cursor="light" className="group relative bg-[#1C1C1E] border border-white/6 rounded-xl p-7 hover:border-white/12 hover:bg-[#222] transition-all duration-300 flex flex-col gap-5 h-full overflow-hidden">
+            <motion.div key={s.title} data-scard={i} style={cardMotion[i]} className="flex flex-col shrink-0 w-[78vw] snap-center md:w-auto">
+              <FadeIn delay={i * 0.1} className="flex-1 flex flex-col">
+                <div data-cursor="light" className="group relative bg-[#1C1C1E] border border-white/6 rounded-xl p-7 hover:border-white/12 hover:bg-[#222] transition-all duration-300 flex flex-col gap-5 flex-1 overflow-hidden">
                   {/* Background number */}
                   <span
                     aria-hidden
@@ -738,6 +775,47 @@ function ServicesSection() {
               </FadeIn>
             </motion.div>
           ))}
+          </div>
+        </div>
+
+        {/* Mobile nav — prev / dots / next */}
+        <div className="flex md:hidden items-center justify-between mt-5">
+          <button
+            onClick={() => goMobile(-1)}
+            disabled={mobileIdx === 0}
+            aria-label="Vorherige Leistung"
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-[#1C1C1E] disabled:opacity-30 transition-opacity"
+          >
+            <svg width="15" height="15" fill="none" stroke="white" strokeWidth={2.2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-2">
+            {SERVICES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => { setMobileIdx(i); scrollToCard(i); }}
+                aria-label={`Leistung ${i + 1}`}
+                className="transition-all duration-300"
+                style={{
+                  width: i === mobileIdx ? "18px" : "6px",
+                  height: "6px",
+                  borderRadius: "99px",
+                  background: i === mobileIdx ? "#7F77DD" : "rgba(28,28,30,0.20)",
+                }}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => goMobile(1)}
+            disabled={mobileIdx === SERVICES.length - 1}
+            aria-label="Nächste Leistung"
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-[#1C1C1E] disabled:opacity-30 transition-opacity"
+          >
+            <svg width="15" height="15" fill="none" stroke="white" strokeWidth={2.2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       </div>
     </section>
@@ -746,11 +824,42 @@ function ServicesSection() {
 
 function ProjectsSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const projectScrollRef = useRef<HTMLDivElement>(null);
+  const [projectIdx, setProjectIdx] = useState(0);
+
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ["start end", "start start"],
   });
   const y = useTransform(scrollYProgress, [0, 1], [80, 0]);
+
+  function scrollToProject(idx: number) {
+    const el = projectScrollRef.current;
+    if (!el) return;
+    const cards = el.querySelectorAll("[data-pcard]");
+    const card = cards[idx] as HTMLElement | undefined;
+    if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }
+
+  function goProject(dir: 1 | -1) {
+    const next = Math.max(0, Math.min(FEATURED_PROJECTS.length - 1, projectIdx + dir));
+    if (next === projectIdx) return;
+    setProjectIdx(next);
+    scrollToProject(next);
+  }
+
+  function onProjectScroll() {
+    const el = projectScrollRef.current;
+    if (!el) return;
+    const center = el.getBoundingClientRect().left + el.clientWidth / 2;
+    let closest = 0, closestDist = Infinity;
+    el.querySelectorAll("[data-pcard]").forEach((card, i) => {
+      const r = card.getBoundingClientRect();
+      const dist = Math.abs(r.left + r.width / 2 - center);
+      if (dist < closestDist) { closestDist = dist; closest = i; }
+    });
+    setProjectIdx(closest);
+  }
 
   return (
     <motion.section
@@ -780,9 +889,16 @@ function ProjectsSection() {
           </div>
         </FadeIn>
 
-        <div className="grid md:grid-cols-2 gap-5">
+        <div
+          ref={projectScrollRef}
+          onScroll={onProjectScroll}
+          className="overflow-x-auto -mx-6 pb-4 snap-x snap-mandatory md:overflow-visible md:mx-0 md:pb-0"
+          style={{ touchAction: "pan-x", scrollbarWidth: "none" } as React.CSSProperties}
+        >
+          <div className="flex gap-5 px-[9vw] min-w-max md:grid md:grid-cols-2 md:min-w-0 md:px-0">
           {FEATURED_PROJECTS.map((p, i) => (
-            <FadeIn key={p.slug} delay={i * 0.1}>
+            <div key={p.slug} data-pcard={i} className="shrink-0 w-[82vw] snap-center md:w-auto">
+            <FadeIn delay={i * 0.1}>
               <Link href={`/projekte/${p.slug}`} className="group block">
                 <div className="aspect-4/3 rounded-xl border border-white/6 mb-4 overflow-hidden group-hover:border-white/12 transition-all duration-300 relative bg-[#161616]">
                   <Image
@@ -837,7 +953,49 @@ function ProjectsSection() {
                 </div>
               </Link>
             </FadeIn>
+            </div>
           ))}
+          </div>
+        </div>
+
+        {/* Mobile nav — prev / dots / next */}
+        <div className="flex md:hidden items-center justify-between mt-5">
+          <button
+            onClick={() => goProject(-1)}
+            disabled={projectIdx === 0}
+            aria-label="Vorheriges Projekt"
+            className="w-10 h-10 rounded-full flex items-center justify-center border border-white/[0.20] bg-white/[0.08] disabled:opacity-30 transition-opacity"
+          >
+            <svg width="15" height="15" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2.2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-2">
+            {FEATURED_PROJECTS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => { setProjectIdx(i); scrollToProject(i); }}
+                aria-label={`Projekt ${i + 1}`}
+                className="transition-all duration-300"
+                style={{
+                  width: i === projectIdx ? "18px" : "6px",
+                  height: "6px",
+                  borderRadius: "99px",
+                  background: i === projectIdx ? "#7F77DD" : "rgba(255,255,255,0.18)",
+                }}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => goProject(1)}
+            disabled={projectIdx === FEATURED_PROJECTS.length - 1}
+            aria-label="Nächstes Projekt"
+            className="w-10 h-10 rounded-full flex items-center justify-center border border-white/[0.20] bg-white/[0.08] disabled:opacity-30 transition-opacity"
+          >
+            <svg width="15" height="15" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2.2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       </div>
     </motion.section>
@@ -1064,23 +1222,11 @@ function TestimonialsSection() {
 
 function AboutSection() {
   return (
-    <section data-cursor="dark" className="relative bg-[#F7F5F0] px-6 md:px-12 py-24 z-10">
-      <div
-        aria-hidden
-        className="absolute -top-16 left-0 w-full h-16 pointer-events-none"
-        style={{
-          background: "#F7F5F0",
-          clipPath: "polygon(0 100%, 100% 18%, 100% 100%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="absolute -bottom-[63px] left-0 w-full h-16 pointer-events-none"
-        style={{
-          background: "#F7F5F0",
-          clipPath: "polygon(0 0, 100% 0, 0 88%)",
-        }}
-      />
+    <section
+      data-cursor="dark"
+      className="relative bg-[#F7F5F0] px-6 md:px-12 py-24 z-10"
+      style={{ borderRadius: "56px 56px 0 0", marginTop: "-56px" }}
+    >
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
         <FadeIn>
           <div className="relative aspect-[3/4] rounded-2xl max-w-sm overflow-hidden">
@@ -1146,7 +1292,10 @@ function AboutSection() {
 
 function FinalCtaSection() {
   return (
-    <section className="bg-[#080808] px-6 md:px-12 py-28 relative overflow-hidden">
+    <section
+      className="bg-[#080808] px-6 md:px-12 py-28 relative overflow-hidden"
+      style={{ borderRadius: "56px 56px 0 0", marginTop: "-56px" }}
+    >
       <div
         aria-hidden
         className="absolute inset-0 pointer-events-none"

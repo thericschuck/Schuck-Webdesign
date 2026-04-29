@@ -42,6 +42,7 @@ html.custom-cursor button {
   pointer-events: none;
   z-index: 9999;
   will-change: transform;
+  transform: translate(-9999px, -9999px); /* off-screen until JS positions it */
   transition:
     width  0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
     height 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -71,6 +72,7 @@ html.custom-cursor button {
   pointer-events: none;
   z-index: 9999;
   will-change: transform;
+  transform: translate(-9999px, -9999px); /* off-screen until JS positions it */
 }
 .cursor-inner {
   width: 5px; height: 5px;
@@ -171,12 +173,16 @@ html.custom-cursor button {
   }
 }
 
-/* ─── Touch devices: restore default cursor ──────────────────── */
+/* ─── Touch devices: restore default cursor + hide cursor elements ─── */
 @media (hover: none) {
   html.custom-cursor,
   html.custom-cursor *,
   html.custom-cursor a,
   html.custom-cursor button {
     cursor: auto !important;
+  }
+  .cursor-outer,
+  .cursor-inner-wrap {
+    display: none !important;
   }
 }

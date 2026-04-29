@@ -80,7 +80,7 @@ export default async function ProjektDetailPage({
       <section style={{ backgroundColor: "#080808" }} className="px-6 pb-0 pt-8 md:px-12">
         <div className="mx-auto max-w-6xl">
           <div
-            className="relative aspect-video w-full overflow-hidden rounded-2xl border"
+            className="relative w-full overflow-hidden rounded-2xl border aspect-[4/3] md:aspect-video"
             style={{
               backgroundColor: "#101010",
               borderColor: "rgba(255,255,255,0.06)",
@@ -96,39 +96,19 @@ export default async function ProjektDetailPage({
               blurDataURL={project.blurDataURL}
               priority
             />
-            {/* gradient only behind bottom text */}
-            <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-            <div className="absolute left-6 top-6">
-              <p
-                className="text-xs uppercase tracking-[0.3em]"
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+            <div className="absolute left-5 top-5 md:left-7 md:top-7">
+              <span
+                className="rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.22em]"
                 style={{
-                  color: "rgba(245,245,240,0.7)",
+                  color: "#7F77DD",
+                  backgroundColor: "rgba(127,119,221,0.15)",
+                  border: "1px solid rgba(127,119,221,0.25)",
                   fontFamily: "var(--font-dm-sans)",
-                  textShadow: "0 1px 8px rgba(0,0,0,0.6)",
                 }}
               >
                 Case Study
-              </p>
-            </div>
-            <div className="absolute inset-x-6 bottom-6 md:inset-x-10 md:bottom-10">
-              <p
-                className="text-3xl leading-none md:text-5xl"
-                style={{
-                  color: "#F5F5F0",
-                  fontFamily: "var(--font-fraunces)",
-                }}
-              >
-                {project.name}
-              </p>
-              <p
-                className="mt-3 max-w-xl text-sm md:text-base"
-                style={{
-                  color: "rgba(245,245,240,0.62)",
-                  fontFamily: "var(--font-dm-sans)",
-                }}
-              >
-                {project.shortDesc}
-              </p>
+              </span>
             </div>
           </div>
         </div>

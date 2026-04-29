@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/public/Navbar";
 import { Footer } from "@/components/public/Footer";
 import { CustomCursor } from "@/components/public/CustomCursor";
+import { FloatingCTA } from "@/components/public/FloatingCTA";
 
 export default function PublicLayout({
   children,
@@ -13,6 +14,7 @@ export default function PublicLayout({
       <Navbar />
       {children}
       <Footer />
+      <FloatingCTA />
     </>
   );
 }

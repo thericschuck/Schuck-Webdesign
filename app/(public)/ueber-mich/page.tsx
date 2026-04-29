@@ -294,7 +294,7 @@ export default function UeberMichPage() {
               }}
             />
 
-            <div className="relative z-10">
+            <div className="relative z-10 flex flex-col items-center text-center">
               <p
                 className="text-[11px] uppercase tracking-[0.14em] text-[#7F77DD] mb-3"
                 style={{ fontFamily: "var(--font-dm-sans)" }}
@@ -310,16 +310,16 @@ export default function UeberMichPage() {
               </h2>
 
               <p
-                className="text-sm text-[#8A8A8A] mb-8 max-w-md mx-auto leading-relaxed"
+                className="text-sm text-[#8A8A8A] mb-8 max-w-md leading-relaxed"
                 style={{ fontFamily: "var(--font-dm-sans)" }}
               >
-                Du hast ein Projekt im Kopf? Ich höre mir alles an -
+                Du hast ein Projekt im Kopf? Ich höre mir alles an —
                 unverbindlich und ohne Verkaufsdruck. Schreib mir einfach.
               </p>
 
               <Link
                 href="/kontakt"
-                className="inline-block bg-[#F5F5F0] text-[#080808] px-8 py-3.5 rounded-md text-sm font-semibold hover:-translate-y-0.5 hover:bg-white transition-all duration-150"
+                className="inline-flex items-center bg-[#F5F5F0] text-[#080808] px-8 py-3.5 rounded-md text-sm font-semibold hover:-translate-y-0.5 hover:bg-white transition-all duration-150"
                 style={{ fontFamily: "var(--font-dm-sans)" }}
               >
                 Kontakt aufnehmen

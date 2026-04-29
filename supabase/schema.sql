@@ -469,3 +469,10 @@ create policy "storage: Client löscht eigene Dateien"
 alter table public.reviews
   add column if not exists reviewer_name    text,
   add column if not exists reviewer_company text;
+
+-- 8. Manuelle Bewertungen erlauben (ohne Portal-Account und ohne Projekt-Zuordnung)
+alter table public.reviews
+  alter column client_id  drop not null,
+  alter column project_id drop not null;
+
+drop index if exists reviews_project_client_unique;

@@ -166,7 +166,7 @@ export default function ProjektePage() {
           </FadeIn>
           <FadeIn delay={0.08}>
             <h1
-              className="mb-5 text-5xl font-normal leading-tight md:text-6xl lg:text-7xl"
+              className="mb-5 text-4xl font-normal leading-tight md:text-6xl lg:text-7xl"
               style={{
                 fontFamily: "var(--font-fraunces)",
                 color: "#F5F5F0",
