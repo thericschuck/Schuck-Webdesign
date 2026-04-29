@@ -86,7 +86,7 @@ function NavBtn({
 }
 
 const SLIDE_DURATION = 0.38
-const SLIDE_EASE = [0.32, 0.72, 0, 1]
+const SLIDE_EASE: [number, number, number, number] = [0.32, 0.72, 0, 1]
 
 export function TestimonialsCarousel() {
   const [reviews, setReviews] = useState<ReviewRow[]>([])
