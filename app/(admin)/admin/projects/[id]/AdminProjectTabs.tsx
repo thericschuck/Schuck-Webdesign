@@ -11,6 +11,7 @@ import {
   deleteUpdate,
 } from './actions'
 import { AddUpdateForm } from './AddUpdateForm'
+import { AdminFileExplorer } from './AdminFileExplorer'
 
 type ActionResult = { status: 'success' } | { status: 'error'; message: string }
 
@@ -43,13 +44,24 @@ type Review = {
   created_at: string
 }
 
+type DocRow = {
+  id: string
+  name: string
+  file_url: string
+  folder: string | null
+  created_at: string
+  signedUrl: string | null
+}
+
 type Props = {
   projectId: string
+  clientId: string
   adminId: string
   updates: Update[]
   meetings: Meeting[]
   changeRequests: ChangeRequest[]
   reviews: Review[]
+  documents: DocRow[]
 }
 
 const TABS = [
@@ -57,6 +69,7 @@ const TABS = [
   { id: 'meetings' as const, label: 'Besprechungen' },
   { id: 'requests' as const, label: 'Anfragen' },
   { id: 'reviews' as const, label: 'Bewertungen' },
+  { id: 'files' as const, label: 'Dateien' },
 ]
 type TabId = typeof TABS[number]['id']
 
@@ -84,7 +97,7 @@ function formatDateTime(s: string) {
 }
 
 export function AdminProjectTabs({
-  projectId, adminId, updates, meetings, changeRequests, reviews,
+  projectId, clientId, adminId, updates, meetings, changeRequests, reviews, documents,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('updates')
   const [showMeetingForm, setShowMeetingForm] = useState(false)
@@ -495,6 +508,15 @@ export function AdminProjectTabs({
             ))
           )}
         </div>
+      )}
+
+      {/* ── Dateien ── */}
+      {activeTab === 'files' && (
+        <AdminFileExplorer
+          projectId={projectId}
+          clientId={clientId}
+          documents={documents}
+        />
       )}
 
       {/* ── Bewertungen ── */}

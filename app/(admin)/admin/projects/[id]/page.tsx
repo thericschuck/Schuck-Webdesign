@@ -45,7 +45,7 @@ export default async function ProjectDetailPage({
       launch_date,
       created_at,
       client:clients(id, company_name),
-      documents(id, name, category, file_url, created_at)
+      documents(id, name, file_url, folder, created_at)
     `)
     .eq('id', id)
     .single()
@@ -82,7 +82,17 @@ export default async function ProjectDetailPage({
   ])
 
   const client = Array.isArray(project.client) ? project.client[0] : project.client
-  const documents = project.documents ?? []
+  const rawDocs = project.documents ?? []
+
+  // Signed URLs für alle Dokumente generieren
+  const documents = await Promise.all(
+    rawDocs.map(async (doc) => {
+      const { data } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(doc.file_url, 3600)
+      return { ...doc, signedUrl: data?.signedUrl ?? null }
+    })
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -172,37 +182,19 @@ export default async function ProjectDetailPage({
             <DeleteProjectButton projectId={project.id} projectTitle={project.title} />
           </div>
 
-          {/* Documents */}
-          {documents.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                Dokumente ({documents.length})
-              </h2>
-              <div className="flex flex-col gap-2">
-                {documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="text-sm text-gray-700 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                      {doc.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right: Tabs */}
         <div className="col-span-2">
           <AdminProjectTabs
             projectId={project.id}
+            clientId={client!.id}
             adminId={user!.id}
             updates={updates ?? []}
             meetings={meetings ?? []}
             changeRequests={changeRequests ?? []}
             reviews={reviews ?? []}
+            documents={documents}
           />
         </div>
       </div>

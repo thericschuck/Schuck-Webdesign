@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import type { ProjectStatus } from '@/types/database'
@@ -247,6 +248,82 @@ export async function deleteProject(projectId: string): Promise<DeleteProjectRes
   }
 
   return { status: 'success', clientId: project.client_id }
+}
+
+// ── Admin File Upload ────────────────────────────────────────────────────────
+
+const MAX_SIZE_BYTES = 10 * 1024 * 1024
+const ALLOWED_TYPES = [
+  'application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/svg+xml',
+  'application/zip', 'application/x-zip-compressed', 'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+
+type UploadResult = { status: 'success'; fileName: string } | { status: 'error'; message: string }
+
+export async function adminUploadFile(
+  _prev: UploadResult | null,
+  formData: FormData
+): Promise<UploadResult> {
+  const supabase = await assertAdmin()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const file = formData.get('file') as File | null
+  const projectId = formData.get('project_id') as string
+  const clientId = formData.get('client_id') as string
+  const folder = (formData.get('folder') as string | null)?.trim() || null
+
+  if (!file || file.size === 0) return { status: 'error', message: 'Bitte eine Datei auswählen.' }
+  if (file.size > MAX_SIZE_BYTES) return { status: 'error', message: 'Datei zu groß. Maximal 10 MB.' }
+  if (!ALLOWED_TYPES.includes(file.type)) return { status: 'error', message: 'Dateityp nicht erlaubt. Erlaubt: PDF, Bilder, ZIP, Word.' }
+
+  const adminClient = createAdminClient()
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const storagePath = `${clientId}/${Date.now()}_${safeName}`
+
+  const bytes = await file.arrayBuffer()
+  const { error: uploadError } = await adminClient.storage
+    .from('documents')
+    .upload(storagePath, bytes, { contentType: file.type, upsert: false })
+
+  if (uploadError) {
+    console.error('[adminUpload] storage:', uploadError.message)
+    return { status: 'error', message: 'Upload fehlgeschlagen.' }
+  }
+
+  const { error: dbError } = await adminClient.from('documents').insert({
+    client_id: clientId,
+    project_id: projectId,
+    folder,
+    name: file.name,
+    file_url: storagePath,
+    category: 'other',
+    uploaded_by: user!.id,
+  })
+
+  if (dbError) {
+    console.error('[adminUpload] db:', dbError.message)
+    await adminClient.storage.from('documents').remove([storagePath])
+    return { status: 'error', message: 'Datenbankfehler.' }
+  }
+
+  revalidatePath(`/admin/projects/${projectId}`)
+  return { status: 'success', fileName: file.name }
+}
+
+export async function adminDeleteFile(formData: FormData): Promise<void> {
+  await assertAdmin()
+  const adminClient = createAdminClient()
+
+  const fileUrl = formData.get('file_url') as string
+  const documentId = formData.get('document_id') as string
+  const projectId = formData.get('project_id') as string
+
+  await adminClient.storage.from('documents').remove([fileUrl])
+  await adminClient.from('documents').delete().eq('id', documentId)
+
+  revalidatePath(`/admin/projects/${projectId}`)
 }
 
 // ── Update Project Meta ──────────────────────────────────────────────────────
