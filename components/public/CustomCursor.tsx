@@ -13,7 +13,7 @@ export function CustomCursor() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.matchMedia("(hover: none)").matches) return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
 
     const outer = outerRef.current!;
     const innerWrap = innerWrapRef.current!;

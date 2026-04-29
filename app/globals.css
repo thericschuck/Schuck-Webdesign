@@ -174,7 +174,7 @@ html.custom-cursor button {
 }
 
 /* ─── Touch devices: restore default cursor + hide cursor elements ─── */
-@media (hover: none) {
+@media (pointer: coarse) {
   html.custom-cursor,
   html.custom-cursor *,
   html.custom-cursor a,

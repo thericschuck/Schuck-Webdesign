@@ -713,7 +713,7 @@ function ServicesSection() {
           ref={mobileScrollRef}
           onScroll={onMobileScroll}
           className="overflow-x-auto -mx-6 pb-4 snap-x snap-mandatory md:overflow-visible md:mx-0 md:pb-0"
-          style={{ scrollbarWidth: "none", touchAction: "pan-x" } as React.CSSProperties}
+          style={{ scrollbarWidth: "none", touchAction: "pan-x pan-y" } as React.CSSProperties}
         >
           <div className="flex gap-4 px-[11vw] min-w-max md:grid md:grid-cols-3 md:min-w-0 md:px-0">
           {SERVICES.map((s, i) => (
@@ -893,7 +893,7 @@ function ProjectsSection() {
           ref={projectScrollRef}
           onScroll={onProjectScroll}
           className="overflow-x-auto -mx-6 pb-4 snap-x snap-mandatory md:overflow-visible md:mx-0 md:pb-0"
-          style={{ touchAction: "pan-x", scrollbarWidth: "none" } as React.CSSProperties}
+          style={{ touchAction: "pan-x pan-y", scrollbarWidth: "none" } as React.CSSProperties}
         >
           <div className="flex gap-5 px-[9vw] min-w-max md:grid md:grid-cols-2 md:min-w-0 md:px-0">
           {FEATURED_PROJECTS.map((p, i) => (
