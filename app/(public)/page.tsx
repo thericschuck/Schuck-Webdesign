@@ -672,6 +672,22 @@ function ServicesSection() {
     { y: y2, opacity: op2 },
   ];
 
+  useEffect(() => {
+    const el = mobileScrollRef.current;
+    if (!el) return;
+    let startX = 0, startY = 0, dir: 'h' | 'v' | null = null;
+    function onStart(e: TouchEvent) { startX = e.touches[0].clientX; startY = e.touches[0].clientY; dir = null; }
+    function onMove(e: TouchEvent) {
+      const dx = Math.abs(e.touches[0].clientX - startX);
+      const dy = Math.abs(e.touches[0].clientY - startY);
+      if (!dir && (dx > 5 || dy > 5)) dir = dx > dy ? 'h' : 'v';
+      if (dir === 'v') { e.preventDefault(); window.scrollBy(0, startY - e.touches[0].clientY); startY = e.touches[0].clientY; }
+    }
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    return () => { el.removeEventListener('touchstart', onStart); el.removeEventListener('touchmove', onMove); };
+  }, []);
+
   function scrollToCard(idx: number) {
     const el = mobileScrollRef.current;
     if (!el) return;
@@ -713,7 +729,7 @@ function ServicesSection() {
           ref={mobileScrollRef}
           onScroll={onMobileScroll}
           className="overflow-x-auto -mx-6 pb-4 snap-x snap-mandatory md:overflow-visible md:mx-0 md:pb-0"
-          style={{ scrollbarWidth: "none", touchAction: "pan-x pan-y" } as React.CSSProperties}
+          style={{ scrollbarWidth: "none", touchAction: "pan-x" } as React.CSSProperties}
         >
           <div className="flex gap-4 px-[11vw] min-w-max md:grid md:grid-cols-3 md:min-w-0 md:px-0">
           {SERVICES.map((s, i) => (
@@ -861,6 +877,22 @@ function ProjectsSection() {
     setProjectIdx(closest);
   }
 
+  useEffect(() => {
+    const el = projectScrollRef.current;
+    if (!el) return;
+    let startX = 0, startY = 0, dir: 'h' | 'v' | null = null;
+    function onStart(e: TouchEvent) { startX = e.touches[0].clientX; startY = e.touches[0].clientY; dir = null; }
+    function onMove(e: TouchEvent) {
+      const dx = Math.abs(e.touches[0].clientX - startX);
+      const dy = Math.abs(e.touches[0].clientY - startY);
+      if (!dir && (dx > 5 || dy > 5)) dir = dx > dy ? 'h' : 'v';
+      if (dir === 'v') { e.preventDefault(); window.scrollBy(0, startY - e.touches[0].clientY); startY = e.touches[0].clientY; }
+    }
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    return () => { el.removeEventListener('touchstart', onStart); el.removeEventListener('touchmove', onMove); };
+  }, []);
+
   return (
     <motion.section
       ref={sectionRef}
@@ -893,7 +925,7 @@ function ProjectsSection() {
           ref={projectScrollRef}
           onScroll={onProjectScroll}
           className="overflow-x-auto -mx-6 pb-4 snap-x snap-mandatory md:overflow-visible md:mx-0 md:pb-0"
-          style={{ touchAction: "pan-x pan-y", scrollbarWidth: "none" } as React.CSSProperties}
+          style={{ touchAction: "pan-x", scrollbarWidth: "none" } as React.CSSProperties}
         >
           <div className="flex gap-5 px-[9vw] min-w-max md:grid md:grid-cols-2 md:min-w-0 md:px-0">
           {FEATURED_PROJECTS.map((p, i) => (
@@ -1225,7 +1257,7 @@ function AboutSection() {
     <section
       data-cursor="dark"
       className="relative bg-[#F7F5F0] px-6 md:px-12 py-24 z-10"
-      style={{ borderRadius: "56px 56px 0 0", marginTop: "-56px" }}
+      style={{ clipPath: "polygon(0 56px, 100% 0, 100% 100%, 0 100%)", marginTop: "-56px" }}
     >
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
         <FadeIn>
@@ -1293,8 +1325,8 @@ function AboutSection() {
 function FinalCtaSection() {
   return (
     <section
-      className="bg-[#080808] px-6 md:px-12 py-28 relative overflow-hidden"
-      style={{ borderRadius: "56px 56px 0 0", marginTop: "-56px" }}
+      className="bg-[#080808] px-6 md:px-12 py-28 relative overflow-hidden z-20"
+      style={{ clipPath: "polygon(0 56px, 100% 0, 100% 100%, 0 100%)", marginTop: "-56px" }}
     >
       <div
         aria-hidden
