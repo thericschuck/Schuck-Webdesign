@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useState, useRef, useEffect } from 'react'
+import { motion, LayoutGroup } from 'framer-motion'
 import { submitChangeRequest, submitReview } from './actions'
 
 type ActionResult = { status: 'success' } | { status: 'error'; message: string }
@@ -106,28 +107,37 @@ export function ProjectTabs({ projectId, userId, updates, meetings, changeReques
     <div>
       {/* Tab bar */}
       <div className="mb-6 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-max gap-1 border-b border-black/[0.08] pb-1">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={[
-                'flex items-center gap-1.5 px-4 py-2.5 text-sm whitespace-nowrap transition-all rounded-full',
-                activeTab === tab.id
-                  ? 'bg-[#1C1C1E] text-[#F5F5F0]'
-                  : 'text-[#7A746B] hover:text-[#1C1C1E] hover:bg-black/[0.04]',
-              ].join(' ')}
-              style={{ fontFamily: 'var(--font-dm-sans)' }}
-            >
-              {tab.label}
-              {tab.id === 'requests' && openRequests > 0 && (
-                <span className="rounded-full bg-[#F6E7D5] px-1.5 py-0.5 text-xs leading-none text-[#B76B1D]">
-                  {openRequests}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        <LayoutGroup id="project-tabs">
+          <div className="flex min-w-max gap-1 border-b border-black/8">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={[
+                  'relative flex items-center gap-1.5 px-4 py-2.5 pb-3 text-sm whitespace-nowrap transition-colors',
+                  activeTab === tab.id
+                    ? 'text-[#1C1C1E] font-medium'
+                    : 'text-[#7A746B] hover:text-[#1C1C1E]',
+                ].join(' ')}
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                {tab.label}
+                {tab.id === 'requests' && openRequests > 0 && (
+                  <span className="rounded-full bg-[#F6E7D5] px-1.5 py-0.5 text-xs leading-none text-[#B76B1D]">
+                    {openRequests}
+                  </span>
+                )}
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="tab-underline"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1C1C1E]"
+                    transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </LayoutGroup>
       </div>
 
       {/* ── Überblick ── */}

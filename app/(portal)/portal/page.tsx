@@ -4,12 +4,22 @@ import { StatusTimeline } from '@/components/portal/StatusTimeline'
 import type { ProjectStatus } from '@/types/database'
 
 const BANNER_STARS = [
-  { top: '18%', left: '14%', size: 3, alpha: 0.45 },
-  { top: '28%', left: '36%', size: 2, alpha: 0.28 },
-  { top: '20%', left: '78%', size: 4, alpha: 0.55 },
-  { top: '62%', left: '64%', size: 2, alpha: 0.22 },
-  { top: '70%', left: '23%', size: 3, alpha: 0.32 },
-  { top: '54%', left: '88%', size: 2, alpha: 0.26 },
+  { top: '12%', left: '8%',  size: 2, alpha: 0.70, glow: false, delay: 0.0 },
+  { top: '18%', left: '14%', size: 3, alpha: 0.85, glow: true,  delay: 0.8 },
+  { top: '8%',  left: '32%', size: 2, alpha: 0.55, glow: false, delay: 2.1 },
+  { top: '28%', left: '36%', size: 2, alpha: 0.60, glow: false, delay: 1.5 },
+  { top: '20%', left: '78%', size: 4, alpha: 0.90, glow: true,  delay: 0.3 },
+  { top: '6%',  left: '56%', size: 2, alpha: 0.50, glow: false, delay: 1.9 },
+  { top: '45%', left: '93%', size: 3, alpha: 0.75, glow: true,  delay: 1.1 },
+  { top: '62%', left: '64%', size: 2, alpha: 0.60, glow: false, delay: 0.6 },
+  { top: '70%', left: '23%', size: 3, alpha: 0.70, glow: true,  delay: 1.8 },
+  { top: '54%', left: '88%', size: 2, alpha: 0.55, glow: false, delay: 0.4 },
+  { top: '82%', left: '45%', size: 3, alpha: 0.65, glow: false, delay: 1.3 },
+  { top: '38%', left: '5%',  size: 2, alpha: 0.50, glow: false, delay: 2.4 },
+  { top: '75%', left: '72%', size: 4, alpha: 0.80, glow: true,  delay: 0.9 },
+  { top: '15%', left: '48%', size: 2, alpha: 0.55, glow: false, delay: 1.6 },
+  { top: '88%', left: '18%', size: 2, alpha: 0.45, glow: false, delay: 0.7 },
+  { top: '50%', left: '50%', size: 2, alpha: 0.40, glow: false, delay: 2.8 },
 ]
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -65,21 +75,20 @@ export default async function PortalDashboardPage() {
     )
   }
 
-  const { data: projects } = await supabase
-    .from('projects')
-    .select(`
-      id, title, description, status, start_date, launch_date, created_at,
-      project_updates(id, message, created_at)
-    `)
-    .eq('client_id', client.id)
-    .order('created_at', { ascending: false })
-
-  const { data: documents } = await supabase
-    .from('documents')
-    .select('id, name, created_at')
-    .eq('client_id', client.id)
-    .order('created_at', { ascending: false })
-    .limit(3)
+  // Projekte + Dokumente parallel laden
+  const [{ data: projects }, { data: documents }] = await Promise.all([
+    supabase
+      .from('projects')
+      .select(`id, title, description, status, start_date, launch_date, created_at, project_updates(id, message, created_at)`)
+      .eq('client_id', client.id)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('documents')
+      .select('id, name, created_at')
+      .eq('client_id', client.id)
+      .order('created_at', { ascending: false })
+      .limit(3),
+  ])
 
   return (
     <div className="space-y-10">
@@ -87,14 +96,20 @@ export default async function PortalDashboardPage() {
         className="relative overflow-hidden rounded-[32px] border border-white/[0.06] bg-[#080808] px-7 py-8 md:px-10 md:py-10"
         style={{ boxShadow: '0 14px 48px rgba(0,0,0,0.18)' }}
       >
-        <div className="absolute -top-10 -right-10 h-52 w-52 rounded-full bg-[#7F77DD]/10 blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-12 left-1/3 h-64 w-64 rounded-full bg-[#7F77DD]/8 blur-3xl pointer-events-none" />
+        <style>{`
+          @keyframes star-twinkle {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.15; transform: scale(0.5); }
+          }
+        `}</style>
+        <div className="absolute -top-10 -right-10 h-52 w-52 rounded-full bg-[#7F77DD]/14 blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-12 left-1/3 h-64 w-64 rounded-full bg-[#7F77DD]/10 blur-3xl pointer-events-none" />
         <div
           aria-hidden
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse 70% 55% at 50% 42%, rgba(127,119,221,0.08) 0%, transparent 72%)',
+              'radial-gradient(ellipse 70% 55% at 50% 42%, rgba(127,119,221,0.12) 0%, transparent 72%)',
           }}
         />
         {BANNER_STARS.map((star, i) => (
@@ -107,9 +122,11 @@ export default async function PortalDashboardPage() {
               left: star.left,
               width: `${star.size}px`,
               height: `${star.size}px`,
-              background: `rgba(235,235,245,${star.alpha})`,
-              boxShadow:
-                i % 2 === 0 ? `0 0 10px rgba(127,119,221,${star.alpha * 0.45})` : 'none',
+              background: `rgba(235,235,255,${star.alpha})`,
+              boxShadow: star.glow
+                ? `0 0 ${star.size * 4}px ${star.size}px rgba(127,119,221,${star.alpha * 0.7}), 0 0 ${star.size * 2}px rgba(200,198,255,${star.alpha * 0.5})`
+                : `0 0 ${star.size * 2}px rgba(200,198,255,${star.alpha * 0.3})`,
+              animation: `star-twinkle ${2.5 + (i % 4) * 0.6}s ease-in-out ${star.delay}s infinite`,
             }}
           />
         ))}
@@ -118,7 +135,7 @@ export default async function PortalDashboardPage() {
           className="relative z-10 mb-3 text-[11px] uppercase tracking-[0.14em] text-[#7F77DD]"
           style={{ fontFamily: 'var(--font-dm-sans)' }}
         >
-          Willkommen zurueck
+          Willkommen zurück
         </p>
         <h1
           className="relative z-10 text-4xl md:text-5xl tracking-tight text-[#F5F5F0]"

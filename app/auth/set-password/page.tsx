@@ -1,36 +1,83 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { SetPasswordForm } from './SetPasswordForm'
+import { ParticleCanvas } from '@/components/public/ParticleCanvas'
+
+const glassCard: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.04)',
+  backdropFilter: 'blur(3px) saturate(150%)',
+  WebkitBackdropFilter: 'blur(24px) saturate(150%)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  boxShadow: '0 4px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)',
+}
+
+function Background() {
+  return (
+    <>
+      <ParticleCanvas />
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(127,119,221,0.07) 0%, transparent 70%)' }}
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.55) 100%)' }}
+      />
+    </>
+  )
+}
+
+function BrandMark() {
+  return (
+    <div className="text-center mb-10">
+      <div className="flex items-baseline justify-center mb-1">
+        <span style={{ fontFamily: 'Georgia, serif', fontWeight: 200, color: 'rgba(245,245,240,0.35)', fontSize: '22px' }}>[</span>
+        <span style={{ fontFamily: 'var(--font-dm-sans)', fontWeight: 700, color: '#F5F5F0', fontSize: '20px', margin: '0 5px' }}>Schuck</span>
+        <span style={{ fontFamily: 'Georgia, serif', fontWeight: 200, color: 'rgba(245,245,240,0.35)', fontSize: '22px' }}>]</span>
+      </div>
+      <p className="text-white/35 text-xs uppercase tracking-[0.2em] mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+        Kundenportal & Backoffice
+      </p>
+    </div>
+  )
+}
 
 export default async function SetPasswordPage() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
   // Kein aktiver Session → abgelaufener/ungültiger Link
   if (!user) {
     return (
-      <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6">
-        <div className="w-full max-w-sm text-center">
-          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-7 h-7 text-red-400" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+      <main className="relative min-h-screen bg-[#080808] flex items-center justify-center px-6 overflow-hidden">
+        <Background />
+        <div className="relative z-10 w-full max-w-sm text-center">
+          <BrandMark />
+          <div className="rounded-2xl p-8" style={glassCard}>
+            <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-5">
+              <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-semibold text-white mb-2" style={{ fontFamily: 'var(--font-playfair)' }}>
+              Link abgelaufen
+            </h1>
+            <p className="text-white/40 text-sm leading-relaxed mb-7" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Der Einladungslink ist nicht mehr gültig oder wurde bereits verwendet. Bitte wende dich an Schuck Webdesign.
+            </p>
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center w-full bg-[#F5F5F0] text-[#080808] text-sm font-semibold rounded-lg py-3 hover:bg-white transition-colors"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}
+            >
+              Zur Anmeldung
+            </Link>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-3" style={{ fontFamily: 'var(--font-playfair)' }}>
-            Link abgelaufen
-          </h1>
-          <p className="text-white/40 text-sm leading-relaxed mb-8" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            Der Einladungslink ist nicht mehr gültig oder wurde bereits verwendet. Bitte wende dich an Schuck Webdesign.
+          <p className="text-center text-white/20 text-xs mt-6" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            Nur für eingeladene Nutzer. Zugang über Schuck Webdesign.
           </p>
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-2 px-5 py-3 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition-colors"
-            style={{ fontFamily: 'var(--font-dm-sans)' }}
-          >
-            Zur Anmeldung
-          </Link>
         </div>
       </main>
     )
@@ -46,29 +93,31 @@ export default async function SetPasswordPage() {
   const firstName = profile?.full_name?.split(' ')[0] ?? null
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md">
+    <main className="relative min-h-screen bg-[#080808] flex items-center justify-center px-6 py-12 overflow-hidden">
+      <Background />
 
-        {/* Brand */}
-        <div className="text-center mb-10">
-          <p className="text-white/30 text-xs tracking-widest uppercase mb-3" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            Schuck Webdesign
-          </p>
-          <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight" style={{ fontFamily: 'var(--font-playfair)' }}>
-            {firstName ? `Willkommen,\u00a0${firstName}.` : 'Willkommen.'}
-          </h1>
-          <p className="text-white/40 text-sm mt-3 max-w-xs mx-auto leading-relaxed" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            Richte deinen Zugang ein — damit kannst du dich ab jetzt jederzeit anmelden.
-          </p>
-        </div>
+      <div className="relative z-10 w-full max-w-sm">
+        <BrandMark />
 
-        {/* Card */}
-        <div className="bg-white/3 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
+        {/* Glass card */}
+        <div className="rounded-2xl p-8" style={glassCard}>
+          <p
+            className="text-[11px] uppercase tracking-[0.14em] text-[#7F77DD] mb-1"
+            style={{ fontFamily: 'var(--font-dm-sans)' }}
+          >
+            Einladung
+          </p>
+          <h2
+            className="text-white text-xl font-semibold mb-7"
+            style={{ fontFamily: 'var(--font-playfair)' }}
+          >
+            {firstName ? `Willkommen, ${firstName}.` : 'Willkommen.'}
+          </h2>
           <SetPasswordForm email={user.email ?? ''} />
         </div>
 
         <p className="text-center text-white/20 text-xs mt-6" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          Fragen? Melde dich bei thericschuck@gmail.com
+          Nur für eingeladene Nutzer. Zugang über Schuck Webdesign.
         </p>
       </div>
     </main>

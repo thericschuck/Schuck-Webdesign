@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { motion, LayoutGroup } from 'framer-motion'
 
 const NAV_LINKS = [
-  { href: '/portal',              label: 'Dashboard' },
-  { href: '/portal/project',      label: 'Mein Projekt' },
-  { href: '/portal/documents',    label: 'Dokumente' },
-  { href: '/portal/bewertung',    label: 'Bewertung' },
-  { href: '/portal/settings',     label: 'Einstellungen' },
+  { href: '/portal',           label: 'Dashboard' },
+  { href: '/portal/project',   label: 'Mein Projekt' },
+  { href: '/portal/documents', label: 'Dokumente' },
+  { href: '/portal/bewertung', label: 'Bewertung' },
+  { href: '/portal/settings',  label: 'Einstellungen' },
 ]
 
 interface PortalNavProps {
@@ -25,7 +26,7 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
 
   return (
     <header
-      className="sticky top-0 z-30 border-b border-white/8 bg-[#080808]/92 backdrop-blur-xl"
+      className="sticky top-0 z-30 border-b border-white/8 bg-[#080808]/92"
       style={{
         backdropFilter: 'blur(24px) saturate(160%)',
         WebkitBackdropFilter: 'blur(24px) saturate(160%)',
@@ -34,14 +35,8 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link
-            href="/portal"
-            className="flex flex-col leading-none text-[#F5F5F0]"
-          >
-            <span
-              className="text-sm tracking-tight"
-              style={{ fontFamily: 'var(--font-fraunces)' }}
-            >
+          <Link href="/portal" className="flex flex-col leading-none text-[#F5F5F0]">
+            <span className="text-sm tracking-tight" style={{ fontFamily: 'var(--font-fraunces)' }}>
               [ Schuck ]
             </span>
             <span
@@ -52,27 +47,40 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
             </span>
           </Link>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-1 rounded-full border border-white/8 bg-white/[0.03] px-2 py-1">
-            {NAV_LINKS.map((link) => {
-              const active = pathname === link.href || (link.href !== '/portal' && pathname.startsWith(link.href))
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={[
-                    'px-4 py-2 rounded-full text-sm transition-all duration-200',
-                    active
-                      ? 'bg-[#F5F5F0] text-[#080808] font-medium'
-                      : 'text-white/50 hover:text-white hover:bg-white/[0.05]',
-                  ].join(' ')}
-                  style={{ fontFamily: 'var(--font-dm-sans)' }}
-                >
-                  {link.label}
-                </Link>
-              )
-            })}
-          </nav>
+          {/* Desktop Nav — gleitende Pill */}
+          <LayoutGroup id="portal-nav">
+            <nav className="hidden md:flex items-center gap-1 rounded-full border border-white/8 bg-white/3 px-2 py-1">
+              {NAV_LINKS.map((link) => {
+                const active =
+                  pathname === link.href ||
+                  (link.href !== '/portal' && pathname.startsWith(link.href))
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="relative px-4 py-2 rounded-full text-sm transition-colors duration-150"
+                    style={{ fontFamily: 'var(--font-dm-sans)' }}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="nav-pill"
+                        className="absolute inset-0 rounded-full bg-[#F5F5F0]"
+                        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                      />
+                    )}
+                    <span
+                      className={[
+                        'relative z-10 transition-colors duration-150',
+                        active ? 'text-[#080808] font-medium' : 'text-white/50 hover:text-white',
+                      ].join(' ')}
+                    >
+                      {link.label}
+                    </span>
+                  </Link>
+                )
+              })}
+            </nav>
+          </LayoutGroup>
 
           {/* User + Logout */}
           <div className="hidden md:flex items-center gap-3">
@@ -116,14 +124,16 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
       {menuOpen && (
         <div className="md:hidden border-t border-white/8 bg-[#080808] px-4 py-3 flex flex-col gap-1">
           {NAV_LINKS.map((link) => {
-            const active = pathname === link.href || (link.href !== '/portal' && pathname.startsWith(link.href))
+            const active =
+              pathname === link.href ||
+              (link.href !== '/portal' && pathname.startsWith(link.href))
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
                 className={[
-                  'px-3 py-2.5 rounded-xl text-sm',
+                  'px-3 py-2.5 rounded-xl text-sm transition-colors',
                   active
                     ? 'bg-[#F5F5F0] text-[#080808] font-medium'
                     : 'text-white/50 hover:text-white hover:bg-white/[0.05]',
