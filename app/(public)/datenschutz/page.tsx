@@ -1,3 +1,10 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Datenschutz",
+  robots: { index: false, follow: false },
+};
+
 export default function DatenschutzPage() {
   return (
     <main data-cursor="dark" className="bg-[#F7F5F0] px-6 md:px-12 py-24">
