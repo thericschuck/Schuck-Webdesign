@@ -216,6 +216,39 @@ export async function rejectReview(formData: FormData): Promise<void> {
   revalidatePath(`/admin/projects/${projectId}`)
 }
 
+// ── Delete Project ───────────────────────────────────────────────────────────
+
+type DeleteProjectResult = { status: 'error'; message: string } | { status: 'success'; clientId: string }
+
+export async function deleteProject(projectId: string): Promise<DeleteProjectResult> {
+  const supabase = await assertAdmin()
+
+  const { data: project } = await supabase
+    .from('projects')
+    .select('client_id')
+    .eq('id', projectId)
+    .single()
+
+  if (!project) {
+    return { status: 'error', message: 'Projekt nicht gefunden.' }
+  }
+
+  // messages und change_requests referenzieren auth.users direkt (kein ON DELETE CASCADE) –
+  // vorab löschen, damit die Projekt-Löschung nicht durch FK-Constraints blockiert wird.
+  await supabase.from('messages').delete().eq('project_id', projectId)
+  await supabase.from('change_requests').delete().eq('project_id', projectId)
+  await supabase.from('reviews').delete().eq('project_id', projectId)
+
+  const { error } = await supabase.from('projects').delete().eq('id', projectId)
+
+  if (error) {
+    console.error('[deleteProject]', error.message)
+    return { status: 'error', message: 'Fehler beim Löschen des Projekts.' }
+  }
+
+  return { status: 'success', clientId: project.client_id }
+}
+
 // ── Update Project Meta ──────────────────────────────────────────────────────
 
 type UpdateMetaResult = { status: 'error'; message: string }

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import type { ProjectStatus } from '@/types/database'
 import { ProjectStatusControl } from './ProjectStatusControl'
 import { AdminProjectTabs } from './AdminProjectTabs'
+import { DeleteProjectButton } from './DeleteProjectButton'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   briefing: 'Briefing',
@@ -161,6 +162,14 @@ export default async function ProjectDetailPage({
               statusOrder={STATUS_ORDER}
               statusLabel={STATUS_LABEL}
             />
+          </div>
+
+          {/* Danger Zone */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Gefahrenbereich
+            </h2>
+            <DeleteProjectButton projectId={project.id} projectTitle={project.title} />
           </div>
 
           {/* Documents */}

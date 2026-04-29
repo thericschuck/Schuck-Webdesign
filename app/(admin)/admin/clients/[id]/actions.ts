@@ -31,8 +31,25 @@ export async function deleteClient(clientId: string): Promise<DeleteResult> {
     return { status: 'error', message: 'Kunde nicht gefunden.' }
   }
 
-  // Auth-User löschen → kaskadiert: profiles → clients → projects → documents
   const adminSupabase = createAdminClient()
+
+  // Projekt-IDs ermitteln, damit wir verknüpfte Zeilen vorab löschen können
+  const { data: projects } = await adminSupabase
+    .from('projects')
+    .select('id')
+    .eq('client_id', clientId)
+
+  const projectIds = (projects ?? []).map((p: { id: string }) => p.id)
+
+  // messages, change_requests und reviews referenzieren auth.users direkt (kein ON DELETE CASCADE).
+  // Sie müssen manuell gelöscht werden, bevor deleteUser die auth.users-Zeile entfernt.
+  if (projectIds.length > 0) {
+    await adminSupabase.from('messages').delete().in('project_id', projectIds)
+    await adminSupabase.from('change_requests').delete().in('project_id', projectIds)
+    await adminSupabase.from('reviews').delete().in('project_id', projectIds)
+  }
+  await adminSupabase.from('reviews').delete().eq('client_id', client.profile_id)
+
   const { error } = await adminSupabase.auth.admin.deleteUser(client.profile_id)
 
   if (error) {
