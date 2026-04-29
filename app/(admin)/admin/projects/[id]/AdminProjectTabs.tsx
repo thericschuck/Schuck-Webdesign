@@ -34,7 +34,7 @@ type ChangeRequest = {
 }
 type Review = {
   id: string
-  client_id: string
+  client_id: string | null
   rating: number
   text: string
   status: 'pending' | 'approved' | 'rejected'
