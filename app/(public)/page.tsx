@@ -1284,16 +1284,19 @@ function AboutSection() {
               className="text-sm text-[#666] leading-relaxed"
               style={{ fontFamily: "var(--font-dm-sans)" }}
             >
-              Platzhalter-Text. Hier steht deine persönliche Geschichte —
-              warum du machst was du machst, was dich antreibt und was deine
-              Kunden an dir schätzen. Authentisch, direkt und auf den Punkt.
+              Ich baue Websites, die nicht nur gut aussehen, sondern wirklich
+              funktionieren. Für mich ist Webdesign kein reines Handwerk — es
+              ist die Schnittstelle zwischen Ästhetik, Psychologie und Technik.
+              Jedes Projekt beginnt mit dem Verständnis deines Unternehmens.
             </p>
             <p
               className="text-sm text-[#666] leading-relaxed"
               style={{ fontFamily: "var(--font-dm-sans)" }}
             >
-              Zweiter Absatz. Hintergrund, Werte, Arbeitsweise. Was du anders
-              machst als die anderen.
+              Als Freelancer arbeite ich direkt mit dir zusammen — kein
+              Mittelmann, kein Agentur-Overhead. Du bekommst klare
+              Kommunikation, schnelle Umsetzung und ein Ergebnis, das zu deiner
+              Marke passt.
             </p>
             <Link
               href="/ueber-mich"
