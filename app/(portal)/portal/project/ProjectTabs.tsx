@@ -150,7 +150,7 @@ export function ProjectTabs({ projectId, userId, updates, meetings, changeReques
                 <li key={u.id} className="pl-5 relative">
                   <span className="absolute -left-5.5 flex h-3 w-3 items-center justify-center rounded-full bg-black top-0.5" />
                   <time className="text-xs text-gray-400">{formatDateTime(u.created_at)}</time>
-                  <p className="mt-1 text-sm text-gray-700 leading-relaxed">{u.message}</p>
+                  <p className="mt-1 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{u.message}</p>
                 </li>
               ))}
             </ol>
@@ -180,7 +180,7 @@ export function ProjectTabs({ projectId, userId, updates, meetings, changeReques
                     </p>
                   </div>
                   {m.notes && (
-                    <p className="text-sm text-gray-600 leading-relaxed">{m.notes}</p>
+                    <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{m.notes}</p>
                   )}
                   {items.length > 0 && (
                     <div>
@@ -213,7 +213,7 @@ export function ProjectTabs({ projectId, userId, updates, meetings, changeReques
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 text-sm">{cr.title}</p>
                       {cr.description && (
-                        <p className="text-sm text-gray-500 mt-1 leading-relaxed">{cr.description}</p>
+                        <p className="text-sm text-gray-500 mt-1 leading-relaxed whitespace-pre-wrap">{cr.description}</p>
                       )}
                       <p className="text-xs text-gray-400 mt-2">{formatDateTime(cr.created_at)}</p>
                     </div>
@@ -304,7 +304,7 @@ export function ProjectTabs({ projectId, userId, updates, meetings, changeReques
                   <span className="ml-2 text-sm text-gray-500">{existingReview.rating}/5</span>
                 </div>
               </div>
-              <p className="text-sm text-gray-700 leading-relaxed">{existingReview.text}</p>
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{existingReview.text}</p>
               <div className="flex items-center gap-2">
                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                   existingReview.status === 'approved'

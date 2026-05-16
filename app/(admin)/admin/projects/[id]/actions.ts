@@ -312,6 +312,95 @@ export async function adminUploadFile(
   return { status: 'success', fileName: file.name }
 }
 
+export async function editProjectUpdate(
+  _prev: AddUpdateResult | null,
+  formData: FormData
+): Promise<AddUpdateResult> {
+  const supabase = await assertAdmin()
+  const updateId = formData.get('update_id') as string
+  const projectId = formData.get('project_id') as string
+  const message = formData.get('message')
+
+  if (!message || typeof message !== 'string' || message.trim().length < 3) {
+    return { status: 'error', message: 'Nachricht zu kurz.' }
+  }
+
+  const { error } = await supabase
+    .from('project_updates')
+    .update({ message: message.trim() })
+    .eq('id', updateId)
+
+  if (error) return { status: 'error', message: 'Fehler beim Speichern.' }
+
+  revalidatePath(`/admin/projects/${projectId}`)
+  return { status: 'success' }
+}
+
+export async function editMeeting(
+  _prev: AddMeetingResult | null,
+  formData: FormData
+): Promise<AddMeetingResult> {
+  const supabase = await assertAdmin()
+  const meetingId = formData.get('meeting_id') as string
+  const projectId = formData.get('project_id') as string
+  const title = formData.get('title')
+  const meetingDate = formData.get('meeting_date')
+  const durationRaw = formData.get('duration_minutes')
+  const notes = formData.get('notes')
+  const actionItemsRaw = formData.get('action_items')
+
+  if (!title || typeof title !== 'string' || title.trim().length < 2) {
+    return { status: 'error', message: 'Titel ist erforderlich.' }
+  }
+  if (!meetingDate || typeof meetingDate !== 'string') {
+    return { status: 'error', message: 'Datum ist erforderlich.' }
+  }
+
+  const duration = durationRaw && String(durationRaw).trim()
+    ? parseInt(String(durationRaw), 10)
+    : null
+
+  const actionItems = typeof actionItemsRaw === 'string' && actionItemsRaw.trim()
+    ? actionItemsRaw.split('\n').map((s) => s.trim()).filter(Boolean)
+    : []
+
+  const { error } = await supabase.from('meetings').update({
+    title: title.trim(),
+    meeting_date: meetingDate,
+    duration_minutes: duration,
+    notes: typeof notes === 'string' && notes.trim() ? notes.trim() : null,
+    action_items: actionItems,
+  }).eq('id', meetingId)
+
+  if (error) return { status: 'error', message: 'Fehler beim Speichern.' }
+
+  revalidatePath(`/admin/projects/${projectId}`)
+  return { status: 'success' }
+}
+
+export async function moveDocument(formData: FormData): Promise<void> {
+  await assertAdmin()
+  const adminClient = createAdminClient()
+  const documentId = formData.get('document_id') as string
+  const projectId = formData.get('project_id') as string
+  const targetFolder = (formData.get('target_folder') as string | null)?.trim() || null
+
+  await adminClient
+    .from('documents')
+    .update({ folder: targetFolder })
+    .eq('id', documentId)
+
+  revalidatePath(`/admin/projects/${projectId}`)
+}
+
+export async function getAdminDownloadUrl(fileUrl: string): Promise<string | null> {
+  const supabase = await assertAdmin()
+  const { data } = await supabase.storage
+    .from('documents')
+    .createSignedUrl(fileUrl, 3600)
+  return data?.signedUrl ?? null
+}
+
 export async function adminDeleteFile(formData: FormData): Promise<void> {
   await assertAdmin()
   const adminClient = createAdminClient()

@@ -7,7 +7,7 @@ import { motion, LayoutGroup } from 'framer-motion'
 
 const NAV_LINKS = [
   { href: '/portal',           label: 'Dashboard' },
-  { href: '/portal/project',   label: 'Mein Projekt' },
+  { href: '/portal/project',   label: 'Meine Projekte' },
   { href: '/portal/documents', label: 'Dokumente' },
   { href: '/portal/bewertung', label: 'Bewertung' },
   { href: '/portal/settings',  label: 'Einstellungen' },
@@ -136,7 +136,7 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
                   'px-3 py-2.5 rounded-xl text-sm transition-colors',
                   active
                     ? 'bg-[#F5F5F0] text-[#080808] font-medium'
-                    : 'text-white/50 hover:text-white hover:bg-white/[0.05]',
+                    : 'text-white/50 hover:text-white hover:bg-white/5',
                 ].join(' ')}
                 style={{ fontFamily: 'var(--font-dm-sans)' }}
               >

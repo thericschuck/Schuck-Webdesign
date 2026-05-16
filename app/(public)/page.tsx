@@ -14,12 +14,8 @@ const WORD_EASE = [0.22, 1, 0.36, 1] as const;
 // ── Data ─────────────────────────────────────────────────────────────────────
 
 const LOGOS = [
-  "Unternehmen A",
-  "Studio B",
-  "Brand C",
-  "Agentur D",
-  "Firma E",
-  "Projekt F",
+  "Bendixofficial",
+  "Threefliesbar"
 ];
 
 const SERVICES = [

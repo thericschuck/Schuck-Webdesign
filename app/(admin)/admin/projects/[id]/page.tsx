@@ -82,17 +82,13 @@ export default async function ProjectDetailPage({
   ])
 
   const client = Array.isArray(project.client) ? project.client[0] : project.client
-  const rawDocs = project.documents ?? []
+  const documents = project.documents ?? []
 
-  // Signed URLs für alle Dokumente generieren
-  const documents = await Promise.all(
-    rawDocs.map(async (doc) => {
-      const { data } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(doc.file_url, 3600)
-      return { ...doc, signedUrl: data?.signedUrl ?? null }
-    })
-  )
+  const { data: allClientProjects } = await supabase
+    .from('projects')
+    .select('id, title, documents(id, name, file_url, folder, created_at)')
+    .eq('client_id', client!.id)
+    .order('created_at', { ascending: false })
 
   return (
     <div className="flex flex-col gap-6">
@@ -195,6 +191,11 @@ export default async function ProjectDetailPage({
             changeRequests={changeRequests ?? []}
             reviews={reviews ?? []}
             documents={documents}
+            clientProjects={(allClientProjects ?? []).map((p) => ({
+              id: p.id,
+              title: p.title,
+              documents: Array.isArray(p.documents) ? p.documents : [],
+            }))}
           />
         </div>
       </div>

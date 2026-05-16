@@ -59,11 +59,20 @@ export default async function PortalDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: client } = await supabase
-    .from('clients')
-    .select('id, company_name')
-    .eq('profile_id', user!.id)
-    .single()
+  const [{ data: client }, { data: profile }] = await Promise.all([
+    supabase
+      .from('clients')
+      .select('id, company_name')
+      .eq('profile_id', user!.id)
+      .single(),
+    supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user!.id)
+      .single(),
+  ])
+
+  const displayName = profile?.full_name || user!.email?.split('@')[0] || 'Willkommen'
 
   if (!client) {
     return (
@@ -141,7 +150,7 @@ export default async function PortalDashboardPage() {
           className="relative z-10 text-4xl md:text-5xl tracking-tight text-[#F5F5F0]"
           style={{ fontFamily: 'var(--font-fraunces)' }}
         >
-          {client.company_name}
+          {displayName}
         </h1>
         <p
           className="relative z-10 mt-3 text-sm text-white/50"
