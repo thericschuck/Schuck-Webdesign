@@ -426,7 +426,7 @@ function HeroSection() {
       {/* Mouse spotlight */}
       <motion.div
         aria-hidden
-        className="absolute inset-0 pointer-events-none z-[5]"
+        className="absolute inset-0 pointer-events-none z-5"
         style={{ background: spotlight }}
       />
 
@@ -438,7 +438,7 @@ function HeroSection() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.55, duration: 0.6, ease: EASE }}
-          className="text-sm text-[#666] leading-relaxed max-w-[340px]"
+          className="text-sm text-[#666] leading-relaxed max-w-85"
           style={{ fontFamily: "var(--font-dm-sans)" }}
         >
           Performante Websites, die Leads generieren, Vertrauen aufbauen und
@@ -478,7 +478,7 @@ function HeroSection() {
         transition={{ delay: 1.0, duration: 0.8 }}
         className="absolute bottom-10 left-0 right-0 z-10 flex justify-center"
       >
-        <div className="flex items-center gap-10 md:gap-14 border-t border-white/[0.08] pt-6 px-4">
+        <div className="flex items-center gap-10 md:gap-14 border-t border-white/8 pt-6 px-4">
           {[
             { value: 3, suffix: "+", label: "Projekte" },
             { value: 100, suffix: "", label: "PageSpeed" },
@@ -492,7 +492,7 @@ function HeroSection() {
                 <Counter target={value} suffix={suffix} />
               </span>
               <span
-                className="text-[10px] text-[#555] uppercase tracking-[0.1em]"
+                className="text-[10px] text-[#555] uppercase tracking-widest"
                 style={{ fontFamily: "var(--font-dm-sans)" }}
               >
                 {label}
@@ -508,7 +508,7 @@ function HeroSection() {
 function SocialProofSection() {
   const doubled = [...LOGOS, ...LOGOS];
   return (
-    <div className="border-y border-white/[0.05] bg-[#0c0c0c] py-4 overflow-hidden relative z-0">
+    <div className="border-y border-white/5 bg-[#0c0c0c] py-4 overflow-hidden relative z-0">
       <div
         className="flex items-center gap-12"
         style={{
@@ -517,8 +517,8 @@ function SocialProofSection() {
         }}
       >
         {doubled.map((name, i) => (
-          <div key={i} className="flex items-center gap-3 flex-shrink-0">
-            <div className="w-[90px] h-6 bg-white/[0.07] rounded" />
+          <div key={i} className="flex items-center gap-3 shrink-0">
+            <div className="w-22.5 h-6 bg-white/[0.07] rounded" />
             <span
               className="text-xs text-white/20 sr-only"
               style={{ fontFamily: "var(--font-dm-sans)" }}
@@ -563,7 +563,7 @@ function ProblemSolutionSection() {
                 "Nicht für Mobile optimiert — 60 % deiner Kunden kommen vom Handy.",
               ].map((pain) => (
                 <div key={pain} className="flex items-start gap-3">
-                  <span className="mt-[7px] w-1 h-1 rounded-full bg-[#aaa] flex-shrink-0" />
+                  <span className="mt-1.75 w-1 h-1 rounded-full bg-[#aaa] shrink-0" />
                   <p
                     className="text-sm text-[#666] leading-relaxed"
                     style={{ fontFamily: "var(--font-dm-sans)" }}
@@ -608,7 +608,7 @@ function ProblemSolutionSection() {
                 },
               ].map(({ title, desc }) => (
                 <div key={title} className="flex items-start gap-3">
-                  <span className="mt-0.5 text-[#7F77DD] flex-shrink-0">
+                  <span className="mt-0.5 text-[#7F77DD] shrink-0">
                     <svg
                       className="w-4 h-4"
                       fill="none"
@@ -746,7 +746,7 @@ function ServicesSection() {
                   >
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <div className="w-10 h-10 rounded-lg bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center shrink-0">
                     <ServiceIcon type={s.icon} />
                   </div>
                   <div className="flex-1">
@@ -909,7 +909,7 @@ function ProjectsSection() {
             </div>
             <Link
               href="/projekte"
-              className="text-sm text-[#555] hover:text-[#F5F5F0] transition-colors flex-shrink-0 pb-1"
+              className="text-sm text-[#555] hover:text-[#F5F5F0] transition-colors shrink-0 pb-1"
               style={{ fontFamily: "var(--font-dm-sans)" }}
             >
               Alle Projekte ansehen →
@@ -938,10 +938,10 @@ function ProjectsSection() {
                     placeholder="blur"
                     blurDataURL={p.blurDataURL}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-t from-black/50 via-black/10 to-transparent" />
                   <div className="absolute bottom-4 left-4">
                     <span
-                      className="text-[10px] uppercase tracking-[0.1em] text-[#7F77DD] bg-[#7F77DD]/10 px-2.5 py-1 rounded-full border border-[#7F77DD]/20"
+                      className="text-[10px] uppercase tracking-widest text-[#7F77DD] bg-[#7F77DD]/10 px-2.5 py-1 rounded-full border border-[#7F77DD]/20"
                       style={{ fontFamily: "var(--font-dm-sans)" }}
                     >
                       {p.category}
@@ -963,7 +963,7 @@ function ProjectsSection() {
                       {p.desc}
                     </p>
                   </div>
-                  <span className="text-[#444] group-hover:text-[#F5F5F0] transition-colors flex-shrink-0 mt-0.5">
+                  <span className="text-[#444] group-hover:text-[#F5F5F0] transition-colors shrink-0 mt-0.5">
                     <svg
                       className="w-4 h-4"
                       fill="none"
@@ -992,7 +992,7 @@ function ProjectsSection() {
             onClick={() => goProject(-1)}
             disabled={projectIdx === 0}
             aria-label="Vorheriges Projekt"
-            className="w-10 h-10 rounded-full flex items-center justify-center border border-white/[0.20] bg-white/[0.08] disabled:opacity-30 transition-opacity"
+            className="w-10 h-10 rounded-full flex items-center justify-center border border-white/20 bg-white/8 disabled:opacity-30 transition-opacity"
           >
             <svg width="15" height="15" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2.2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -1018,7 +1018,7 @@ function ProjectsSection() {
             onClick={() => goProject(1)}
             disabled={projectIdx === FEATURED_PROJECTS.length - 1}
             aria-label="Nächstes Projekt"
-            className="w-10 h-10 rounded-full flex items-center justify-center border border-white/[0.20] bg-white/[0.08] disabled:opacity-30 transition-opacity"
+            className="w-10 h-10 rounded-full flex items-center justify-center border border-white/20 bg-white/8 disabled:opacity-30 transition-opacity"
           >
             <svg width="15" height="15" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2.2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -1257,7 +1257,7 @@ function AboutSection() {
     >
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
         <FadeIn>
-          <div className="relative aspect-[3/4] rounded-2xl max-w-sm overflow-hidden">
+          <div className="relative aspect-3/4 rounded-2xl max-w-sm overflow-hidden">
               <Image
                 src="/profilbild.webp"
                 alt="Eric Schuck – Webdesigner"

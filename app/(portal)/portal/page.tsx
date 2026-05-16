@@ -76,7 +76,7 @@ export default async function PortalDashboardPage() {
 
   if (!client) {
     return (
-      <div className="rounded-[24px] border border-black/[0.06] bg-[#F1EEE7] p-8 text-center">
+      <div className="rounded-3xl border border-black/6 bg-[#F1EEE7] p-8 text-center">
         <p className="text-sm text-[#7C756B]" style={{ fontFamily: 'var(--font-dm-sans)' }}>
           Kein Kundeneintrag gefunden. Bitte kontaktiere uns.
         </p>
@@ -102,7 +102,7 @@ export default async function PortalDashboardPage() {
   return (
     <div className="space-y-10">
       <div
-        className="relative overflow-hidden rounded-[32px] border border-white/[0.06] bg-[#080808] px-7 py-8 md:px-10 md:py-10"
+        className="relative overflow-hidden rounded-4xl border border-white/6 bg-[#080808] px-7 py-8 md:px-10 md:py-10"
         style={{ boxShadow: '0 14px 48px rgba(0,0,0,0.18)' }}
       >
         <style>{`
@@ -173,7 +173,7 @@ export default async function PortalDashboardPage() {
         </h2>
 
         {(projects ?? []).length === 0 ? (
-          <div className="rounded-[24px] border border-black/[0.06] bg-[#F1EEE7] p-10 text-center">
+          <div className="rounded-3xl border border-black/6 bg-[#F1EEE7] p-10 text-center">
             <p className="text-sm text-[#7C756B]" style={{ fontFamily: 'var(--font-dm-sans)' }}>
               Noch kein Projekt angelegt.
             </p>
@@ -191,7 +191,7 @@ export default async function PortalDashboardPage() {
                 <Link
                   key={project.id}
                   href={`/portal/project?id=${project.id}`}
-                  className="group relative block overflow-hidden rounded-[26px] border border-black/[0.06] bg-[#F7F5F0] transition-all duration-200 hover:-translate-y-0.5"
+                  className="group relative block overflow-hidden rounded-[26px] border border-black/6 bg-[#F7F5F0] transition-all duration-200 hover:-translate-y-0.5"
                   style={{ boxShadow: '0 6px 24px rgba(0,0,0,0.06)' }}
                 >
                   <div className={`h-1 w-full ${STATUS_ACCENT[status]}`} />
@@ -223,7 +223,7 @@ export default async function PortalDashboardPage() {
 
                     <StatusTimeline status={status} />
 
-                    <div className="mt-4 flex items-start justify-between gap-4 border-t border-black/[0.06] pt-3.5">
+                    <div className="mt-4 flex items-start justify-between gap-4 border-t border-black/6 pt-3.5">
                       {lastUpdate ? (
                         <div className="min-w-0 flex-1">
                           <p
@@ -283,11 +283,11 @@ export default async function PortalDashboardPage() {
         </div>
 
         <div
-          className="overflow-hidden rounded-[26px] border border-black/[0.06] bg-[#F7F5F0]"
+          className="overflow-hidden rounded-[26px] border border-black/6 bg-[#F7F5F0]"
           style={{ boxShadow: '0 6px 24px rgba(0,0,0,0.06)' }}
         >
           {documents && documents.length > 0 ? (
-            <ul className="divide-y divide-black/[0.05]">
+            <ul className="divide-y divide-black/5">
               {documents.map((doc) => (
                 <li key={doc.id} className="flex items-center gap-3 px-4 py-3">
                   <svg className="h-4 w-4 shrink-0 text-[#C1BAAF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -315,7 +315,7 @@ export default async function PortalDashboardPage() {
               </p>
             </div>
           )}
-          <div className="border-t border-black/[0.05] px-4 py-3">
+          <div className="border-t border-black/5 px-4 py-3">
             <Link
               href="/portal/upload"
               className="text-xs text-[#8A847B] transition-colors hover:text-[#1C1C1E]"
