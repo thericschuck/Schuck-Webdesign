@@ -243,26 +243,19 @@ function UploadForm({
   projectId,
   clientId,
   initialFolder,
-  availableFolders,
   preSelectedFile,
   onSuccess,
 }: {
   projectId: string
   clientId: string
   initialFolder: string | null
-  availableFolders: string[]
   preSelectedFile?: File | null
   onSuccess?: () => void
 }) {
   const formRef = useRef<HTMLFormElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [folderValue, setFolderValue] = useState(initialFolder ?? '')
-  const [showNewInput, setShowNewInput] = useState(false)
-  const [newFolderInput, setNewFolderInput] = useState('')
   const [dragOver, setDragOver] = useState(false)
-
-  const effectiveFolder = showNewInput ? newFolderInput.trim() : folderValue
 
   const [uploadState, uploadAction, uploadPending] = useActionState<UploadState, FormData>(
     adminUploadFile,
@@ -281,12 +274,9 @@ function UploadForm({
     if (uploadState?.status === 'success') {
       setSelectedFile(null)
       formRef.current?.reset()
-      setFolderValue(initialFolder ?? '')
-      setShowNewInput(false)
-      setNewFolderInput('')
       onSuccess?.()
     }
-  }, [uploadState, initialFolder, onSuccess])
+  }, [uploadState, onSuccess])
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
@@ -304,43 +294,7 @@ function UploadForm({
     <form ref={formRef} action={uploadAction} className="flex flex-col gap-3">
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="client_id" value={clientId} />
-      <input type="hidden" name="folder" value={effectiveFolder} />
-
-      {/* Folder selector */}
-      <div className="flex items-center gap-2">
-        <FolderSvg className="w-4 h-4 text-gray-300 shrink-0" />
-        <select
-          value={showNewInput ? '__new__' : folderValue}
-          onChange={(e) => {
-            if (e.target.value === '__new__') {
-              setShowNewInput(true)
-            } else {
-              setShowNewInput(false)
-              setFolderValue(e.target.value)
-            }
-          }}
-          className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 min-w-0"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        >
-          <option value="">Kein Ordner</option>
-          {availableFolders.map((f) => (
-            <option key={f} value={f}>{f}</option>
-          ))}
-          <option value="__new__">+ Neuer Ordner…</option>
-        </select>
-      </div>
-
-      {showNewInput && (
-        <input
-          type="text"
-          value={newFolderInput}
-          onChange={(e) => setNewFolderInput(e.target.value)}
-          placeholder="Ordnername (z.B. Verträge/2024)"
-          autoFocus
-          className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        />
-      )}
+      <input type="hidden" name="folder" value={initialFolder ?? ''} />
 
       {/* File drop zone */}
       <label
@@ -656,7 +610,6 @@ export function AdminFileExplorer({
             projectId={activeProjectId}
             clientId={clientId}
             initialFolder={pendingNewFolderPath ?? currentPath}
-            availableFolders={allFolderPaths}
             preSelectedFile={droppedFile}
             onSuccess={handleUploadSuccess}
           />
