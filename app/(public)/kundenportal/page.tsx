@@ -148,10 +148,10 @@ export default function KundenportalPage() {
                 boxShadow: "0 8px 48px rgba(0,0,0,0.1)",
               }}
             >
-              {/* Play button */}
-              <div className="absolute inset-0 flex items-center justify-center">
+              {/* Coming soon overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                 <div
-                  className="w-20 h-20 rounded-full flex items-center justify-center"
+                  className="w-20 h-20 rounded-full flex items-center justify-center opacity-40"
                   style={{
                     background: "rgba(127,119,221,0.15)",
                     border: "1px solid rgba(127,119,221,0.3)",
@@ -162,9 +162,17 @@ export default function KundenportalPage() {
                     <path d="M6 4.75L17.25 12 6 19.25V4.75Z" fill="#7F77DD" stroke="#7F77DD" strokeWidth={1.5} strokeLinejoin="round" />
                   </svg>
                 </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-white/70 mb-1" style={{ fontFamily: "var(--font-dm-sans)" }}>
+                    Video in Bearbeitung
+                  </p>
+                  <p className="text-xs text-white/30" style={{ fontFamily: "var(--font-dm-sans)" }}>
+                    Demnächst verfügbar
+                  </p>
+                </div>
               </div>
               <div className="absolute bottom-6 left-6">
-                <p className="text-xs text-white/30 uppercase tracking-widest" style={{ fontFamily: "var(--font-dm-sans)" }}>
+                <p className="text-xs text-white/20 uppercase tracking-widest" style={{ fontFamily: "var(--font-dm-sans)" }}>
                   Tutorial · ca. 3 Minuten
                 </p>
               </div>

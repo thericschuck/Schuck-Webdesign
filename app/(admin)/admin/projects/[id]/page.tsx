@@ -5,6 +5,7 @@ import type { ProjectStatus } from '@/types/database'
 import { ProjectStatusControl } from './ProjectStatusControl'
 import { AdminProjectTabs } from './AdminProjectTabs'
 import { DeleteProjectButton } from './DeleteProjectButton'
+import { LaunchDateEditor } from './LaunchDateEditor'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   briefing: 'Briefing',
@@ -147,11 +148,9 @@ export default async function ProjectDetailPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-gray-400 mb-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>Launch-Datum</dt>
-                <dd className="text-sm text-gray-800" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                  {project.launch_date
-                    ? new Date(project.launch_date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })
-                    : '—'}
+                <dt className="text-xs text-gray-400 mb-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>Launch-Datum</dt>
+                <dd>
+                  <LaunchDateEditor projectId={project.id} launchDate={project.launch_date ?? null} />
                 </dd>
               </div>
             </dl>

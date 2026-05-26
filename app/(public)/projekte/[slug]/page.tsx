@@ -1,7 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getProjectBySlug, projects } from "../projects-data";
+import { ImageLightbox } from "@/components/public/ImageLightbox";
 
 export function generateStaticParams() {
   return projects.map((project) => ({ slug: project.slug }));
@@ -49,11 +49,11 @@ export default async function ProjektDetailPage({
             className="mb-8 flex flex-wrap gap-6"
             style={{ fontFamily: "var(--font-dm-sans)" }}
           >
-            <span className="text-sm" style={{ color: "#555" }}>
-              <span style={{ color: "#888" }}>Typ:</span> {project.category}
+            <span className="text-sm" style={{ color: "#A0A0AC" }}>
+              <span style={{ color: "#686875" }}>Typ:</span> {project.category}
             </span>
-            <span className="text-sm" style={{ color: "#555" }}>
-              <span style={{ color: "#888" }}>Website:</span>{" "}
+            <span className="text-sm" style={{ color: "#A0A0AC" }}>
+              <span style={{ color: "#686875" }}>Website:</span>{" "}
               <a
                 href={project.url}
                 target="_blank"
@@ -66,10 +66,10 @@ export default async function ProjektDetailPage({
           </div>
 
           <p
-            className="max-w-2xl text-base md:text-lg"
+            className="max-w-2xl text-base md:text-lg leading-relaxed"
             style={{
               fontFamily: "var(--font-dm-sans)",
-              color: "#8A8A8F",
+              color: "#B0B0BC",
             }}
           >
             {project.intro}
@@ -79,42 +79,16 @@ export default async function ProjektDetailPage({
 
       <section style={{ backgroundColor: "#080808" }} className="px-6 pb-0 pt-8 md:px-12">
         <div className="mx-auto max-w-6xl">
-          <div
-            className="relative w-full overflow-hidden rounded-2xl border aspect-[4/3] md:aspect-video"
-            style={{
-              backgroundColor: "#101010",
-              borderColor: "rgba(255,255,255,0.06)",
-            }}
-          >
-            <Image
-              src={project.image}
-              alt={project.name}
-              fill
-              sizes="(max-width: 768px) 100vw, 1152px"
-              className="object-cover"
-              placeholder="blur"
-              blurDataURL={project.blurDataURL}
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-            <div className="absolute left-5 top-5 md:left-7 md:top-7">
-              <span
-                className="rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.22em]"
-                style={{
-                  color: "#7F77DD",
-                  backgroundColor: "rgba(127,119,221,0.15)",
-                  border: "1px solid rgba(127,119,221,0.25)",
-                  fontFamily: "var(--font-dm-sans)",
-                }}
-              >
-                Case Study
-              </span>
-            </div>
-          </div>
+          <ImageLightbox
+            src={project.image}
+            alt={project.name}
+            blurDataURL={project.blurDataURL}
+            badge="Case Study"
+          />
         </div>
       </section>
 
-      <section style={{ backgroundColor: "#F7F5F0" }} className="px-6 py-20 md:px-12">
+      <section data-cursor="dark" style={{ backgroundColor: "#F7F5F0" }} className="px-6 py-20 md:px-12">
         <div className="mx-auto max-w-6xl">
           <div className="mb-14 grid grid-cols-1 gap-12 md:grid-cols-2">
             <div>

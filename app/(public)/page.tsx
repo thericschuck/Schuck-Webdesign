@@ -49,12 +49,12 @@ const FEATURED_PROJECTS = [
     blurDataURL: "data:image/webp;base64,UklGRjAAAABXRUJQVlA4ICQAAAAwAQCdASoQAAkABUB8JYwAA3AA/vAi9c8cGZ3lHS6ohkvAAAA=",
   },
   {
-    slug: "three-flies-bar",
-    name: "Three Flies Bar",
-    category: "Hospitality & Events",
-    desc: "Atmosphärische Website für eine mobile Cocktailbar mit Fokus auf Erlebnis und Anfragen.",
-    image: "/threefliesbar.webp",
-    blurDataURL: "data:image/webp;base64,UklGRjAAAABXRUJQVlA4ICQAAACwAQCdASoQAAkABUB8JYwAAsaU/RqAAP7r/yOJW6F5USgoAAA=",
+    slug: "vmp-kuenstlerpool",
+    name: "VMP Künstlerpool",
+    category: "Talent & Booking Platform",
+    desc: "Für Vivid Music Productions — eine der etablierten Booking-Agentur für Live-Musik im Rhein-Main-Gebiet — haben wir eine neue digitale Präsenz entwickelt, die das Niveau der Acts widerspiegelt, die sie vertreten.",
+    image: "/vmp-kuenstlerpool.webp",
+    blurDataURL: "data:image/webp;base64,UklGRk4AAABXRUJQVlA4IEIAAADwAQCdASoQAAkABUB8JYgCdAEORn6UGXAA/tT7AaPRJrYcslRqGEMewJC/AUlFXagE7TKUA/ChIzrXxsHhGaEAAAA=",
   },
 ];
 
@@ -480,7 +480,7 @@ function HeroSection() {
       >
         <div className="flex items-center gap-10 md:gap-14 border-t border-white/8 pt-6 px-4">
           {[
-            { value: 3, suffix: "+", label: "Projekte" },
+            { value: 4, suffix: "+", label: "Projekte" },
             { value: 100, suffix: "", label: "PageSpeed" },
             { value: 48, suffix: "h", label: "Reaktionszeit" },
           ].map(({ value, suffix, label }) => (

@@ -172,7 +172,7 @@ export default function ProjektePage() {
                 color: "#F5F5F0",
               }}
             >
-              Drei Projekte, drei sehr unterschiedliche Rollen.
+              Ausgewählte Projekte, unterschiedliche Rollen.
             </h1>
           </FadeIn>
           <FadeIn delay={0.14}>
@@ -183,8 +183,8 @@ export default function ProjektePage() {
                 color: "#666",
               }}
             >
-              Von Artist Branding über Event-Hospitality bis zum privaten Portfolio:
-              hier sieht man, wie unterschiedlich ein Webauftritt je nach Ziel funktionieren muss.
+              Jedes Projekt hat ein anderes Ziel – hier sieht man,
+              wie unterschiedlich ein Webauftritt je nach Aufgabe funktionieren muss.
             </p>
           </FadeIn>
         </div>

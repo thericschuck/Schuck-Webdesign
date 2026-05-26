@@ -452,3 +452,26 @@ export async function updateProjectMeta(
   revalidatePath(`/admin/projects/${projectId}`)
   redirect(`/admin/projects/${projectId}`)
 }
+
+// ── Update Launch Date only ───────────────────────────────────────────────────
+
+export async function updateLaunchDate(
+  projectId: string,
+  _prev: { status: 'success' } | { status: 'error'; message: string } | null,
+  formData: FormData
+): Promise<{ status: 'success' } | { status: 'error'; message: string }> {
+  const supabase = await assertAdmin()
+
+  const raw = formData.get('launch_date')
+  const launchDate = typeof raw === 'string' && raw ? raw : null
+
+  const { error } = await supabase
+    .from('projects')
+    .update({ launch_date: launchDate })
+    .eq('id', projectId)
+
+  if (error) return { status: 'error', message: 'Fehler beim Speichern.' }
+
+  revalidatePath(`/admin/projects/${projectId}`)
+  return { status: 'success' }
+}

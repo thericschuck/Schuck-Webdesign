@@ -71,6 +71,25 @@ export const projects: ProjectEntry[] = [
     stack: ["Next.js", "React", "Tailwind CSS", "Content Structure"],
     accent: "from-[#d8a14a]/18 via-[#7F77DD]/8 to-transparent",
   },
+  {
+    slug: "vmp-kuenstlerpool",
+    name: "VMP Künstlerpool",
+    category: "Talent & Booking Platform",
+    url: "https://v-m-p.com",
+    image: "/vmp-kuenstlerpool.webp",
+    blurDataURL:
+      "data:image/webp;base64,UklGRk4AAABXRUJQVlA4IEIAAADwAQCdASoQAAkABUB8JYgCdAEORn6UGXAA/tT7AaPRJrYcslRqGEMewJC/AUlFXagE7TKUA/ChIzrXxsHhGaEAAAA=",
+    shortDesc:
+      "Für Vivid Music Productions — eine der etablierten Booking-Agentur für Live-Musik im Rhein-Main-Gebiet — haben wir eine neue digitale Präsenz entwickelt, die das Niveau der Acts widerspiegelt, die sie vertreten.",
+    intro:
+      "Ein digitaler Künstlerpool, der Talent und Buchungsinteresse auf kurzem Weg zusammenbringt – strukturiert, professionell und schnell erfassbar.",
+    challenge:
+      "Eine Plattform, die gleichzeitig als Showcase für das Künstler-Roster und als direktes Buchungstool funktioniert. Kein generischer Agentur-Auftritt, sondern eine Bühne — visuell stark, sofort vertrauenswürdig, conversion-orientiert.",
+    solution:
+      "Es wurde ein light-themed Design mit klarer Hierarchie umgesetzt: Bands werden in einem kompakten Grid präsentiert, das auf Hover Live-Infos, Genre-Tags und Direktkontakt freigibt. Keine überladenen Profilseiten — der Fokus liegt auf dem ersten Eindruck und dem schnellen Weg zur Anfrage.",
+    stack: ["Next.js", "React", "Tailwind CSS", "Vercel"],
+    accent: "from-[#4a9d8f]/20 via-[#7F77DD]/8 to-transparent",
+  },
 ];
 
 export function getProjectBySlug(slug: string) {
