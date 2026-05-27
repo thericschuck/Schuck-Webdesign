@@ -59,19 +59,22 @@ export default async function ClientDetailPage({
       <nav className="flex items-center gap-2 text-sm text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
         <Link href="/admin/clients" className="hover:text-gray-600 transition-colors">Kunden</Link>
         <span>/</span>
-        <span className="text-gray-700">{client.company_name}</span>
+        <span className="text-gray-700">{profile?.full_name ?? client.company_name}</span>
       </nav>
 
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-600 text-xl font-bold">
-            {client.company_name.charAt(0).toUpperCase()}
+            {(profile?.full_name ?? client.company_name).charAt(0).toUpperCase()}
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
-              {client.company_name}
+              {profile?.full_name ?? client.company_name}
             </h1>
+            <p className="text-sm text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              {client.company_name}
+            </p>
             <div className="flex items-center gap-2 mt-1">
               <span
                 className={`text-xs px-2.5 py-1 rounded-full font-medium ${
