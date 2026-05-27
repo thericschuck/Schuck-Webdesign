@@ -159,14 +159,14 @@ export default async function DashboardPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 text-sm font-semibold">
-                      {client.company_name.charAt(0).toUpperCase()}
+                      {(profile?.full_name ?? client.company_name).charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {client.company_name}
+                        {profile?.full_name ?? client.company_name}
                       </p>
                       <p className="text-xs text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {profile?.email}
+                        {client.company_name}
                       </p>
                     </div>
                   </div>
