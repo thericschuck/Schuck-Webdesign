@@ -371,6 +371,36 @@ export type Database = {
           }
         ]
       }
+      contact_submissions: {
+        Row: {
+          id: string
+          name: string
+          email: string
+          type: string
+          message: string
+          read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          email: string
+          type: string
+          message: string
+          read?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          email?: string
+          type?: string
+          message?: string
+          read?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       project_updates: {
         Row: {
           id: string
