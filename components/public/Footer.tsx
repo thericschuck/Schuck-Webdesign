@@ -103,8 +103,8 @@ export function Footer() {
               Kontakt
             </p>
             <p className="text-sm text-[#555]" style={{ fontFamily: "var(--font-dm-sans)" }}>
-              <a href="mailto:thericschuck@gmail.com" className="hover:text-[#F5F5F0] transition-colors">
-                thericschuck@gmail.com
+              <a href="mailto:info@schuck-webdesign.de" className="hover:text-[#F5F5F0] transition-colors">
+                info@schuck-webdesign.de
               </a>
             </p>
             <p className="text-sm text-[#555]" style={{ fontFamily: "var(--font-dm-sans)" }}>

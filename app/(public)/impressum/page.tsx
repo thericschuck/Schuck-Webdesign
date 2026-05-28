@@ -29,7 +29,7 @@ export default function ImpressumPage() {
               body: (
                 <>
                   <p>Eric Schuck<br />Hubert-Nees-Str. 7<br />63785 Obernburg<br />Deutschland</p>
-                  <p className="mt-4">Kontakt:<br />Telefon: <a href="tel:+4917634445821" className="text-[#1C1C1E] hover:text-[#7F77DD]">+49 176 3444 5821</a><br />E-Mail: <a href="mailto:thericschuck@gmail.com" className="text-[#1C1C1E] hover:text-[#7F77DD]">thericschuck@gmail.com</a></p>
+                  <p className="mt-4">Kontakt:<br />Telefon: <a href="tel:+4917634445821" className="text-[#1C1C1E] hover:text-[#7F77DD]">+49 176 3444 5821</a><br />E-Mail: <a href="mailto:info@schuck-webdesign.de" className="text-[#1C1C1E] hover:text-[#7F77DD]">info@schuck-webdesign.de</a></p>
                   <p className="mt-4">Vertretungsberechtigte Person: Eric Schuck</p>
                 </>
               ),

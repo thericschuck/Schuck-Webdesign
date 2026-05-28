@@ -29,7 +29,7 @@ export default function DatenschutzPage() {
               body: (
                 <>
                   <p>Eric Schuck<br />Hubert-Nees-Str. 7<br />63785 Obernburg<br />Deutschland</p>
-                  <p className="mt-4">E-Mail: <a href="mailto:thericschuck@gmail.com" className="text-[#1C1C1E] hover:text-[#7F77DD]">thericschuck@gmail.com</a><br />Telefon: <a href="tel:+4917634445821" className="text-[#1C1C1E] hover:text-[#7F77DD]">+49 176 3444 5821</a></p>
+                  <p className="mt-4">E-Mail: <a href="mailto:info@schuck-webdesign.de" className="text-[#1C1C1E] hover:text-[#7F77DD]">info@schuck-webdesign.de</a><br />Telefon: <a href="tel:+4917634445821" className="text-[#1C1C1E] hover:text-[#7F77DD]">+49 176 3444 5821</a></p>
                 </>
               ),
             },

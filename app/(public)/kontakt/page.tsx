@@ -289,7 +289,7 @@ export default function KontaktPage() {
             {/* Contact details */}
             <ul className="flex flex-col gap-4 border-t border-white/[0.07] pt-6">
               {[
-                { label: "E-Mail", value: "thericschuck@gmail.com", href: "mailto:thericschuck@gmail.com" },
+                { label: "E-Mail", value: "info@schuck-webdesign.de", href: "mailto:info@schuck-webdesign.de" },
                 { label: "Telefon", value: "+49 176 3444 5821", href: "tel:+4917634445821" },
                 { label: "Standort", value: "Deutschland" },
                 { label: "Antwortzeit", value: "Innerhalb von 48h" },
