@@ -15,7 +15,7 @@ export default async function AdminLayout({
 
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { count: unreadMessages }, { count: pendingReviews }] = await Promise.all([
+  const [{ data: profile }, { count: unreadMessages }, { count: pendingReviews }, { count: unreadContacts }] = await Promise.all([
     supabase.from('profiles').select('role, full_name').eq('id', user.id).single(),
     supabase
       .from('messages')
@@ -26,13 +26,17 @@ export default async function AdminLayout({
       .from('reviews')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending'),
+    supabase
+      .from('contact_submissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('read', false),
   ])
 
   if (profile?.role !== 'admin') redirect('/portal')
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <AdminNav adminName={profile.full_name} unreadMessages={unreadMessages ?? 0} pendingReviews={pendingReviews ?? 0} />
+      <AdminNav adminName={profile.full_name} unreadMessages={unreadMessages ?? 0} pendingReviews={pendingReviews ?? 0} unreadContacts={unreadContacts ?? 0} />
       {/* Content area — offset by sidebar width */}
       <div className="flex-1 ml-60 min-h-screen">
         <main className="p-8 max-w-6xl">

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { FadeIn } from "@/components/public/FadeIn";
 import { ParticleCanvas } from "@/components/public/ParticleCanvas";
+import { submitContact } from "./actions";
 
 interface FormState {
   name: string;
@@ -34,6 +35,8 @@ const labelClass = "block text-xs uppercase tracking-widest text-[#999] mb-1.5";
 export default function KontaktPage() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   function handleChange(
     e: React.ChangeEvent<
@@ -43,9 +46,18 @@ export default function KontaktPage() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsSubmitted(true);
+    setError(null);
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    startTransition(async () => {
+      const result = await submitContact(null, formData);
+      if (result.status === 'success') {
+        setIsSubmitted(true);
+      } else {
+        setError(result.message);
+      }
+    });
   }
 
   function handleReset() {
@@ -206,13 +218,23 @@ export default function KontaktPage() {
                     />
                   </div>
 
+                  {error && (
+                    <p
+                      className="text-xs text-red-500 text-center -mt-1"
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      {error}
+                    </p>
+                  )}
+
                   <button
                     type="submit"
+                    disabled={isPending}
                     data-cursor="light"
-                    className="w-full bg-[#1C1C1E] text-[#F5F5F0] py-3 rounded-lg font-semibold text-sm hover:bg-[#2a2a2a] transition-colors cursor-pointer mt-1"
+                    className="w-full bg-[#1C1C1E] text-[#F5F5F0] py-3 rounded-lg font-semibold text-sm hover:bg-[#2a2a2a] disabled:opacity-60 transition-colors cursor-pointer mt-1"
                     style={{ fontFamily: "var(--font-dm-sans)" }}
                   >
-                    Nachricht senden
+                    {isPending ? "Wird gesendet…" : "Nachricht senden"}
                   </button>
                 </form>
 

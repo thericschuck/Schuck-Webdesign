@@ -11,7 +11,9 @@
       "Bash(node -e \"const sharp = require\\('sharp'\\); sharp\\('./public/vmp.png'\\).webp\\({ quality: 85 }\\).toFile\\('./public/vmp-kuenstlerpool.webp'\\).then\\(info => console.log\\('done', JSON.stringify\\(info\\)\\)\\).catch\\(e => console.error\\('err', e.message\\)\\)\")",
       "Bash(node -e \"const sharp = require\\('sharp'\\); sharp\\('./public/vmp-kuenstlerpool.webp'\\).resize\\(16, 9\\).webp\\({ quality: 20 }\\).toBuffer\\(\\).then\\(buf => console.log\\('data:image/webp;base64,' + buf.toString\\('base64'\\)\\)\\).catch\\(e => console.error\\(e.message\\)\\)\")",
       "Bash(node -e \"const sharp = require\\('sharp'\\); sharp\\('./public/vmp-kuenstlerpool.webp'\\).resize\\(16, 9\\).webp\\({ quality: 20 }\\).toBuffer\\(\\).then\\(buf => process.stdout.write\\('data:image/webp;base64,' + buf.toString\\('base64'\\) + '\\\\n'\\)\\).catch\\(e => console.error\\(e.message\\)\\)\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const pkg = require\\('./package.json'\\); console.log\\(Object.keys\\({...pkg.dependencies,...pkg.devDependencies}\\).filter\\(k=>k.includes\\('resend'\\)||k.includes\\('email'\\)\\)\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/resend/package.json'\\).version\\)\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign",

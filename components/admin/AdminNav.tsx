@@ -40,9 +40,18 @@ const NAV = [
       </svg>
     ),
   },
+  {
+    href: '/admin/contact',
+    label: 'Anfragen',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
 ]
 
-export function AdminNav({ adminName, unreadMessages = 0, pendingReviews = 0 }: { adminName: string | null; unreadMessages?: number; pendingReviews?: number }) {
+export function AdminNav({ adminName, unreadMessages = 0, pendingReviews = 0, unreadContacts = 0 }: { adminName: string | null; unreadMessages?: number; pendingReviews?: number; unreadContacts?: number }) {
   const pathname = usePathname()
 
   const isActive = (href: string) =>
@@ -91,6 +100,11 @@ export function AdminNav({ adminName, unreadMessages = 0, pendingReviews = 0 }: 
             {item.href === '/admin/reviews' && pendingReviews > 0 && (
               <span className="text-xs bg-purple-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
                 {pendingReviews > 99 ? '99+' : pendingReviews}
+              </span>
+            )}
+            {item.href === '/admin/contact' && unreadContacts > 0 && (
+              <span className="text-xs bg-violet-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
+                {unreadContacts > 99 ? '99+' : unreadContacts}
               </span>
             )}
           </Link>
