@@ -30,7 +30,7 @@ const projektTypes = [
 ];
 
 const inputClass =
-  "w-full bg-[#F4F2ED] border border-black/[0.10] rounded-lg px-4 py-3 text-sm text-[#1C1C1E] focus:outline-none focus:border-[#7F77DD]/60 transition-colors placeholder:text-[#aaa]";
+  "w-full bg-[#F4F2ED] border border-black/10 rounded-lg px-4 py-3 text-sm text-[#1C1C1E] focus:outline-none focus:border-[#7F77DD]/60 transition-colors placeholder:text-[#aaa]";
 
 const labelClass = "block text-xs uppercase tracking-widest text-[#999] mb-1.5";
 
@@ -62,10 +62,7 @@ export default function KontaktPage() {
     });
   }
 
-  function handleReset() {
-    setForm(initialForm);
-    setIsSubmitted(false);
-  }
+
 
   return (
     <main className="flex flex-col md:flex-row-reverse" style={{ minHeight: "100dvh" }}>
@@ -116,13 +113,22 @@ export default function KontaktPage() {
                 >
                   Ich melde mich innerhalb von 48 Stunden bei dir.
                 </p>
-                <button
-                  onClick={handleReset}
-                  className="mt-2 text-xs uppercase tracking-widest text-[#888] hover:text-[#1C1C1E] transition-colors border border-black/[0.10] rounded-lg px-5 py-2.5 cursor-pointer"
-                  style={{ fontFamily: "var(--font-dm-sans)" }}
-                >
-                  Zurück
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                  <a
+                    href="/"
+                    className="text-xs uppercase tracking-widest text-[#F5F5F0] bg-[#1C1C1E] hover:bg-[#2a2a2a] transition-colors rounded-lg px-5 py-2.5 text-center cursor-pointer"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    Zur Startseite
+                  </a>
+                  <a
+                    href="/projekte"
+                    className="text-xs uppercase tracking-widest text-[#888] hover:text-[#1C1C1E] transition-colors border border-black/10 rounded-lg px-5 py-2.5 text-center cursor-pointer"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    Projekte ansehen
+                  </a>
+                </div>
               </div>
             ) : (
               <>
