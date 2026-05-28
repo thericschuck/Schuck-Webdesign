@@ -38,7 +38,7 @@ export async function submitContact(
       day: '2-digit', month: 'long', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     })
-    await resend.emails.send({
+    const { error: resendError } = await resend.emails.send({
       from: 'Schuck Webdesign <info@schuck-webdesign.de>',
       to: 'info@schuck-webdesign.de',
       replyTo: email,
@@ -80,6 +80,9 @@ export async function submitContact(
         </div>
       `.trim(),
     })
+    if (resendError) {
+      console.error('[contact] Resend error:', resendError)
+    }
   }
 
   return { status: 'success' }
