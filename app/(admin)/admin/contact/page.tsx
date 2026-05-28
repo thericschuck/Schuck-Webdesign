@@ -21,7 +21,7 @@ export default async function ContactPage() {
 
   const { data: submissions } = await supabase
     .from('contact_submissions')
-    .select('id, name, email, type, message, read, created_at')
+    .select('id, name, email, phone, type, message, read, created_at')
     .order('created_at', { ascending: false })
 
   const list = submissions ?? []
@@ -84,6 +84,15 @@ export default async function ContactPage() {
                     >
                       {s.email}
                     </a>
+                    {s.phone && (
+                      <a
+                        href={`tel:${s.phone}`}
+                        className="text-xs text-gray-400 hover:text-gray-700 ml-2"
+                        style={{ fontFamily: 'var(--font-dm-sans)' }}
+                      >
+                        · {s.phone}
+                      </a>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">

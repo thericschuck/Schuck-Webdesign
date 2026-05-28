@@ -13,6 +13,7 @@ export async function submitContact(
 ): Promise<ContactResult> {
   const name = formData.get('name')?.toString().trim()
   const email = formData.get('email')?.toString().trim()
+  const phone = formData.get('phone')?.toString().trim() || null
   const type = formData.get('type')?.toString()
   const message = formData.get('message')?.toString().trim()
 
@@ -24,7 +25,7 @@ export async function submitContact(
 
   const { error } = await supabase
     .from('contact_submissions')
-    .insert({ name, email, type, message })
+    .insert({ name, email, phone, type, message })
 
   if (error) {
     console.error('[contact] DB insert error:', error.message)
@@ -58,6 +59,10 @@ export async function submitContact(
                 <td style="padding:10px 0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">E-Mail</td>
                 <td style="padding:10px 0;"><a href="mailto:${email}" style="color:#7F77DD;text-decoration:none;">${email}</a></td>
               </tr>
+              ${phone ? `<tr style="border-bottom:1px solid #f0f0f0;">
+                <td style="padding:10px 0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">Telefon</td>
+                <td style="padding:10px 0;"><a href="tel:${phone}" style="color:#7F77DD;text-decoration:none;">${phone}</a></td>
+              </tr>` : ''}
               <tr>
                 <td style="padding:10px 0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">Typ</td>
                 <td style="padding:10px 0;">${type}</td>

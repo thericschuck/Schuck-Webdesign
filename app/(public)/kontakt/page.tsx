@@ -8,6 +8,7 @@ import { submitContact } from "./actions";
 interface FormState {
   name: string;
   email: string;
+  phone: string;
   type: string;
   message: string;
 }
@@ -15,6 +16,7 @@ interface FormState {
 const initialForm: FormState = {
   name: "",
   email: "",
+  phone: "",
   type: "Neue Website",
   message: "",
 };
@@ -175,6 +177,26 @@ export default function KontaktPage() {
 
                   <div>
                     <label
+                      htmlFor="phone"
+                      className={labelClass}
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    >
+                      Telefon <span className="normal-case tracking-normal text-[#bbb]">(optional)</span>
+                    </label>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="+49 176 ..."
+                      value={form.phone}
+                      onChange={handleChange}
+                      className={inputClass}
+                      style={{ fontFamily: "var(--font-dm-sans)" }}
+                    />
+                  </div>
+
+                  <div>
+                    <label
                       htmlFor="type"
                       className={labelClass}
                       style={{ fontFamily: "var(--font-dm-sans)" }}
@@ -300,11 +322,14 @@ export default function KontaktPage() {
                 Lass uns<br />sprechen.
               </h1>
               <p
-                className="mt-4 text-sm text-[#666] leading-relaxed"
+                className="mt-4 text-sm text-white/55 leading-relaxed"
                 style={{ fontFamily: "var(--font-dm-sans)" }}
               >
-                Beschreib mir kurz dein Projekt — ich antworte innerhalb von
-                48 Stunden und wir schauen, ob wir zusammenpassen.
+                Beschreib mir kurz dein Vorhaben — was du brauchst, bis wann
+                und was du ungefähr investieren möchtest. Je mehr Details,
+                desto besser kann ich einschätzen, ob und wie ich helfen kann.
+                Du erreichst mich auch direkt per Telefon, falls du lieber
+                persönlich sprechen möchtest.
               </p>
             </div>
 
@@ -318,7 +343,7 @@ export default function KontaktPage() {
               ].map(({ label, value, href }) => (
                 <li key={label} className="flex flex-col gap-0.5">
                   <span
-                    className="text-[10px] uppercase tracking-[0.12em] text-[#444]"
+                    className="text-[10px] uppercase tracking-[0.12em] text-white/35"
                     style={{ fontFamily: "var(--font-dm-sans)" }}
                   >
                     {label}
@@ -326,14 +351,14 @@ export default function KontaktPage() {
                   {href ? (
                     <a
                       href={href}
-                      className="text-sm text-[#E8E8E4] hover:text-[#7F77DD] transition-colors"
+                      className="text-sm text-white/80 hover:text-[#7F77DD] transition-colors"
                       style={{ fontFamily: "var(--font-dm-sans)" }}
                     >
                       {value}
                     </a>
                   ) : (
                     <span
-                      className="text-sm text-[#777]"
+                      className="text-sm text-white/60"
                       style={{ fontFamily: "var(--font-dm-sans)" }}
                     >
                       {value}
