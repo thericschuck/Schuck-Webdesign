@@ -39,7 +39,7 @@ export async function submitContact(
       hour: '2-digit', minute: '2-digit',
     })
     const { error: resendError } = await resend.emails.send({
-      from: 'Schuck Webdesign <info@schuck-webdesign.de>',
+      from: 'Schuck Webdesign <noreply@schuck-webdesign.de>',
       to: 'info@schuck-webdesign.de',
       replyTo: email,
       subject: `[Anfrage] ${type} – ${name}`,
