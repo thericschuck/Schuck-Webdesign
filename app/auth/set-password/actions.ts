@@ -44,5 +44,5 @@ export async function setPassword(
       .eq('status', 'pending')
   }
 
-  redirect('/portal')
+  redirect('/portal?onboarded=1')
 }

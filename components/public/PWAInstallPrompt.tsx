@@ -31,14 +31,21 @@ export function PWAInstallPrompt() {
     }
     if (!installEvent) return
 
-    const dismissed = localStorage.getItem('pwa_install_dismissed')
-    if (dismissed) {
-      const sevenDays = 7 * 24 * 60 * 60 * 1000
-      if (Date.now() - parseInt(dismissed, 10) < sevenDays) return
-      localStorage.removeItem('pwa_install_dismissed')
+    // Neuer User direkt nach Onboarding → Cooldown überspringen
+    const isNewUser = new URLSearchParams(window.location.search).get('onboarded') === '1'
+
+    if (!isNewUser) {
+      const dismissed = localStorage.getItem('pwa_install_dismissed')
+      if (dismissed) {
+        const sevenDays = 7 * 24 * 60 * 60 * 1000
+        if (Date.now() - parseInt(dismissed, 10) < sevenDays) return
+        localStorage.removeItem('pwa_install_dismissed')
+      }
     }
 
     setVisible(true)
+    // URL sauber halten — ?onboarded=1 entfernen ohne Reload
+    if (isNewUser) window.history.replaceState(null, '', '/portal')
   }, [pathname, installEvent])
 
   async function handleInstall() {
