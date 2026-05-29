@@ -13,7 +13,15 @@ export function PWAInstallPrompt() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (localStorage.getItem('pwa_install_dismissed')) return
+
+    const dismissed = localStorage.getItem('pwa_install_dismissed')
+    if (dismissed) {
+      const dismissedAt = parseInt(dismissed, 10)
+      const sevenDays = 7 * 24 * 60 * 60 * 1000
+      if (Date.now() - dismissedAt < sevenDays) return
+      // 7 Tage abgelaufen → Flag löschen, nochmal zeigen
+      localStorage.removeItem('pwa_install_dismissed')
+    }
 
     const handler = (e: Event) => {
       e.preventDefault()
@@ -36,7 +44,7 @@ export function PWAInstallPrompt() {
   }
 
   function handleDismiss() {
-    localStorage.setItem('pwa_install_dismissed', '1')
+    localStorage.setItem('pwa_install_dismissed', Date.now().toString())
     setVisible(false)
   }
 
