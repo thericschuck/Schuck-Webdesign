@@ -44,12 +44,17 @@ function BrandMark() {
   )
 }
 
-export default async function SetPasswordPage() {
+export default async function SetPasswordPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ expired?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const { expired } = await searchParams
 
-  // Kein aktiver Session → abgelaufener/ungültiger Link
-  if (!user) {
+  // Kein aktiver Session oder explizit abgelaufen → Fehlerseite
+  if (!user || expired === '1') {
     return (
       <main className="relative min-h-screen bg-[#080808] flex items-center justify-center px-6 overflow-hidden">
         <Background />
@@ -57,19 +62,42 @@ export default async function SetPasswordPage() {
           <BrandMark />
           <div className="rounded-2xl p-8" style={glassCard}>
             <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-5">
-              <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <svg className="w-7 h-7 text-red-400" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
             <h1 className="text-xl font-semibold text-white mb-2" style={{ fontFamily: 'var(--font-playfair)' }}>
               Link abgelaufen
             </h1>
-            <p className="text-white/40 text-sm leading-relaxed mb-7" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              Der Einladungslink ist nicht mehr gültig oder wurde bereits verwendet. Bitte wende dich an Schuck Webdesign.
+            <p className="text-white/40 text-sm leading-relaxed mb-6" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Dieser Einladungslink ist nicht mehr gültig — er wurde bereits verwendet oder ist abgelaufen.
+              Bitte bitte Eric um einen neuen Einladungslink.
             </p>
+            <div className="border-t border-white/8 pt-5 mb-6 flex flex-col gap-3 text-left">
+              <a
+                href="mailto:info@schuck-webdesign.de"
+                className="flex items-center gap-3 text-sm text-white/50 hover:text-[#7F77DD] transition-colors"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                info@schuck-webdesign.de
+              </a>
+              <a
+                href="tel:+4917634445821"
+                className="flex items-center gap-3 text-sm text-white/50 hover:text-[#7F77DD] transition-colors"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                +49 176 3444 5821
+              </a>
+            </div>
             <Link
               href="/login"
-              className="inline-flex items-center justify-center w-full bg-[#F5F5F0] text-[#080808] text-sm font-semibold rounded-lg py-3 hover:bg-white transition-colors"
+              className="inline-flex items-center justify-center w-full bg-white/8 text-white/60 text-sm font-medium rounded-lg py-2.5 hover:bg-white/12 transition-colors border border-white/10"
               style={{ fontFamily: 'var(--font-dm-sans)' }}
             >
               Zur Anmeldung

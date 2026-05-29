@@ -21,7 +21,8 @@ export function AuthCallbackHandler() {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (error) {
-          router.replace('/login?error=invalid_code')
+          // Abgelaufener oder ungültiger Einladungslink → dedizierte Fehlerseite
+          router.replace('/auth/set-password?expired=1')
           return
         }
       } else {
@@ -42,7 +43,7 @@ export function AuthCallbackHandler() {
         })
 
         if (error) {
-          router.replace('/login?error=invalid_token')
+          router.replace('/auth/set-password?expired=1')
           return
         }
       }
