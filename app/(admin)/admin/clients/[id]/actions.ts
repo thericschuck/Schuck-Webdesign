@@ -2,7 +2,8 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { redirect, revalidatePath } from 'next/navigation'
+import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 
 type DeleteResult = { status: 'error'; message: string } | { status: 'success' }
 type ResendResult = { status: 'error'; message: string } | { status: 'success' }
