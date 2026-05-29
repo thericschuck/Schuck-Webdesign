@@ -5,7 +5,7 @@ import type { ProjectStatus } from '@/types/database'
 import { DeleteClientButton } from './DeleteClientButton'
 import { ResendInviteButton } from './ResendInviteButton'
 
-const INVITE_EXPIRY_HOURS = 48
+const INVITE_EXPIRY_HOURS = 24
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   briefing: 'Briefing',
