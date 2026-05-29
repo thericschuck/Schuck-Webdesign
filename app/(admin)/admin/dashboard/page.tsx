@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { ProjectStatus } from '@/types/database'
-import { PWAInstallPrompt } from '@/components/public/PWAInstallPrompt'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   briefing: 'Briefing',
@@ -98,7 +97,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PWAInstallPrompt />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

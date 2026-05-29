@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -8,10 +9,13 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function PWAInstallPrompt() {
+  const pathname = usePathname()
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
+    // Nur auf /portal anzeigen — sonst nichts
+    if (pathname !== '/portal') return
     if (typeof window === 'undefined') return
 
     const dismissed = localStorage.getItem('pwa_install_dismissed')
@@ -19,7 +23,6 @@ export function PWAInstallPrompt() {
       const dismissedAt = parseInt(dismissed, 10)
       const sevenDays = 7 * 24 * 60 * 60 * 1000
       if (Date.now() - dismissedAt < sevenDays) return
-      // 7 Tage abgelaufen → Flag löschen, nochmal zeigen
       localStorage.removeItem('pwa_install_dismissed')
     }
 
@@ -31,15 +34,13 @@ export function PWAInstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
+  }, [pathname])
 
   async function handleInstall() {
     if (!installEvent) return
     await installEvent.prompt()
     const { outcome } = await installEvent.userChoice
-    if (outcome === 'accepted') {
-      setVisible(false)
-    }
+    if (outcome === 'accepted') setVisible(false)
     setInstallEvent(null)
   }
 
