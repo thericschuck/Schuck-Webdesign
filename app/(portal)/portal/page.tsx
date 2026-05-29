@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { StatusTimeline } from '@/components/portal/StatusTimeline'
-import { PWAInstallPrompt } from '@/components/public/PWAInstallPrompt'
 import type { ProjectStatus } from '@/types/database'
 
 const BANNER_STARS = [
@@ -102,7 +101,6 @@ export default async function PortalDashboardPage() {
 
   return (
     <div className="space-y-10">
-      <PWAInstallPrompt />
       <div
         className="relative overflow-hidden rounded-4xl border border-white/6 bg-[#080808] px-7 py-8 md:px-10 md:py-10"
         style={{ boxShadow: '0 14px 48px rgba(0,0,0,0.18)' }}
