@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, DM_Sans, Fraunces } from "next/font/google";
 import Script from "next/script";
+import { PWAInstallPrompt } from "@/components/public/PWAInstallPrompt";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -71,7 +72,7 @@ export const metadata: Metadata = {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
     ],
-    apple: { url: "/icon.svg", type: "image/svg+xml" },
+    apple: { url: "/icon.png", type: "image/png" },
   },
   other: {
     "theme-color": "#0b1020",
@@ -117,6 +118,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         {children}
+        <PWAInstallPrompt />
 
         {/* Google Analytics */}
         <Script

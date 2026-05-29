@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 
 const NAV = [
   {
@@ -53,107 +54,174 @@ const NAV = [
 
 export function AdminNav({ adminName, unreadMessages = 0, pendingReviews = 0, unreadContacts = 0 }: { adminName: string | null; unreadMessages?: number; pendingReviews?: number; unreadContacts?: number }) {
   const pathname = usePathname()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const isActive = (href: string) =>
     href === '/admin/dashboard'
       ? pathname === href
       : pathname.startsWith(href)
 
+  const navLinks = (onClick?: () => void) => (
+    <>
+      {NAV.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          onClick={onClick}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+            isActive(item.href)
+              ? 'bg-white/10 text-white'
+              : 'text-white/45 hover:text-white/80 hover:bg-white/5'
+          }`}
+          style={{ fontFamily: 'var(--font-dm-sans)' }}
+        >
+          <span className={isActive(item.href) ? 'text-white' : 'text-white/40'}>
+            {item.icon}
+          </span>
+          <span className="flex-1">{item.label}</span>
+          {item.href === '/admin/projects' && unreadMessages > 0 && (
+            <span className="text-xs bg-red-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
+              {unreadMessages > 99 ? '99+' : unreadMessages}
+            </span>
+          )}
+          {item.href === '/admin/reviews' && pendingReviews > 0 && (
+            <span className="text-xs bg-purple-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
+              {pendingReviews > 99 ? '99+' : pendingReviews}
+            </span>
+          )}
+          {item.href === '/admin/contact' && unreadContacts > 0 && (
+            <span className="text-xs bg-violet-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
+              {unreadContacts > 99 ? '99+' : unreadContacts}
+            </span>
+          )}
+        </Link>
+      ))}
+
+      <div className="mt-3 pt-3 border-t border-white/6">
+        <Link
+          href="/admin/clients/new"
+          onClick={onClick}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+            pathname === '/admin/clients/new'
+              ? 'bg-white/10 text-white'
+              : 'text-white/45 hover:text-white/80 hover:bg-white/5'
+          }`}
+          style={{ fontFamily: 'var(--font-dm-sans)' }}
+        >
+          <span className={pathname === '/admin/clients/new' ? 'text-white' : 'text-white/40'}>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+          </span>
+          Neuer Kunde
+        </Link>
+      </div>
+    </>
+  )
+
   return (
-    <aside className="fixed inset-y-0 left-0 w-60 bg-[#111111] border-r border-white/6 flex flex-col z-40">
-      {/* Brand */}
-      <div className="px-5 py-6 border-b border-white/6">
+    <>
+      {/* ── Desktop Sidebar ─────────────────────────────────────── */}
+      <aside className="hidden md:flex fixed inset-y-0 left-0 w-60 bg-[#111111] border-r border-white/6 flex-col z-40">
+        <div className="px-5 py-6 border-b border-white/6">
+          <span
+            className="text-white font-bold text-lg leading-tight"
+            style={{ fontFamily: 'var(--font-playfair)' }}
+          >
+            Schuck
+            <br />
+            <span className="text-white/40 font-normal text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Backoffice
+            </span>
+          </span>
+        </div>
+
+        <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
+          {navLinks()}
+        </nav>
+
+        <div className="px-3 py-4 border-t border-white/6">
+          <div className="px-3 py-2 mb-1">
+            <p className="text-white/70 text-sm truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              {adminName ?? 'Admin'}
+            </p>
+            <p className="text-white/25 text-xs" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Administrator
+            </p>
+          </div>
+          <form action="/auth/logout" method="POST">
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors text-left"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Abmelden
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      {/* ── Mobile Top Bar ──────────────────────────────────────── */}
+      <header className="md:hidden fixed top-0 inset-x-0 z-50 h-14 bg-[#111111] border-b border-white/6 flex items-center justify-between px-4">
         <span
-          className="text-white font-bold text-lg leading-tight"
+          className="text-white font-bold text-base leading-tight"
           style={{ fontFamily: 'var(--font-playfair)' }}
         >
-          Schuck
-          <br />
-          <span className="text-white/40 font-normal text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+          Schuck{' '}
+          <span className="text-white/40 font-normal text-xs" style={{ fontFamily: 'var(--font-dm-sans)' }}>
             Backoffice
           </span>
         </span>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
-        {NAV.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
-              isActive(item.href)
-                ? 'bg-white/10 text-white'
-                : 'text-white/45 hover:text-white/80 hover:bg-white/5'
-            }`}
-            style={{ fontFamily: 'var(--font-dm-sans)' }}
-          >
-            <span className={isActive(item.href) ? 'text-white' : 'text-white/40'}>
-              {item.icon}
-            </span>
-            <span className="flex-1">{item.label}</span>
-            {item.href === '/admin/projects' && unreadMessages > 0 && (
-              <span className="text-xs bg-red-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
-                {unreadMessages > 99 ? '99+' : unreadMessages}
-              </span>
-            )}
-            {item.href === '/admin/reviews' && pendingReviews > 0 && (
-              <span className="text-xs bg-purple-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
-                {pendingReviews > 99 ? '99+' : pendingReviews}
-              </span>
-            )}
-            {item.href === '/admin/contact' && unreadContacts > 0 && (
-              <span className="text-xs bg-violet-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
-                {unreadContacts > 99 ? '99+' : unreadContacts}
-              </span>
-            )}
-          </Link>
-        ))}
-
-        {/* Divider + Quick action */}
-        <div className="mt-3 pt-3 border-t border-white/6">
-          <Link
-            href="/admin/clients/new"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
-              pathname === '/admin/clients/new'
-                ? 'bg-white/10 text-white'
-                : 'text-white/45 hover:text-white/80 hover:bg-white/5'
-            }`}
-            style={{ fontFamily: 'var(--font-dm-sans)' }}
-          >
-            <span className={pathname === '/admin/clients/new' ? 'text-white' : 'text-white/40'}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-            </span>
-            Neuer Kunde
-          </Link>
-        </div>
-      </nav>
-
-      {/* User + Logout */}
-      <div className="px-3 py-4 border-t border-white/6">
-        <div className="px-3 py-2 mb-1">
-          <p className="text-white/70 text-sm truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            {adminName ?? 'Admin'}
-          </p>
-          <p className="text-white/25 text-xs" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            Administrator
-          </p>
-        </div>
-        <form action="/auth/logout" method="POST">
-          <button
-            type="submit"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors text-left"
-            style={{ fontFamily: 'var(--font-dm-sans)' }}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          className="p-2 rounded-md text-white/50 hover:text-white transition-colors"
+          aria-label="Menü"
+        >
+          {menuOpen ? (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
-            Abmelden
-          </button>
-        </form>
-      </div>
-    </aside>
+          ) : (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+      </header>
+
+      {/* ── Mobile Menu Overlay ─────────────────────────────────── */}
+      {menuOpen && (
+        <div className="md:hidden fixed inset-0 z-40 pt-14 bg-[#111111] flex flex-col overflow-y-auto">
+          <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
+            {navLinks(() => setMenuOpen(false))}
+          </nav>
+          <div className="px-3 py-4 border-t border-white/6">
+            <div className="px-3 py-2 mb-1">
+              <p className="text-white/70 text-sm truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                {adminName ?? 'Admin'}
+              </p>
+              <p className="text-white/25 text-xs" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Administrator
+              </p>
+            </div>
+            <form action="/auth/logout" method="POST">
+              <button
+                type="submit"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors text-left"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Abmelden
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

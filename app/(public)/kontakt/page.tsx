@@ -1,9 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { FadeIn } from "@/components/public/FadeIn";
 import { ParticleCanvas } from "@/components/public/ParticleCanvas";
 import { submitContact } from "./actions";
+
+const COOLDOWN_MS = 30 * 60 * 1000;
+const LS_KEY = "contact_last_submitted";
+
+function formatTimeLeft(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 interface FormState {
   name: string;
@@ -39,22 +48,52 @@ export default function KontaktPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [cooldownEndsAt, setCooldownEndsAt] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(LS_KEY);
+    if (stored) {
+      const endsAt = parseInt(stored, 10) + COOLDOWN_MS;
+      if (Date.now() < endsAt) {
+        setCooldownEndsAt(endsAt);
+        setTimeLeft(Math.ceil((endsAt - Date.now()) / 1000));
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!cooldownEndsAt) return;
+    const timer = setInterval(() => {
+      const remaining = cooldownEndsAt - Date.now();
+      if (remaining <= 0) {
+        setCooldownEndsAt(null);
+        setTimeLeft(0);
+      } else {
+        setTimeLeft(Math.ceil(remaining / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownEndsAt]);
 
   function handleChange(
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await submitContact(null, formData);
-      if (result.status === 'success') {
+      if (result.status === "success") {
+        const now = Date.now();
+        localStorage.setItem(LS_KEY, now.toString());
+        const endsAt = now + COOLDOWN_MS;
+        setCooldownEndsAt(endsAt);
+        setTimeLeft(Math.ceil(COOLDOWN_MS / 1000));
         setIsSubmitted(true);
       } else {
         setError(result.message);
@@ -78,7 +117,7 @@ export default function KontaktPage() {
       >
         <FadeIn>
           <div className="bg-white rounded-2xl p-8 md:p-10 shadow-sm border border-black/[0.05] max-w-lg w-full mx-auto">
-            {isSubmitted ? (
+            {isSubmitted || cooldownEndsAt ? (
               <div className="flex flex-col items-center text-center py-10 gap-5">
                 <svg
                   className="w-12 h-12 text-[#7F77DD]"
@@ -113,6 +152,17 @@ export default function KontaktPage() {
                 >
                   Ich melde mich innerhalb von 48 Stunden bei dir.
                 </p>
+                {cooldownEndsAt && (
+                  <p
+                    className="text-xs text-[#aaa] tabular-nums"
+                    style={{ fontFamily: "var(--font-dm-sans)" }}
+                  >
+                    Neue Anfrage möglich in{" "}
+                    <span className="font-semibold text-[#7F77DD]">
+                      {formatTimeLeft(timeLeft)}
+                    </span>
+                  </p>
+                )}
                 <div className="flex flex-col sm:flex-row gap-3 mt-2">
                   <a
                     href="/"

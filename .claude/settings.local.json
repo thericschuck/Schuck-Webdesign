@@ -16,7 +16,13 @@
       "Bash(node -e \"console.log\\(require\\('./node_modules/resend/package.json'\\).version\\)\")",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(nslookup -type=MX schuck-webdesign.de 8.8.8.8)",
+      "Bash(nslookup -type=TXT schuck-webdesign.de 8.8.8.8)",
+      "Bash(nslookup -type=TXT _dmarc.schuck-webdesign.de 8.8.8.8)",
+      "Bash(nslookup -type=TXT resend._domainkey.schuck-webdesign.de 8.8.8.8)",
+      "Bash(nslookup -type=TXT zoho._domainkey.schuck-webdesign.de 8.8.8.8)",
+      "Bash(dir \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\app\\\\\\(admin\\)\\\\admin\\\\clients\\\\[id]\" /b)"
     ],
     "additionalDirectories": [
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign",

@@ -91,6 +91,7 @@ export async function inviteClient(
       profile_id: profileId,
       company_name: cleanCompany,
       status: 'pending',
+      invite_sent_at: new Date().toISOString(),
     })
     .select('id')
     .single()

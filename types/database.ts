@@ -54,6 +54,7 @@ export type Database = {
           address_country: string | null
           notes: string | null
           created_at: string
+          invite_sent_at: string | null
         }
         Insert: {
           id?: string
@@ -68,6 +69,7 @@ export type Database = {
           address_country?: string | null
           notes?: string | null
           created_at?: string
+          invite_sent_at?: string | null
         }
         Update: {
           id?: string
@@ -82,6 +84,7 @@ export type Database = {
           address_country?: string | null
           notes?: string | null
           created_at?: string
+          invite_sent_at?: string | null
         }
         Relationships: [
           {

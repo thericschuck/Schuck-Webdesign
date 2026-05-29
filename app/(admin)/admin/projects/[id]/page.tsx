@@ -124,9 +124,9 @@ export default async function ProjectDetailPage({
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {/* Left sidebar */}
-        <div className="col-span-1 flex flex-col gap-4">
+        <div className="md:col-span-1 flex flex-col gap-4">
           {/* Meta */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h2 className="text-sm font-semibold text-gray-900 mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
@@ -180,7 +180,7 @@ export default async function ProjectDetailPage({
         </div>
 
         {/* Right: Tabs */}
-        <div className="col-span-2">
+        <div className="md:col-span-2">
           <AdminProjectTabs
             projectId={project.id}
             clientId={client!.id}

@@ -2,9 +2,51 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { redirect, revalidatePath } from 'next/navigation'
 
 type DeleteResult = { status: 'error'; message: string } | { status: 'success' }
+type ResendResult = { status: 'error'; message: string } | { status: 'success' }
+
+export async function resendInvite(clientId: string): Promise<ResendResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: adminProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (adminProfile?.role !== 'admin') redirect('/portal')
+
+  const adminClient = createAdminClient()
+
+  const { data: client } = await adminClient
+    .from('clients')
+    .select('profile_id, profiles(email)')
+    .eq('id', clientId)
+    .single()
+
+  if (!client) return { status: 'error', message: 'Kunde nicht gefunden.' }
+
+  const profileArr = Array.isArray(client.profiles) ? client.profiles : [client.profiles]
+  const email = profileArr[0]?.email
+
+  if (!email) return { status: 'error', message: 'Keine E-Mail-Adresse hinterlegt.' }
+
+  const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+  })
+
+  if (error) {
+    console.error('[resendInvite] error:', error.message)
+    return { status: 'error', message: 'Einladung konnte nicht erneut gesendet werden.' }
+  }
+
+  await adminClient
+    .from('clients')
+    .update({ invite_sent_at: new Date().toISOString() })
+    .eq('id', clientId)
+
+  revalidatePath(`/admin/clients/${clientId}`)
+  return { status: 'success' }
+}
 
 export async function deleteClient(clientId: string): Promise<DeleteResult> {
   const supabase = await createClient()

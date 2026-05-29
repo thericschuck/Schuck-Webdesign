@@ -113,7 +113,7 @@ function ReviewFormFields({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="text-xs font-medium text-gray-500 mb-1 block">Name *</label>
           <input
@@ -322,18 +322,18 @@ function ReviewCard({
       ) : (
         <>
           {/* Header */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1 flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-sm font-semibold text-gray-900">{name}</p>
                 {company && <span className="text-xs text-gray-400">{company}</span>}
               </div>
               <div className="flex items-center gap-2">
                 <Stars rating={review.rating} />
-                {project && <span className="text-xs text-gray-400">· {project.title}</span>}
+                {project && <span className="text-xs text-gray-400 truncate">· {project.title}</span>}
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0 justify-end">
               <span
                 className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_CLASS[status]}`}
               >
@@ -436,7 +436,7 @@ export function ReviewsClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bewertungen</h1>
           <p className="text-sm text-gray-500 mt-0.5">
@@ -447,9 +447,9 @@ export function ReviewsClient({
         </div>
         <button
           onClick={() => setShowAdd(true)}
-          className="text-sm px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
+          className="shrink-0 text-sm px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
         >
-          + Bewertung hinzufügen
+          + Hinzufügen
         </button>
       </div>
 

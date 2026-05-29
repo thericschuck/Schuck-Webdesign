@@ -69,7 +69,7 @@ export function EditClientForm({ clientId, defaultValues }: Props) {
             defaultValue={defaultValues.full_name} disabled={pending} className={inputClass} />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Telefon" id="phone">
             <input id="phone" name="phone" type="tel"
               defaultValue={defaultValues.phone} disabled={pending} className={inputClass} />
@@ -104,14 +104,14 @@ export function EditClientForm({ clientId, defaultValues }: Props) {
             placeholder="Musterstraße 12" className={inputClass} />
         </Field>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <Field label="PLZ" id="address_zip">
             <input id="address_zip" name="address_zip" type="text"
               defaultValue={defaultValues.address_zip} disabled={pending}
               placeholder="12345" className={inputClass} />
           </Field>
 
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <Field label="Stadt" id="address_city">
               <input id="address_city" name="address_city" type="text"
                 defaultValue={defaultValues.address_city} disabled={pending}

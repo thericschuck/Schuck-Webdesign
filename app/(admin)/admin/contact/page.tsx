@@ -68,7 +68,7 @@ export default async function ContactPage() {
               }`}
             >
               {/* Top bar */}
-              <div className={`px-6 py-3 flex items-center justify-between gap-4 ${s.read ? 'bg-white' : 'bg-violet-50/60'}`}>
+              <div className={`px-4 md:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${s.read ? 'bg-white' : 'bg-violet-50/60'}`}>
                 <div className="flex items-center gap-3 min-w-0">
                   {!s.read && (
                     <span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
@@ -79,7 +79,7 @@ export default async function ContactPage() {
                     </span>
                     <a
                       href={`mailto:${s.email}?subject=Re: ${s.type}`}
-                      className="text-xs text-violet-600 hover:underline"
+                      className="text-xs text-violet-600 hover:underline break-all"
                       style={{ fontFamily: 'var(--font-dm-sans)' }}
                     >
                       {s.email}
@@ -95,7 +95,7 @@ export default async function ContactPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2 flex-wrap sm:shrink-0">
                   <span
                     className={`text-xs px-2.5 py-1 rounded-full font-medium ${TYPE_COLOR[s.type] ?? 'bg-gray-100 text-gray-600'}`}
                     style={{ fontFamily: 'var(--font-dm-sans)' }}

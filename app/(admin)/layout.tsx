@@ -35,11 +35,11 @@ export default async function AdminLayout({
   if (profile?.role !== 'admin') redirect('/portal')
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
       <AdminNav adminName={profile.full_name} unreadMessages={unreadMessages ?? 0} pendingReviews={pendingReviews ?? 0} unreadContacts={unreadContacts ?? 0} />
-      {/* Content area — offset by sidebar width */}
-      <div className="flex-1 ml-60 min-h-screen">
-        <main className="p-8 max-w-6xl">
+      {/* Content area — offset by sidebar on desktop, top bar on mobile */}
+      <div className="flex-1 min-w-0 md:ml-60 min-h-screen">
+        <main className="w-full p-4 md:p-8 pt-16 md:pt-8 max-w-6xl">
           {children}
         </main>
       </div>

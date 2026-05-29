@@ -3,6 +3,9 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { ProjectStatus } from '@/types/database'
 import { DeleteClientButton } from './DeleteClientButton'
+import { ResendInviteButton } from './ResendInviteButton'
+
+const INVITE_EXPIRY_HOURS = 48
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   briefing: 'Briefing',
@@ -37,6 +40,7 @@ export default async function ClientDetailPage({
       phone,
       status,
       created_at,
+      invite_sent_at,
       address_street,
       address_city,
       address_zip,
@@ -63,9 +67,9 @@ export default async function ClientDetailPage({
       </nav>
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-600 text-xl font-bold">
+          <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-600 text-xl font-bold shrink-0">
             {(profile?.full_name ?? client.company_name).charAt(0).toUpperCase()}
           </div>
           <div>
@@ -87,7 +91,7 @@ export default async function ClientDetailPage({
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 sm:shrink-0">
           <Link
             href={`/admin/projects/new?client_id=${client.id}`}
             className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
@@ -108,9 +112,9 @@ export default async function ClientDetailPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {/* Info card */}
-        <div className="col-span-1 flex flex-col gap-4">
+        <div className="md:col-span-1 flex flex-col gap-4">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h2 className="text-sm font-semibold text-gray-900 mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
               Kontaktdaten
@@ -181,6 +185,49 @@ export default async function ClientDetailPage({
             </div>
           )}
 
+          {/* Invite status — nur für ausstehende Kunden */}
+          {client.status === 'pending' && (() => {
+            const sentAt = client.invite_sent_at ?? client.created_at
+            const sentDate = new Date(sentAt)
+            const expiresDate = new Date(sentDate.getTime() + INVITE_EXPIRY_HOURS * 60 * 60 * 1000)
+            const isExpired = new Date() > expiresDate
+
+            const fmtDate = (d: Date) =>
+              d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) +
+              ', ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr'
+
+            return (
+              <div className={`rounded-2xl border shadow-sm p-5 ${isExpired ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                    Einladungslink
+                  </h2>
+                  <span
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium ${isExpired ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}
+                    style={{ fontFamily: 'var(--font-dm-sans)' }}
+                  >
+                    {isExpired ? 'Abgelaufen' : 'Aktiv'}
+                  </span>
+                </div>
+                <dl className="flex flex-col gap-2 mb-4">
+                  <div>
+                    <dt className="text-xs text-gray-400 mb-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>Gesendet</dt>
+                    <dd className="text-sm text-gray-800" style={{ fontFamily: 'var(--font-dm-sans)' }}>{fmtDate(sentDate)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-gray-400 mb-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                      {isExpired ? 'Abgelaufen am' : 'Läuft ab am'}
+                    </dt>
+                    <dd className={`text-sm font-medium ${isExpired ? 'text-red-700' : 'text-amber-700'}`} style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                      {fmtDate(expiresDate)}
+                    </dd>
+                  </div>
+                </dl>
+                <ResendInviteButton clientId={client.id} />
+              </div>
+            )
+          })()}
+
           {/* Danger Zone */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h2 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: 'var(--font-dm-sans)' }}>
@@ -191,7 +238,7 @@ export default async function ClientDetailPage({
         </div>
 
         {/* Projects */}
-        <div className="col-span-2">
+        <div className="md:col-span-2">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
@@ -212,10 +259,10 @@ export default async function ClientDetailPage({
                   <Link
                     key={project.id}
                     href={`/admin/projects/${project.id}`}
-                    className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-3 px-4 sm:px-6 py-4 hover:bg-gray-50 transition-colors"
                   >
-                    <div>
-                      <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                         {project.title}
                       </p>
                       {project.start_date && (
@@ -224,7 +271,7 @@ export default async function ClientDetailPage({
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span
                         className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLOR[project.status]}`}
                         style={{ fontFamily: 'var(--font-dm-sans)' }}
