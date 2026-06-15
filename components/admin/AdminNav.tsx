@@ -33,6 +33,15 @@ const NAV = [
     ),
   },
   {
+    href: '/admin/todos',
+    label: 'To-Dos',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+    ),
+  },
+  {
     href: '/admin/reviews',
     label: 'Bewertungen',
     icon: (
@@ -52,7 +61,7 @@ const NAV = [
   },
 ]
 
-export function AdminNav({ adminName, unreadMessages = 0, pendingReviews = 0, unreadContacts = 0 }: { adminName: string | null; unreadMessages?: number; pendingReviews?: number; unreadContacts?: number }) {
+export function AdminNav({ adminName, unreadMessages = 0, pendingReviews = 0, unreadContacts = 0, openTodos = 0 }: { adminName: string | null; unreadMessages?: number; pendingReviews?: number; unreadContacts?: number; openTodos?: number }) {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -82,6 +91,11 @@ export function AdminNav({ adminName, unreadMessages = 0, pendingReviews = 0, un
           {item.href === '/admin/projects' && unreadMessages > 0 && (
             <span className="text-xs bg-red-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
               {unreadMessages > 99 ? '99+' : unreadMessages}
+            </span>
+          )}
+          {item.href === '/admin/todos' && openTodos > 0 && (
+            <span className="text-xs bg-blue-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
+              {openTodos > 99 ? '99+' : openTodos}
             </span>
           )}
           {item.href === '/admin/reviews' && pendingReviews > 0 && (

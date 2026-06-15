@@ -59,6 +59,7 @@ export default async function ProjectDetailPage({
     { data: meetings },
     { data: changeRequests },
     { data: reviews },
+    { data: todos },
   ] = await Promise.all([
     supabase
       .from('project_updates')
@@ -80,6 +81,11 @@ export default async function ProjectDetailPage({
       .select('id, client_id, rating, text, status, approved_at, published, created_at')
       .eq('project_id', id)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('todos')
+      .select('id, title, done, priority, due_date, created_at')
+      .eq('project_id', id)
+      .order('created_at', { ascending: true }),
   ])
 
   const client = Array.isArray(project.client) ? project.client[0] : project.client
@@ -189,6 +195,7 @@ export default async function ProjectDetailPage({
             meetings={meetings ?? []}
             changeRequests={changeRequests ?? []}
             reviews={reviews ?? []}
+            todos={todos ?? []}
             documents={documents}
             clientProjects={(allClientProjects ?? []).map((p) => ({
               id: p.id,

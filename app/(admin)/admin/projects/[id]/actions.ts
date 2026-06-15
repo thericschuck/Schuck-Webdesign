@@ -128,21 +128,33 @@ export async function addMeeting(
     ? actionItemsRaw.split('\n').map((s) => s.trim()).filter(Boolean)
     : []
 
-  const { error } = await supabase.from('meetings').insert({
+  const { data: meeting, error } = await supabase.from('meetings').insert({
     project_id: projectId,
     title: title.trim(),
     meeting_date: meetingDate,
     duration_minutes: duration,
     notes: typeof notes === 'string' && notes.trim() ? notes.trim() : null,
     action_items: actionItems,
-  })
+  }).select('id').single()
 
   if (error) {
     console.error('[addMeeting]', error.message)
     return { status: 'error', message: 'Fehler beim Speichern.' }
   }
 
+  if (actionItems.length > 0 && meeting) {
+    await supabase.from('todos').insert(
+      actionItems.map((item) => ({
+        project_id: projectId,
+        meeting_id: meeting.id,
+        title: item,
+        priority: 'medium' as const,
+      }))
+    )
+  }
+
   revalidatePath(`/admin/projects/${projectId}`)
+  revalidatePath('/admin/todos')
   return { status: 'success' }
 }
 
@@ -374,7 +386,23 @@ export async function editMeeting(
 
   if (error) return { status: 'error', message: 'Fehler beim Speichern.' }
 
+  // Sync todos: delete undone meeting-todos, recreate from current action_items
+  // (done todos are preserved even if the action item was changed)
+  await supabase.from('todos').delete().eq('meeting_id', meetingId).eq('done', false)
+
+  if (actionItems.length > 0) {
+    await supabase.from('todos').insert(
+      actionItems.map((item) => ({
+        project_id: projectId,
+        meeting_id: meetingId,
+        title: item,
+        priority: 'medium' as const,
+      }))
+    )
+  }
+
   revalidatePath(`/admin/projects/${projectId}`)
+  revalidatePath('/admin/todos')
   return { status: 'success' }
 }
 
@@ -474,4 +502,89 @@ export async function updateLaunchDate(
 
   revalidatePath(`/admin/projects/${projectId}`)
   return { status: 'success' }
+}
+
+// ── Todos ─────────────────────────────────────────────────────────────────────
+
+type TodoResult = { status: 'error'; message: string } | { status: 'success' }
+
+export async function addTodo(
+  _prev: TodoResult | null,
+  formData: FormData
+): Promise<TodoResult> {
+  const supabase = await assertAdmin()
+  const projectIdRaw = formData.get('project_id')
+  const projectId = typeof projectIdRaw === 'string' && projectIdRaw.trim() ? projectIdRaw.trim() : null
+  const title = formData.get('title')
+  const priority = ((formData.get('priority') as string) || 'medium') as 'high' | 'medium' | 'low'
+  const dueDateRaw = formData.get('due_date')
+  const dueDate = typeof dueDateRaw === 'string' && dueDateRaw.trim() ? dueDateRaw : null
+
+  if (!title || typeof title !== 'string' || title.trim().length < 1) {
+    return { status: 'error', message: 'Titel erforderlich.' }
+  }
+  if (!['high', 'medium', 'low'].includes(priority)) {
+    return { status: 'error', message: 'Ungültige Priorität.' }
+  }
+
+  const { error } = await supabase.from('todos').insert({
+    project_id: projectId,
+    title: title.trim(),
+    priority,
+    due_date: dueDate,
+  })
+
+  if (error) return { status: 'error', message: 'Fehler beim Speichern.' }
+  if (projectId) revalidatePath(`/admin/projects/${projectId}`)
+  revalidatePath('/admin/todos')
+  return { status: 'success' }
+}
+
+export async function editTodo(
+  _prev: TodoResult | null,
+  formData: FormData
+): Promise<TodoResult> {
+  const supabase = await assertAdmin()
+  const todoId = formData.get('todo_id') as string
+  const projectId = formData.get('project_id') as string
+  const title = formData.get('title')
+  const priority = ((formData.get('priority') as string) || 'medium') as 'high' | 'medium' | 'low'
+  const dueDateRaw = formData.get('due_date')
+  const dueDate = typeof dueDateRaw === 'string' && dueDateRaw.trim() ? dueDateRaw : null
+
+  if (!title || typeof title !== 'string' || title.trim().length < 1) {
+    return { status: 'error', message: 'Titel erforderlich.' }
+  }
+
+  const { error } = await supabase
+    .from('todos')
+    .update({ title: title.trim(), priority, due_date: dueDate })
+    .eq('id', todoId)
+
+  if (error) return { status: 'error', message: 'Fehler beim Speichern.' }
+  revalidatePath(`/admin/projects/${projectId}`)
+  return { status: 'success' }
+}
+
+export async function toggleTodo(formData: FormData): Promise<void> {
+  const supabase = await assertAdmin()
+  const todoId = formData.get('todo_id') as string
+  const projectIdRaw = formData.get('project_id')
+  const projectId = typeof projectIdRaw === 'string' && projectIdRaw.trim() ? projectIdRaw.trim() : null
+  const done = formData.get('done') === 'true'
+
+  await supabase.from('todos').update({ done: !done }).eq('id', todoId)
+  if (projectId) revalidatePath(`/admin/projects/${projectId}`)
+  revalidatePath('/admin/todos')
+}
+
+export async function deleteTodo(formData: FormData): Promise<void> {
+  const supabase = await assertAdmin()
+  const todoId = formData.get('todo_id') as string
+  const projectIdRaw = formData.get('project_id')
+  const projectId = typeof projectIdRaw === 'string' && projectIdRaw.trim() ? projectIdRaw.trim() : null
+
+  await supabase.from('todos').delete().eq('id', todoId)
+  if (projectId) revalidatePath(`/admin/projects/${projectId}`)
+  revalidatePath('/admin/todos')
 }
