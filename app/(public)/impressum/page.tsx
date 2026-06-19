@@ -69,7 +69,7 @@ export default function ImpressumPage() {
               body: <p>Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechts bedürfen der schriftlichen Zustimmung des jeweiligen Autors beziehungsweise Erstellers. Downloads und Kopien dieser Seite sind nur für den privaten, nicht kommerziellen Gebrauch gestattet. Soweit Inhalte nicht vom Betreiber erstellt wurden, werden die Urheberrechte Dritter beachtet. Sollten Sie trotzdem auf eine Urheberrechtsverletzung aufmerksam werden, bitten wir um einen entsprechenden Hinweis. Bei Bekanntwerden von Rechtsverletzungen werden wir derartige Inhalte umgehend entfernen.</p>,
             },
           ].map((section) => (
-            <section key={section.title} className="rounded-[24px] border border-black/[0.06] bg-white/70 p-6 md:p-8">
+            <section key={section.title} className="rounded-3xl border border-black/6 bg-white/70 p-6 md:p-8">
               <h2 className="text-2xl text-[#1C1C1E] mb-4" style={{ fontFamily: "var(--font-fraunces)" }}>
                 {section.title}
               </h2>

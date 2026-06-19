@@ -10,11 +10,12 @@ const NAV_LINKS = [
 const LEGAL_LINKS = [
   { label: "Impressum", href: "/impressum" },
   { label: "Datenschutz", href: "/datenschutz" },
+  { label: "AGB", href: "/agb" },
 ];
 
 export function Footer() {
   return (
-    <footer className="bg-[#080808] border-t border-white/[0.06] px-6 md:px-12 py-14">
+    <footer className="bg-[#080808] border-t border-white/6 px-6 md:px-12 py-14">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between gap-10 md:gap-6">
           {/* Logo + tagline */}
@@ -67,7 +68,7 @@ export function Footer() {
               </span>
             </div>
             <p
-              className="text-sm text-[#555] max-w-[200px] leading-relaxed"
+              className="text-sm text-[#555] max-w-50 leading-relaxed"
               style={{ fontFamily: "var(--font-dm-sans)" }}
             >
               Websites, die mehr als gut aussehen.
@@ -125,7 +126,7 @@ export function Footer() {
         </div>
 
         {/* Bottom */}
-        <div className="mt-12 pt-6 border-t border-white/[0.05] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="mt-12 pt-6 border-t border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <p className="text-xs text-[#3a3a3a]" style={{ fontFamily: "var(--font-dm-sans)" }}>
             © 2025 Schuck Webdesign
           </p>
