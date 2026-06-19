@@ -374,6 +374,47 @@ export type Database = {
           }
         ]
       }
+      todos: {
+        Row: {
+          id: string
+          project_id: string | null
+          meeting_id: string | null
+          title: string
+          done: boolean
+          priority: 'high' | 'medium' | 'low'
+          due_date: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id?: string | null
+          meeting_id?: string | null
+          title: string
+          done?: boolean
+          priority?: 'high' | 'medium' | 'low'
+          due_date?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string | null
+          meeting_id?: string | null
+          title?: string
+          done?: boolean
+          priority?: 'high' | 'medium' | 'low'
+          due_date?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'todos_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       contact_submissions: {
         Row: {
           id: string

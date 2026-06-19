@@ -476,3 +476,28 @@ alter table public.reviews
   alter column project_id drop not null;
 
 drop index if exists reviews_project_client_unique;
+
+-- 9. Interne To-Dos pro Projekt (nur Admin, nicht für Kunden sichtbar)
+create table if not exists public.todos (
+  id          uuid primary key default gen_random_uuid(),
+  project_id  uuid not null references public.projects(id) on delete cascade,
+  title       text not null,
+  done        boolean not null default false,
+  priority    text not null default 'medium' check (priority in ('high', 'medium', 'low')),
+  due_date    date,
+  created_at  timestamptz not null default now()
+);
+alter table public.todos enable row level security;
+create index if not exists todos_project_id_idx on public.todos(project_id);
+
+create policy "todos: Admin verwaltet alle"
+  on public.todos for all
+  using (public.get_my_role() = 'admin');
+
+-- 10. Allgemeine To-Dos (ohne Projekt-Zuordnung)
+ALTER TABLE public.todos ALTER COLUMN project_id DROP NOT NULL;
+
+-- 11. Meeting-Verknüpfung für Todos (Aufgaben aus Besprechungen)
+ALTER TABLE public.todos
+  ADD COLUMN IF NOT EXISTS meeting_id uuid
+  REFERENCES public.meetings(id) ON DELETE SET NULL;

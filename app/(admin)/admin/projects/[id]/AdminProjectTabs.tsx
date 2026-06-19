@@ -11,6 +11,10 @@ import {
   approveReview,
   rejectReview,
   deleteUpdate,
+  addTodo,
+  editTodo,
+  toggleTodo,
+  deleteTodo,
 } from './actions'
 import { AddUpdateForm } from './AddUpdateForm'
 import { AdminFileExplorer } from './AdminFileExplorer'
@@ -46,6 +50,15 @@ type Review = {
   created_at: string
 }
 
+type Todo = {
+  id: string
+  title: string
+  done: boolean
+  priority: 'high' | 'medium' | 'low'
+  due_date: string | null
+  created_at: string
+}
+
 type DocRow = {
   id: string
   name: string
@@ -68,18 +81,36 @@ type Props = {
   meetings: Meeting[]
   changeRequests: ChangeRequest[]
   reviews: Review[]
+  todos: Todo[]
   documents: DocRow[]
   clientProjects: ClientProject[]
 }
 
 const TABS = [
   { id: 'updates' as const, label: 'Updates' },
+  { id: 'todos' as const, label: 'To-Dos' },
   { id: 'meetings' as const, label: 'Besprechungen' },
   { id: 'requests' as const, label: 'Anfragen' },
   { id: 'reviews' as const, label: 'Bewertungen' },
   { id: 'files' as const, label: 'Dateien' },
 ]
 type TabId = typeof TABS[number]['id']
+
+const PRIORITY_LABEL: Record<Todo['priority'], string> = {
+  high: 'Hoch',
+  medium: 'Mittel',
+  low: 'Niedrig',
+}
+const PRIORITY_COLOR: Record<Todo['priority'], string> = {
+  high: 'bg-red-50 text-red-600',
+  medium: 'bg-amber-50 text-amber-700',
+  low: 'bg-gray-100 text-gray-500',
+}
+const PRIORITY_ORDER: Record<Todo['priority'], number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+}
 
 const CR_LABEL: Record<ChangeRequest['status'], string> = {
   open: 'Offen',
@@ -276,20 +307,102 @@ function EditMeetingForm({
   )
 }
 
+// ── Edit Todo Form ────────────────────────────────────────────────────────────
+
+function EditTodoForm({
+  todo,
+  projectId,
+  onCancel,
+}: {
+  todo: Todo
+  projectId: string
+  onCancel: () => void
+}) {
+  const [state, action, pending] = useActionState<ActionResult | null, FormData>(editTodo, null)
+
+  useEffect(() => {
+    if (state?.status === 'success') onCancel()
+  }, [state, onCancel])
+
+  return (
+    <form action={action} className="flex-1 flex flex-col gap-2 min-w-0">
+      <input type="hidden" name="todo_id" value={todo.id} />
+      <input type="hidden" name="project_id" value={projectId} />
+      <input
+        name="title"
+        type="text"
+        required
+        defaultValue={todo.title}
+        autoFocus
+        disabled={pending}
+        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50"
+        style={{ fontFamily: 'var(--font-dm-sans)' }}
+      />
+      <div className="flex gap-2">
+        <select
+          name="priority"
+          defaultValue={todo.priority}
+          disabled={pending}
+          className="text-xs rounded-xl border border-gray-200 px-2.5 py-1.5 outline-none focus:border-gray-400 bg-white"
+          style={{ fontFamily: 'var(--font-dm-sans)' }}
+        >
+          <option value="high">Hoch</option>
+          <option value="medium">Mittel</option>
+          <option value="low">Niedrig</option>
+        </select>
+        <input
+          name="due_date"
+          type="date"
+          defaultValue={todo.due_date ?? ''}
+          disabled={pending}
+          className="text-xs rounded-xl border border-gray-200 px-2.5 py-1.5 outline-none focus:border-gray-400"
+        />
+      </div>
+      {state?.status === 'error' && (
+        <p className="text-xs text-red-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>{state.message}</p>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 transition-colors"
+          style={{ fontFamily: 'var(--font-dm-sans)' }}
+        >
+          Abbrechen
+        </button>
+        <button
+          type="submit"
+          disabled={pending}
+          className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 font-medium transition-colors"
+          style={{ fontFamily: 'var(--font-dm-sans)' }}
+        >
+          {pending ? 'Speichern…' : 'Speichern'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function AdminProjectTabs({
-  projectId, clientId, adminId, updates, meetings, changeRequests, reviews, documents, clientProjects,
+  projectId, clientId, adminId, updates, meetings, changeRequests, reviews, todos, documents, clientProjects,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('updates')
   const [showMeetingForm, setShowMeetingForm] = useState(false)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null)
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null)
+  const [showTodoForm, setShowTodoForm] = useState(false)
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null)
 
   // Add meeting
   const [meetingState, meetingAction, meetingPending] = useActionState<ActionResult | null, FormData>(addMeeting, null)
   const meetingFormRef = useRef<HTMLFormElement>(null)
+
+  // Add todo
+  const [addTodoState, addTodoAction, addTodoPending] = useActionState<ActionResult | null, FormData>(addTodo, null)
+  const addTodoFormRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     if (meetingState?.status === 'success') {
@@ -298,8 +411,16 @@ export function AdminProjectTabs({
     }
   }, [meetingState])
 
+  useEffect(() => {
+    if (addTodoState?.status === 'success') {
+      addTodoFormRef.current?.reset()
+      setShowTodoForm(false)
+    }
+  }, [addTodoState])
+
   const pendingReviews = reviews.filter((r) => r.status === 'pending').length
   const openRequests = changeRequests.filter((cr) => cr.status === 'open' || cr.status === 'in_progress').length
+  const openTodosCount = todos.filter((t) => !t.done).length
 
   return (
     <div>
@@ -318,6 +439,11 @@ export function AdminProjectTabs({
             style={{ fontFamily: 'var(--font-dm-sans)' }}
           >
             {tab.label}
+            {tab.id === 'todos' && openTodosCount > 0 && (
+              <span className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full leading-none">
+                {openTodosCount}
+              </span>
+            )}
             {tab.id === 'reviews' && pendingReviews > 0 && (
               <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full leading-none">
                 {pendingReviews}
@@ -331,6 +457,270 @@ export function AdminProjectTabs({
           </button>
         ))}
       </div>
+
+      {/* ── To-Dos ── */}
+      {activeTab === 'todos' && (() => {
+        const openTodos = todos
+          .filter((t) => !t.done)
+          .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
+        const doneTodos = todos
+          .filter((t) => t.done)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        const pct = todos.length > 0 ? Math.round((doneTodos.length / todos.length) * 100) : 0
+
+        return (
+          <div className="flex flex-col gap-4">
+            {/* Add form card */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              {showTodoForm ? (
+                <>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                    Aufgabe hinzufügen
+                  </h3>
+                  <form ref={addTodoFormRef} action={addTodoAction} className="flex flex-col gap-3">
+                    <input type="hidden" name="project_id" value={projectId} />
+                    <input
+                      name="title"
+                      type="text"
+                      required
+                      autoFocus
+                      disabled={addTodoPending}
+                      placeholder="Was muss erledigt werden?"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50"
+                      style={{ fontFamily: 'var(--font-dm-sans)' }}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 block mb-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>Priorität</label>
+                        <select
+                          name="priority"
+                          defaultValue="medium"
+                          disabled={addTodoPending}
+                          className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 bg-white"
+                          style={{ fontFamily: 'var(--font-dm-sans)' }}
+                        >
+                          <option value="high">Hoch</option>
+                          <option value="medium">Mittel</option>
+                          <option value="low">Niedrig</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 block mb-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>Fällig bis (optional)</label>
+                        <input
+                          name="due_date"
+                          type="date"
+                          disabled={addTodoPending}
+                          className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                        />
+                      </div>
+                    </div>
+                    {addTodoState?.status === 'error' && (
+                      <p className="text-xs text-red-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>{addTodoState.message}</p>
+                    )}
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setShowTodoForm(false)}
+                        className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                        style={{ fontFamily: 'var(--font-dm-sans)' }}
+                      >
+                        Abbrechen
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={addTodoPending}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                        style={{ fontFamily: 'var(--font-dm-sans)' }}
+                      >
+                        {addTodoPending ? 'Hinzufügen…' : 'Hinzufügen'}
+                      </button>
+                    </div>
+                  </form>
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowTodoForm(true)}
+                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors w-full"
+                  style={{ fontFamily: 'var(--font-dm-sans)' }}
+                >
+                  <span className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                    <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  </span>
+                  Aufgabe hinzufügen
+                </button>
+              )}
+            </div>
+
+            {/* List */}
+            {todos.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Progress header */}
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                      Fortschritt
+                    </h3>
+                    <span className="text-sm text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                      {doneTodos.length}/{todos.length} erledigt
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gray-900 rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Open todos */}
+                {openTodos.length > 0 && (
+                  <>
+                    <div className="px-5 py-2 bg-gray-50/60 border-b border-gray-100">
+                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                        Offen · {openTodos.length}
+                      </p>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {openTodos.map((todo) => (
+                        <div key={todo.id} className="px-5 py-3.5 flex items-start gap-3 group">
+                          <form action={toggleTodo} className="shrink-0 mt-0.5">
+                            <input type="hidden" name="todo_id" value={todo.id} />
+                            <input type="hidden" name="project_id" value={projectId} />
+                            <input type="hidden" name="done" value={String(todo.done)} />
+                            <button
+                              type="submit"
+                              title="Als erledigt markieren"
+                              className="w-4 h-4 rounded border-2 border-gray-300 hover:border-gray-900 hover:bg-gray-100 transition-colors flex items-center justify-center"
+                            />
+                          </form>
+
+                          {editingTodoId === todo.id ? (
+                            <EditTodoForm
+                              todo={todo}
+                              projectId={projectId}
+                              onCancel={() => setEditingTodoId(null)}
+                            />
+                          ) : (
+                            <>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-gray-800 leading-relaxed" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                                  {todo.title}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  <span
+                                    className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${PRIORITY_COLOR[todo.priority]}`}
+                                    style={{ fontFamily: 'var(--font-dm-sans)' }}
+                                  >
+                                    {PRIORITY_LABEL[todo.priority]}
+                                  </span>
+                                  {todo.due_date && (() => {
+                                    const today = new Date()
+                                    today.setHours(0, 0, 0, 0)
+                                    const overdue = new Date(todo.due_date) < today
+                                    return (
+                                      <span
+                                        className={`text-xs ${overdue ? 'text-red-500 font-medium' : 'text-gray-400'}`}
+                                        style={{ fontFamily: 'var(--font-dm-sans)' }}
+                                      >
+                                        {overdue ? '⚠ Überfällig: ' : 'Fällig: '}{formatDate(todo.due_date)}
+                                      </span>
+                                    )
+                                  })()}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button
+                                  onClick={() => setEditingTodoId(todo.id)}
+                                  className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-700 transition-all p-1"
+                                  title="Bearbeiten"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                                <form action={deleteTodo}>
+                                  <input type="hidden" name="todo_id" value={todo.id} />
+                                  <input type="hidden" name="project_id" value={projectId} />
+                                  <button
+                                    type="submit"
+                                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all p-1"
+                                    title="Aufgabe löschen"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
+                                </form>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Done todos */}
+                {doneTodos.length > 0 && (
+                  <>
+                    <div className={`px-5 py-2 bg-gray-50/60 border-gray-100 ${openTodos.length > 0 ? 'border-t' : 'border-b'}`}>
+                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                        Erledigt · {doneTodos.length}
+                      </p>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {doneTodos.map((todo) => (
+                        <div key={todo.id} className="px-5 py-3 flex items-center gap-3 group">
+                          <form action={toggleTodo} className="shrink-0">
+                            <input type="hidden" name="todo_id" value={todo.id} />
+                            <input type="hidden" name="project_id" value={projectId} />
+                            <input type="hidden" name="done" value={String(todo.done)} />
+                            <button
+                              type="submit"
+                              title="Als offen markieren"
+                              className="w-4 h-4 rounded bg-gray-800 border-2 border-gray-800 flex items-center justify-center hover:bg-gray-600 hover:border-gray-600 transition-colors"
+                            >
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </button>
+                          </form>
+                          <p className="flex-1 text-sm text-gray-400 line-through" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                            {todo.title}
+                          </p>
+                          <form action={deleteTodo}>
+                            <input type="hidden" name="todo_id" value={todo.id} />
+                            <input type="hidden" name="project_id" value={projectId} />
+                            <button
+                              type="submit"
+                              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all p-1"
+                              title="Aufgabe löschen"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </form>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {todos.length === 0 && !showTodoForm && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-10 text-center">
+                <p className="text-gray-400 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                  Noch keine Aufgaben für dieses Projekt.
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Updates ── */}
       {activeTab === 'updates' && (
