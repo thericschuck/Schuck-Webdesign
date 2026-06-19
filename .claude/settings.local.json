@@ -24,7 +24,9 @@
       "Bash(nslookup -type=TXT zoho._domainkey.schuck-webdesign.de 8.8.8.8)",
       "Bash(dir \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\app\\\\\\(admin\\)\\\\admin\\\\clients\\\\[id]\" /b)",
       "Bash(python3 -c ' *)",
-      "Bash(powershell -Command \"\\(Get-Item 'c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\public\\\\icon.png'\\).Length\")"
+      "Bash(powershell -Command \"\\(Get-Item 'c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\public\\\\icon.png'\\).Length\")",
+      "Bash(node -e \"const sharp = require\\('sharp'\\); console.log\\('sharp ok', sharp.versions\\)\")",
+      "Bash(Remove-Item \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\public\\\\closeUp.webp\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign",

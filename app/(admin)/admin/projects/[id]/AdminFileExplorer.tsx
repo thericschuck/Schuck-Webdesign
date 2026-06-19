@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useRef, useEffect } from 'react'
 import { adminUploadFile, adminDeleteFile, getAdminDownloadUrl, moveDocument } from './actions'
+import { resizeIfNeeded } from '@/lib/resizeImage'
 
 type DocRow = {
   id: string
@@ -259,6 +260,7 @@ function UploadForm({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [resizing, setResizing] = useState(false)
 
   const [uploadState, uploadAction, uploadPending] = useActionState<UploadState, FormData>(
     adminUploadFile,
@@ -267,10 +269,14 @@ function UploadForm({
 
   useEffect(() => {
     if (!preSelectedFile || !fileInputRef.current) return
-    const dt = new DataTransfer()
-    dt.items.add(preSelectedFile)
-    fileInputRef.current.files = dt.files
-    setSelectedFile(preSelectedFile.name)
+    setResizing(true)
+    resizeIfNeeded(preSelectedFile).then((resized) => {
+      if (!fileInputRef.current) return
+      const dt = new DataTransfer()
+      dt.items.add(resized)
+      fileInputRef.current.files = dt.files
+      setSelectedFile(resized.name)
+    }).finally(() => setResizing(false))
   }, [preSelectedFile])
 
   useEffect(() => {
@@ -281,16 +287,39 @@ function UploadForm({
     }
   }, [uploadState, onSuccess])
 
-  function handleDrop(e: React.DragEvent) {
+  async function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     e.stopPropagation()
     setDragOver(false)
     const file = e.dataTransfer.files[0]
     if (!file || !fileInputRef.current) return
-    const dt = new DataTransfer()
-    dt.items.add(file)
-    fileInputRef.current.files = dt.files
-    setSelectedFile(file.name)
+    setResizing(true)
+    try {
+      const resized = await resizeIfNeeded(file)
+      const dt = new DataTransfer()
+      dt.items.add(resized)
+      fileInputRef.current.files = dt.files
+      setSelectedFile(resized.name)
+    } finally {
+      setResizing(false)
+    }
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) { setSelectedFile(null); return }
+    setResizing(true)
+    try {
+      const resized = await resizeIfNeeded(file)
+      if (resized !== file && fileInputRef.current) {
+        const dt = new DataTransfer()
+        dt.items.add(resized)
+        fileInputRef.current.files = dt.files
+      }
+      setSelectedFile(resized.name)
+    } finally {
+      setResizing(false)
+    }
   }
 
   return (
@@ -312,7 +341,15 @@ function UploadForm({
         onDragLeave={(e) => { e.stopPropagation(); setDragOver(false) }}
         onDrop={handleDrop}
       >
-        {selectedFile ? (
+        {resizing ? (
+          <>
+            <svg className="w-4 h-4 text-blue-400 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="text-sm text-blue-500 flex-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>Bild wird optimiert…</span>
+          </>
+        ) : selectedFile ? (
           <>
             <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -337,7 +374,8 @@ function UploadForm({
           type="file"
           className="hidden"
           accept=".pdf,.jpg,.jpeg,.png,.webp,.svg,.zip,.txt,.doc,.docx"
-          onChange={(e) => setSelectedFile(e.target.files?.[0]?.name ?? null)}
+          disabled={resizing}
+          onChange={handleFileChange}
         />
       </label>
 
@@ -356,7 +394,7 @@ function UploadForm({
       <div className="flex justify-end">
         <button
           type="submit"
-          disabled={uploadPending || !selectedFile}
+          disabled={uploadPending || resizing || !selectedFile}
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           style={{ fontFamily: 'var(--font-dm-sans)' }}
         >

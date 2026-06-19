@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useRef } from 'react'
 import { uploadFile } from './actions'
+import { resizeIfNeeded } from '@/lib/resizeImage'
 import type { ProjectStatus } from '@/types/database'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -24,11 +25,31 @@ type Props = {
 
 export function UploadForm({ projects, foldersByProject }: Props) {
   const [state, action, pending] = useActionState<State, FormData>(uploadFile, null)
-  const formRef = useRef<HTMLFormElement>(null)
+  const formRef    = useRef<HTMLFormElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [selectedProject, setSelectedProject] = useState('')
   const [folderInput, setFolderInput]         = useState('')
   const [fileName, setFileName]               = useState<string | null>(null)
+  const [resizing, setResizing]               = useState(false)
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) { setFileName(null); return }
+    setFileName(file.name)
+    setResizing(true)
+    try {
+      const resized = await resizeIfNeeded(file)
+      if (resized !== file && fileInputRef.current) {
+        const dt = new DataTransfer()
+        dt.items.add(resized)
+        fileInputRef.current.files = dt.files
+        setFileName(resized.name)
+      }
+    } finally {
+      setResizing(false)
+    }
+  }
 
   const existingFolders = selectedProject ? (foldersByProject[selectedProject] ?? []) : []
   const suggestId = 'folder-suggestions'
@@ -132,7 +153,15 @@ export function UploadForm({ projects, foldersByProject }: Props) {
           ].join(' ')}
         >
           <div className="flex flex-col items-center gap-2 text-center px-4">
-            {fileName ? (
+            {resizing ? (
+              <>
+                <svg className="w-7 h-7 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <p className="text-sm text-blue-500">Bild wird optimiert…</p>
+              </>
+            ) : fileName ? (
               <>
                 <svg className="w-7 h-7 text-green-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -153,16 +182,14 @@ export function UploadForm({ projects, foldersByProject }: Props) {
             )}
           </div>
           <input
+            ref={fileInputRef}
             id="file"
             name="file"
             type="file"
             className="hidden"
-            disabled={pending}
+            disabled={pending || resizing}
             accept=".pdf,.jpg,.jpeg,.png,.webp,.svg,.zip,.txt,.doc,.docx"
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              setFileName(f?.name ?? null)
-            }}
+            onChange={handleFileChange}
           />
         </label>
 
@@ -196,7 +223,7 @@ export function UploadForm({ projects, foldersByProject }: Props) {
 
       <button
         type="submit"
-        disabled={pending || !fileName}
+        disabled={pending || resizing || !fileName}
         className="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         {pending ? (

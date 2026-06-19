@@ -115,7 +115,7 @@ function SectionHeadline({
   );
 }
 
-function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
+function Counter({ target, suffix = "", prefix = "" }: { target: number; suffix?: string; prefix?: string }) {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true });
@@ -138,6 +138,7 @@ function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
 
   return (
     <span ref={ref}>
+      {prefix}
       {count}
       {suffix}
     </span>
@@ -438,11 +439,10 @@ function HeroSection() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.55, duration: 0.6, ease: EASE }}
-          className="text-sm text-[#666] leading-relaxed max-w-85"
+          className="text-sm text-[#999] leading-relaxed max-w-85"
           style={{ fontFamily: "var(--font-dm-sans)" }}
         >
-          Performante Websites, die Leads generieren, Vertrauen aufbauen und
-          dein Unternehmen wachsen lassen.
+          Die meisten Websites kosten Geld.<br />Deine soll welches bringen.
         </motion.p>
 
         <motion.div
@@ -469,6 +469,31 @@ function HeroSection() {
             <span className="ghost-underline" aria-hidden />
           </Link>
         </motion.div>
+
+        {/* Social proof – Eric */}
+        {/* <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.95, duration: 0.6, ease: EASE }}
+          className="flex items-center gap-2.5 mt-6"
+        >
+          <div className="relative w-10 h-10 rounded-full overflow-hidden ring-1 ring-white/15 shrink-0">
+            <Image
+              src="/closeUp2.avif"
+              alt="Eric Schuck"
+              fill
+              sizes="40px"
+              className="object-cover object-top"
+            />
+          </div>
+          <p
+            className="text-[13px] text-white/45 leading-none"
+            style={{ fontFamily: "var(--font-dm-sans)" }}
+          >
+            Ich melde mich innerhalb von 24h&nbsp;–&nbsp;
+            <span className="text-white/65">Eric</span>
+          </p>
+        </motion.div> */}
       </div>
 
       {/* Trust stats at bottom */}
@@ -480,16 +505,16 @@ function HeroSection() {
       >
         <div className="flex items-center gap-10 md:gap-14 border-t border-white/8 pt-6 px-4">
           {[
-            { value: 4, suffix: "+", label: "Projekte" },
-            { value: 100, suffix: "", label: "PageSpeed" },
-            { value: 48, suffix: "h", label: "Reaktionszeit" },
-          ].map(({ value, suffix, label }) => (
+            { value: 4, suffix: "+", prefix: "", label: "Projekte" },
+            { value: 1, suffix: "s", prefix: "<", label: "Ladezeit" },
+            { value: 100, suffix: "%", prefix: "", label: "Kundenzufriedenheit" },
+          ].map(({ value, suffix, prefix, label }) => (
             <div key={label} className="flex flex-col items-center gap-0.5">
               <span
                 className="text-2xl font-bold text-[#F5F5F0] tabular-nums"
                 style={{ fontFamily: "var(--font-playfair)" }}
               >
-                <Counter target={value} suffix={suffix} />
+                <Counter target={value} suffix={suffix} prefix={prefix} />
               </span>
               <span
                 className="text-[10px] text-[#555] uppercase tracking-widest"
@@ -728,65 +753,65 @@ function ServicesSection() {
           style={{ scrollbarWidth: "none", touchAction: "pan-x" } as React.CSSProperties}
         >
           <div className="flex gap-4 px-[11vw] min-w-max md:grid md:grid-cols-3 md:min-w-0 md:px-0">
-          {SERVICES.map((s, i) => (
-            <motion.div key={s.title} data-scard={i} style={cardMotion[i]} className="flex flex-col shrink-0 w-[78vw] snap-center md:w-auto">
-              <FadeIn delay={i * 0.1} className="flex-1 flex flex-col">
-                <div data-cursor="light" className="group relative bg-[#1C1C1E] border border-white/6 rounded-xl p-7 hover:border-white/12 hover:bg-[#222] transition-all duration-300 flex flex-col gap-5 flex-1 overflow-hidden">
-                  {/* Background number */}
-                  <span
-                    aria-hidden
-                    className="absolute bottom-0 right-3 leading-none select-none pointer-events-none"
-                    style={{
-                      fontFamily: "var(--font-fraunces)",
-                      fontSize: "clamp(80px, 10vw, 130px)",
-                      fontWeight: 700,
-                      color: "rgba(255,255,255,0.04)",
-                      lineHeight: 1,
-                    }}
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <div className="w-10 h-10 rounded-lg bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center shrink-0">
-                    <ServiceIcon type={s.icon} />
-                  </div>
-                  <div className="flex-1">
-                    <h3
-                      className="text-base font-semibold text-[#F5F5F0] mb-2"
+            {SERVICES.map((s, i) => (
+              <motion.div key={s.title} data-scard={i} style={cardMotion[i]} className="flex flex-col shrink-0 w-[78vw] snap-center md:w-auto">
+                <FadeIn delay={i * 0.1} className="flex-1 flex flex-col">
+                  <div data-cursor="light" className="group relative bg-[#1C1C1E] border border-white/6 rounded-xl p-7 hover:border-white/12 hover:bg-[#222] transition-all duration-300 flex flex-col gap-5 flex-1 overflow-hidden">
+                    {/* Background number */}
+                    <span
+                      aria-hidden
+                      className="absolute bottom-0 right-3 leading-none select-none pointer-events-none"
+                      style={{
+                        fontFamily: "var(--font-fraunces)",
+                        fontSize: "clamp(80px, 10vw, 130px)",
+                        fontWeight: 700,
+                        color: "rgba(255,255,255,0.04)",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div className="w-10 h-10 rounded-lg bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center shrink-0">
+                      <ServiceIcon type={s.icon} />
+                    </div>
+                    <div className="flex-1">
+                      <h3
+                        className="text-base font-semibold text-[#F5F5F0] mb-2"
+                        style={{ fontFamily: "var(--font-dm-sans)" }}
+                      >
+                        {s.title}
+                      </h3>
+                      <p
+                        className="text-sm text-[#888] leading-relaxed"
+                        style={{ fontFamily: "var(--font-dm-sans)" }}
+                      >
+                        {s.desc}
+                      </p>
+                    </div>
+                    <Link
+                      href={s.href}
+                      className="text-sm text-[#7F77DD] hover:text-[#9B95E8] transition-colors flex items-center gap-1 mt-auto"
                       style={{ fontFamily: "var(--font-dm-sans)" }}
                     >
-                      {s.title}
-                    </h3>
-                    <p
-                      className="text-sm text-[#888] leading-relaxed"
-                      style={{ fontFamily: "var(--font-dm-sans)" }}
-                    >
-                      {s.desc}
-                    </p>
+                      Mehr erfahren
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </Link>
                   </div>
-                  <Link
-                    href={s.href}
-                    className="text-sm text-[#7F77DD] hover:text-[#9B95E8] transition-colors flex items-center gap-1 mt-auto"
-                    style={{ fontFamily: "var(--font-dm-sans)" }}
-                  >
-                    Mehr erfahren
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </Link>
-                </div>
-              </FadeIn>
-            </motion.div>
-          ))}
+                </FadeIn>
+              </motion.div>
+            ))}
           </div>
         </div>
 
@@ -924,65 +949,65 @@ function ProjectsSection() {
           style={{ touchAction: "pan-x", scrollbarWidth: "none" } as React.CSSProperties}
         >
           <div className="flex gap-5 px-[9vw] min-w-max md:grid md:grid-cols-2 md:min-w-0 md:px-0">
-          {FEATURED_PROJECTS.map((p, i) => (
-            <div key={p.slug} data-pcard={i} className="shrink-0 w-[82vw] snap-center md:w-auto">
-            <FadeIn delay={i * 0.1}>
-              <Link href={`/projekte/${p.slug}`} className="group block">
-                <div className="aspect-4/3 rounded-xl border border-white/6 mb-4 overflow-hidden group-hover:border-white/12 transition-all duration-300 relative bg-[#161616]">
-                  <Image
-                    src={p.image}
-                    alt={p.name}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
-                    placeholder="blur"
-                    blurDataURL={p.blurDataURL}
-                  />
-                  <div className="absolute inset-0 bg-linear-to-t from-black/50 via-black/10 to-transparent" />
-                  <div className="absolute bottom-4 left-4">
-                    <span
-                      className="text-[10px] uppercase tracking-widest text-[#7F77DD] bg-[#7F77DD]/10 px-2.5 py-1 rounded-full border border-[#7F77DD]/20"
-                      style={{ fontFamily: "var(--font-dm-sans)" }}
-                    >
-                      {p.category}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-start justify-between gap-4 px-1">
-                  <div>
-                    <h3
-                      className="text-base font-semibold text-[#F5F5F0] mb-1"
-                      style={{ fontFamily: "var(--font-dm-sans)" }}
-                    >
-                      {p.name}
-                    </h3>
-                    <p
-                      className="text-sm text-[#555]"
-                      style={{ fontFamily: "var(--font-dm-sans)" }}
-                    >
-                      {p.desc}
-                    </p>
-                  </div>
-                  <span className="text-[#444] group-hover:text-[#F5F5F0] transition-colors shrink-0 mt-0.5">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M17 8l4 4m0 0l-4 4m4-4H3"
+            {FEATURED_PROJECTS.map((p, i) => (
+              <div key={p.slug} data-pcard={i} className="shrink-0 w-[82vw] snap-center md:w-auto">
+                <FadeIn delay={i * 0.1}>
+                  <Link href={`/projekte/${p.slug}`} className="group block">
+                    <div className="aspect-4/3 rounded-xl border border-white/6 mb-4 overflow-hidden group-hover:border-white/12 transition-all duration-300 relative bg-[#161616]">
+                      <Image
+                        src={p.image}
+                        alt={p.name}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+                        placeholder="blur"
+                        blurDataURL={p.blurDataURL}
                       />
-                    </svg>
-                  </span>
-                </div>
-              </Link>
-            </FadeIn>
-            </div>
-          ))}
+                      <div className="absolute inset-0 bg-linear-to-t from-black/50 via-black/10 to-transparent" />
+                      <div className="absolute bottom-4 left-4">
+                        <span
+                          className="text-[10px] uppercase tracking-widest text-[#7F77DD] bg-[#7F77DD]/10 px-2.5 py-1 rounded-full border border-[#7F77DD]/20"
+                          style={{ fontFamily: "var(--font-dm-sans)" }}
+                        >
+                          {p.category}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-start justify-between gap-4 px-1">
+                      <div>
+                        <h3
+                          className="text-base font-semibold text-[#F5F5F0] mb-1"
+                          style={{ fontFamily: "var(--font-dm-sans)" }}
+                        >
+                          {p.name}
+                        </h3>
+                        <p
+                          className="text-sm text-[#555]"
+                          style={{ fontFamily: "var(--font-dm-sans)" }}
+                        >
+                          {p.desc}
+                        </p>
+                      </div>
+                      <span className="text-[#444] group-hover:text-[#F5F5F0] transition-colors shrink-0 mt-0.5">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M17 8l4 4m0 0l-4 4m4-4H3"
+                          />
+                        </svg>
+                      </span>
+                    </div>
+                  </Link>
+                </FadeIn>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -1135,8 +1160,8 @@ function ProcessSection() {
                       isActive
                         ? { backgroundColor: "#7F77DD", borderColor: "#7F77DD" }
                         : isPast
-                        ? { backgroundColor: "rgba(127,119,221,0.10)", borderColor: "rgba(127,119,221,0.30)" }
-                        : { backgroundColor: "#ffffff", borderColor: "rgba(28,28,30,0.14)" }
+                          ? { backgroundColor: "rgba(127,119,221,0.10)", borderColor: "rgba(127,119,221,0.30)" }
+                          : { backgroundColor: "#ffffff", borderColor: "rgba(28,28,30,0.14)" }
                     }
                     transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
                     className="w-10 h-10 rounded-full flex items-center justify-center mb-5 relative z-10"
@@ -1258,15 +1283,15 @@ function AboutSection() {
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
         <FadeIn>
           <div className="relative aspect-3/4 rounded-2xl max-w-sm overflow-hidden">
-              <Image
-                src="/profilbild.webp"
-                alt="Eric Schuck – Webdesigner"
-                fill
-                sizes="(max-width: 768px) 100vw, 380px"
-                className="object-cover object-top"
-                priority
-              />
-            </div>
+            <Image
+              src="/profilbild.webp"
+              alt="Eric Schuck – Webdesigner"
+              fill
+              sizes="(max-width: 768px) 100vw, 380px"
+              className="object-cover object-top"
+              priority
+            />
+          </div>
         </FadeIn>
         <FadeIn delay={0.15}>
           <div className="flex flex-col gap-5">
