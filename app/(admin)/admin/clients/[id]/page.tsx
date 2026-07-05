@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import type { ProjectStatus } from '@/types/database'
+import type { ClientStatus, ProjectStatus } from '@/types/database'
 import { DeleteClientButton } from './DeleteClientButton'
 import { ResendInviteButton } from './ResendInviteButton'
 
@@ -23,6 +23,24 @@ const STATUS_COLOR: Record<ProjectStatus, string> = {
   live: 'bg-green-50 text-green-700',
 }
 
+const CLIENT_STATUS_LABEL: Record<ClientStatus, string> = {
+  lead: 'Lead',
+  pending: 'Ausstehend',
+  active: 'Aktiv',
+  paused: 'Pausiert',
+  completed: 'Abgeschlossen',
+  inactive: 'Inaktiv',
+}
+
+const CLIENT_STATUS_COLOR: Record<ClientStatus, string> = {
+  lead: 'bg-purple-50 text-purple-700',
+  pending: 'bg-amber-50 text-amber-700',
+  active: 'bg-green-50 text-green-700',
+  paused: 'bg-orange-50 text-orange-700',
+  completed: 'bg-blue-50 text-blue-700',
+  inactive: 'bg-gray-100 text-gray-500',
+}
+
 export default async function ClientDetailPage({
   params,
 }: {
@@ -35,6 +53,7 @@ export default async function ClientDetailPage({
     .from('clients')
     .select(`
       id,
+      client_number,
       company_name,
       website,
       phone,
@@ -47,7 +66,7 @@ export default async function ClientDetailPage({
       address_country,
       notes,
       profile:profiles(id, full_name, email),
-      projects(id, title, status, start_date, launch_date, created_at)
+      projects(id, project_number, title, status, start_date, launch_date, created_at)
     `)
     .eq('id', id)
     .single()
@@ -73,20 +92,25 @@ export default async function ClientDetailPage({
             {(profile?.full_name ?? client.company_name).charAt(0).toUpperCase()}
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
-              {profile?.full_name ?? client.company_name}
-            </h1>
+            <div className="flex items-center gap-2">
+              {client.client_number && (
+                <span className="text-xs text-gray-400 font-mono" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                  {client.client_number}
+                </span>
+              )}
+              <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
+                {profile?.full_name ?? client.company_name}
+              </h1>
+            </div>
             <p className="text-sm text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
               {client.company_name}
             </p>
             <div className="flex items-center gap-2 mt-1">
               <span
-                className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                  client.status === 'active' ? 'bg-green-50 text-green-700' : client.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'
-                }`}
+                className={`text-xs px-2.5 py-1 rounded-full font-medium ${CLIENT_STATUS_COLOR[client.status]}`}
                 style={{ fontFamily: 'var(--font-dm-sans)' }}
               >
-                {client.status === 'active' ? 'Aktiv' : client.status === 'pending' ? 'Ausstehend' : 'Inaktiv'}
+                {CLIENT_STATUS_LABEL[client.status]}
               </span>
             </div>
           </div>
@@ -262,9 +286,16 @@ export default async function ClientDetailPage({
                     className="flex items-center gap-3 px-4 sm:px-6 py-4 hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {project.title}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        {project.project_number && (
+                          <span className="text-xs text-gray-400 font-mono shrink-0" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                            {project.project_number}
+                          </span>
+                        )}
+                        <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                          {project.title}
+                        </p>
+                      </div>
                       {project.start_date && (
                         <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                           Start: {new Date(project.start_date).toLocaleDateString('de-DE')}

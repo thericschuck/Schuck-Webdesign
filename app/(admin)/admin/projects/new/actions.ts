@@ -1,7 +1,8 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { assertAdmin } from '@/lib/auth/assert-admin'
+import { createProject as createProjectRecord } from '@/lib/domain/projects'
 import type { ProjectStatus } from '@/types/database'
 
 type ActionResult = { status: 'error'; message: string }
@@ -10,21 +11,7 @@ export async function createProject(
   _prev: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  if (profile?.role !== 'admin') {
-    return { status: 'error', message: 'Keine Berechtigung.' }
-  }
+  await assertAdmin()
 
   const clientId = formData.get('client_id')
   const title = formData.get('title')
@@ -40,22 +27,19 @@ export async function createProject(
     return { status: 'error', message: 'Bitte einen Projekttitel eingeben.' }
   }
 
-  const { data: project, error } = await supabase
-    .from('projects')
-    .insert({
-      client_id: clientId,
+  let project
+  try {
+    project = await createProjectRecord({
+      clientId,
       title: title.trim(),
       description: typeof description === 'string' && description.trim() ? description.trim() : null,
-      status: status ?? 'briefing',
-      start_date: typeof startDate === 'string' && startDate ? startDate : null,
-      launch_date: typeof launchDate === 'string' && launchDate ? launchDate : null,
+      status: status || undefined,
+      startDate: typeof startDate === 'string' && startDate ? startDate : null,
+      launchDate: typeof launchDate === 'string' && launchDate ? launchDate : null,
     })
-    .select('id')
-    .single()
-
-  if (error || !project) {
-    console.error('[createProject] error:', error?.message)
-    return { status: 'error', message: 'Fehler beim Anlegen des Projekts.' }
+  } catch (error) {
+    console.error('[createProject] error:', error instanceof Error ? error.message : error)
+    return { status: 'error', message: error instanceof Error ? error.message : 'Fehler beim Anlegen des Projekts.' }
   }
 
   redirect(`/admin/projects/${project.id}`)

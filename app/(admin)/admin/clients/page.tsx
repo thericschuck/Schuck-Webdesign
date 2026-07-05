@@ -1,5 +1,24 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import type { ClientStatus } from '@/types/database'
+
+const CLIENT_STATUS_LABEL: Record<ClientStatus, string> = {
+  lead: 'Lead',
+  pending: 'Ausstehend',
+  active: 'Aktiv',
+  paused: 'Pausiert',
+  completed: 'Abgeschlossen',
+  inactive: 'Inaktiv',
+}
+
+const CLIENT_STATUS_COLOR: Record<ClientStatus, string> = {
+  lead: 'bg-purple-50 text-purple-700',
+  pending: 'bg-amber-50 text-amber-700',
+  active: 'bg-green-50 text-green-700',
+  paused: 'bg-orange-50 text-orange-700',
+  completed: 'bg-blue-50 text-blue-700',
+  inactive: 'bg-gray-100 text-gray-500',
+}
 
 export default async function ClientsPage() {
   const supabase = await createClient()
@@ -8,6 +27,7 @@ export default async function ClientsPage() {
     .from('clients')
     .select(`
       id,
+      client_number,
       company_name,
       website,
       phone,
@@ -51,8 +71,6 @@ export default async function ClientsPage() {
               {clients.map((client) => {
                 const profile = Array.isArray(client.profile) ? client.profile[0] : client.profile
                 const projectCount = Array.isArray(client.projects) ? client.projects.length : 0
-                const statusLabel = client.status === 'active' ? 'Aktiv' : client.status === 'pending' ? 'Ausstehend' : 'Inaktiv'
-                const statusColor = client.status === 'active' ? 'bg-green-50 text-green-700' : client.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'
                 return (
                   <Link
                     key={client.id}
@@ -63,16 +81,23 @@ export default async function ClientsPage() {
                       {(profile?.full_name ?? client.company_name).charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {profile?.full_name ?? client.company_name}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        {client.client_number && (
+                          <span className="text-xs text-gray-400 font-mono shrink-0" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                            {client.client_number}
+                          </span>
+                        )}
+                        <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                          {profile?.full_name ?? client.company_name}
+                        </p>
+                      </div>
                       <p className="text-xs text-gray-400 truncate mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                         {profile?.email ?? client.company_name} · {projectCount} {projectCount === 1 ? 'Projekt' : 'Projekte'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor}`} style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {statusLabel}
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${CLIENT_STATUS_COLOR[client.status]}`} style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                        {CLIENT_STATUS_LABEL[client.status]}
                       </span>
                       <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -87,6 +112,7 @@ export default async function ClientsPage() {
             <table className="hidden md:table w-full">
               <thead>
                 <tr className="border-b border-gray-100">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Nr.</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Kunde</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>E-Mail</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Projekte</th>
@@ -100,6 +126,11 @@ export default async function ClientsPage() {
                   const projectCount = Array.isArray(client.projects) ? client.projects.length : 0
                   return (
                     <tr key={client.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="text-xs text-gray-400 font-mono" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                          {client.client_number ?? '—'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 text-sm font-semibold shrink-0">
@@ -119,12 +150,10 @@ export default async function ClientsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                            client.status === 'active' ? 'bg-green-50 text-green-700' : client.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'
-                          }`}
+                          className={`text-xs px-2.5 py-1 rounded-full font-medium ${CLIENT_STATUS_COLOR[client.status]}`}
                           style={{ fontFamily: 'var(--font-dm-sans)' }}
                         >
-                          {client.status === 'active' ? 'Aktiv' : client.status === 'pending' ? 'Ausstehend' : 'Inaktiv'}
+                          {CLIENT_STATUS_LABEL[client.status]}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">

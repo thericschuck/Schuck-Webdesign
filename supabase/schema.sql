@@ -501,3 +501,265 @@ ALTER TABLE public.todos ALTER COLUMN project_id DROP NOT NULL;
 ALTER TABLE public.todos
   ADD COLUMN IF NOT EXISTS meeting_id uuid
   REFERENCES public.meetings(id) ON DELETE SET NULL;
+
+-- ============================================================
+-- JARVIS – Phase 1: Kunden + Projekte (Fundament)
+-- Siehe supabase/migrations/0001..0005 für die einzeln ausführbaren Skripte.
+-- ============================================================
+
+-- 12. client_status um JARVIS-Werte erweitern (eigene Transaktion nötig,
+--     siehe migrations/0001_client_status_enum.sql)
+-- alter type public.client_status add value if not exists 'lead';
+-- alter type public.client_status add value if not exists 'paused';
+-- alter type public.client_status add value if not exists 'completed';
+
+-- 13. Nummernkreise
+create table if not exists public.counters (
+  typ         text not null,
+  scope_key   text not null default '',
+  last_value  integer not null default 0,
+  unique (typ, scope_key)
+);
+alter table public.counters enable row level security;
+
+create policy "counters: Admin verwaltet alle"
+  on public.counters for all
+  using (public.get_my_role() = 'admin');
+
+create or replace function public.get_next_number(p_typ text, p_scope text default '')
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_next integer;
+begin
+  insert into public.counters (typ, scope_key, last_value)
+  values (p_typ, p_scope, 1)
+  on conflict (typ, scope_key)
+  do update set last_value = public.counters.last_value + 1
+  returning last_value into v_next;
+
+  return v_next;
+end;
+$$;
+
+-- 14. Kunden-/Projektnummern
+alter table public.clients
+  add column if not exists client_number text unique;   -- KD-001
+
+alter table public.projects
+  add column if not exists project_number text unique;  -- KD-001-001
+
+-- 15. Human-in-the-Loop Zwischenspeicher für JARVIS
+create table if not exists public.pending_actions (
+  id           uuid primary key default gen_random_uuid(),
+  tool_name    text not null,
+  tool_args    jsonb not null,
+  conversation jsonb not null,
+  expires_at   timestamptz not null default (now() + interval '30 minutes'),
+  created_at   timestamptz not null default now()
+);
+alter table public.pending_actions enable row level security;
+create index if not exists pending_actions_expires_at_idx on public.pending_actions(expires_at);
+
+create policy "pending_actions: Admin verwaltet alle"
+  on public.pending_actions for all
+  using (public.get_my_role() = 'admin');
+
+-- 16. Backfill: bestehende Kunden/Projekte in Anlagereihenfolge nummerieren
+--     (Details siehe migrations/0005_backfill_numbers.sql)
+
+-- ============================================================
+-- JARVIS – Phase 2: Produkte & Preise (Katalog-Import)
+-- Siehe supabase/migrations/0006_products_catalog.sql
+-- ============================================================
+
+-- 17. Produktkatalog
+create table if not exists public.articles (
+  art_nr                text primary key,
+  bezeichnung            text not null,
+  beschreibung           text,
+  preis_min              numeric(10,2),
+  preis_max              numeric(10,2),
+  einheit                text,
+  typ                    text,
+  kategorie              text,
+  pflichtbetrieb_art_nr  text references public.articles(art_nr),
+  aktiv                  boolean not null default true,
+  created_at             timestamptz not null default now(),
+  updated_at             timestamptz not null default now()
+);
+alter table public.articles enable row level security;
+create index if not exists articles_kategorie_idx on public.articles(kategorie);
+
+create policy "articles: Admin verwaltet alle"
+  on public.articles for all
+  using (public.get_my_role() = 'admin');
+
+create table if not exists public.packages (
+  pkt_nr        text primary key,
+  paketname     text not null,
+  paketpreis    numeric(10,2),
+  zielgruppe    text,
+  laufzeit      text,
+  folgeprodukt  text,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+alter table public.packages enable row level security;
+
+create policy "packages: Admin verwaltet alle"
+  on public.packages for all
+  using (public.get_my_role() = 'admin');
+
+create table if not exists public.package_items (
+  pkt_nr  text not null references public.packages(pkt_nr) on delete cascade,
+  art_nr  text not null references public.articles(art_nr),
+  pos     integer not null,
+  menge   numeric(10,2),
+  ep      numeric(10,2),
+  gesamt  numeric(10,2),
+  primary key (pkt_nr, art_nr)
+);
+alter table public.package_items enable row level security;
+create index if not exists package_items_pkt_nr_idx on public.package_items(pkt_nr);
+
+create policy "package_items: Admin verwaltet alle"
+  on public.package_items for all
+  using (public.get_my_role() = 'admin');
+
+-- 18. Import: scripts/import/import-catalog.ts (idempotent, upsert auf art_nr/pkt_nr)
+--     liest scripts/import/Schuck_Webdesign_Produktkatalog.xlsx
+
+-- ============================================================
+-- JARVIS – Phase 3: Akquise & Pipeline (detailliertes Funnel-Schema)
+-- Siehe supabase/migrations/0007_akquise.sql
+-- ============================================================
+
+-- 19. Leads (Funnel: erstkontakt → quali_call → closing_call → gewonnen/verloren)
+create table if not exists public.leads (
+  id                uuid primary key default gen_random_uuid(),
+  lead_number       text not null unique,
+  firmenname        text not null,
+  ansprechpartner   text,
+  position          text,
+  zielgruppe        text,
+  stadt             text,
+  website           text,
+  phone             text,
+  email             text,
+  quelle            text,
+  website_qualitaet text,
+  prioritaet        text not null default 'medium' check (prioritaet in ('high', 'medium', 'low')),
+  erstkontakt_am    date,
+  akquise_ergebnis  text not null default 'offen'
+                    check (akquise_ergebnis in ('offen', 'nicht_erreicht', 'wiedervorlage', 'kein_interesse', 'qualifiziert')),
+  wiedervorlage     date,
+  notizen           text,
+  current_stage     text not null default 'erstkontakt'
+                    check (current_stage in ('erstkontakt', 'quali_call', 'closing_call', 'gewonnen', 'verloren')),
+  client_id         uuid references public.clients(id),
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+alter table public.leads enable row level security;
+create index if not exists leads_current_stage_idx on public.leads(current_stage);
+create index if not exists leads_client_id_idx on public.leads(client_id);
+
+create policy "leads: Admin verwaltet alle"
+  on public.leads for all
+  using (public.get_my_role() = 'admin');
+
+create table if not exists public.quali_calls (
+  id              uuid primary key default gen_random_uuid(),
+  lead_id         uuid not null references public.leads(id) on delete cascade,
+  quali_call_am   date,
+  quali_ergebnis  text not null default 'offen' check (quali_ergebnis in ('offen', 'follow_up', 'qualifiziert', 'disqualifiziert')),
+  wiedervorlage   date,
+  bedarf_notizen  text,
+  created_at      timestamptz not null default now()
+);
+alter table public.quali_calls enable row level security;
+create index if not exists quali_calls_lead_id_idx on public.quali_calls(lead_id);
+
+create policy "quali_calls: Admin verwaltet alle"
+  on public.quali_calls for all
+  using (public.get_my_role() = 'admin');
+
+create table if not exists public.sales_calls (
+  id              uuid primary key default gen_random_uuid(),
+  lead_id         uuid not null references public.leads(id) on delete cascade,
+  closing_call_am date,
+  leistungen      text,
+  angebotsvolumen numeric(10,2),
+  leistungsbeginn date,
+  sales_ergebnis  text not null default 'offen' check (sales_ergebnis in ('offen', 'follow_up', 'abgeschlossen', 'abgelehnt')),
+  notizen         text,
+  created_at      timestamptz not null default now()
+);
+alter table public.sales_calls enable row level security;
+create index if not exists sales_calls_lead_id_idx on public.sales_calls(lead_id);
+
+create policy "sales_calls: Admin verwaltet alle"
+  on public.sales_calls for all
+  using (public.get_my_role() = 'admin');
+
+-- 20. Tägliches Kalt-Akquise-Tracking
+create table if not exists public.akquise_tracking (
+  id                      uuid primary key default gen_random_uuid(),
+  datum                   date not null unique,
+  waehlversuche           integer not null default 0,
+  gespraeche_empfang      integer not null default 0,
+  gespraeche_entscheider  integer not null default 0,
+  termine_vereinbart      integer not null default 0,
+  created_at              timestamptz not null default now()
+);
+alter table public.akquise_tracking enable row level security;
+
+create policy "akquise_tracking: Admin verwaltet alle"
+  on public.akquise_tracking for all
+  using (public.get_my_role() = 'admin');
+
+-- 21. Angebote
+create table if not exists public.offers (
+  id             uuid primary key default gen_random_uuid(),
+  offer_number   text not null unique,
+  lead_id        uuid references public.leads(id),
+  client_id      uuid references public.clients(id),
+  status         text not null default 'entwurf' check (status in ('entwurf', 'gesendet', 'angenommen', 'abgelehnt')),
+  total_net      numeric(10,2),
+  pdf_url        text,
+  valid_until    date,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+alter table public.offers enable row level security;
+create index if not exists offers_lead_id_idx on public.offers(lead_id);
+create index if not exists offers_client_id_idx on public.offers(client_id);
+
+create policy "offers: Admin verwaltet alle"
+  on public.offers for all
+  using (public.get_my_role() = 'admin');
+
+create table if not exists public.offer_items (
+  id          uuid primary key default gen_random_uuid(),
+  offer_id    uuid not null references public.offers(id) on delete cascade,
+  art_nr      text references public.articles(art_nr),
+  pos         integer not null,
+  bezeichnung text not null,
+  menge       numeric(10,2) not null default 1,
+  ep          numeric(10,2) not null,
+  gesamt      numeric(10,2) not null,
+  created_at  timestamptz not null default now()
+);
+alter table public.offer_items enable row level security;
+create index if not exists offer_items_offer_id_idx on public.offer_items(offer_id);
+
+create policy "offer_items: Admin verwaltet alle"
+  on public.offer_items for all
+  using (public.get_my_role() = 'admin');
+
+-- 22. Import: scripts/import/import-leads.ts (idempotent, dedupe auf firmenname+zielgruppe)
+--     liest scripts/import/Schuck_Webdesign_Akquise.xlsx (Sheets "Akquise", "Quali-Calls", "Sales-Calls")

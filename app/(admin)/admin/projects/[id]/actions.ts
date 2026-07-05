@@ -1,27 +1,15 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import type { ProjectStatus } from '@/types/database'
-
-async function assertAdmin() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') redirect('/portal')
-  return supabase
-}
+import { assertAdmin } from '@/lib/auth/assert-admin'
+import {
+  updateProject as updateProjectRecord,
+  deleteProject as deleteProjectRecord,
+  addProjectUpdate as addProjectUpdateRecord,
+} from '@/lib/domain/projects'
 
 // ── Update Status ────────────────────────────────────────────────────────────
 
@@ -29,14 +17,8 @@ export async function updateProjectStatus(
   projectId: string,
   status: ProjectStatus
 ): Promise<void> {
-  const supabase = await assertAdmin()
-
-  const { error } = await supabase
-    .from('projects')
-    .update({ status })
-    .eq('id', projectId)
-
-  if (error) throw new Error(error.message)
+  await assertAdmin()
+  await updateProjectRecord(projectId, { status })
 
   revalidatePath(`/admin/projects/${projectId}`)
   revalidatePath('/admin/projects')
@@ -52,21 +34,18 @@ export async function addProjectUpdate(
   _prev: AddUpdateResult | null,
   formData: FormData
 ): Promise<AddUpdateResult> {
-  const supabase = await assertAdmin()
+  await assertAdmin()
 
   const message = formData.get('message')
-  if (!message || typeof message !== 'string' || message.trim().length < 3) {
+  if (!message || typeof message !== 'string') {
     return { status: 'error', message: 'Nachricht zu kurz.' }
   }
 
-  const { error } = await supabase.from('project_updates').insert({
-    project_id: projectId,
-    message: message.trim(),
-  })
-
-  if (error) {
-    console.error('[addProjectUpdate] error:', error.message)
-    return { status: 'error', message: 'Fehler beim Speichern.' }
+  try {
+    await addProjectUpdateRecord(projectId, message)
+  } catch (error) {
+    console.error('[addProjectUpdate] error:', error instanceof Error ? error.message : error)
+    return { status: 'error', message: error instanceof Error ? error.message : 'Fehler beim Speichern.' }
   }
 
   revalidatePath(`/admin/projects/${projectId}`)
@@ -234,32 +213,16 @@ export async function rejectReview(formData: FormData): Promise<void> {
 type DeleteProjectResult = { status: 'error'; message: string } | { status: 'success'; clientId: string }
 
 export async function deleteProject(projectId: string): Promise<DeleteProjectResult> {
-  const supabase = await assertAdmin()
+  await assertAdmin()
 
-  const { data: project } = await supabase
-    .from('projects')
-    .select('client_id')
-    .eq('id', projectId)
-    .single()
-
-  if (!project) {
-    return { status: 'error', message: 'Projekt nicht gefunden.' }
+  try {
+    const result = await deleteProjectRecord(projectId)
+    return { status: 'success', clientId: result.clientId }
+  } catch (error) {
+    console.error('[deleteProject]', error instanceof Error ? error.message : error)
+    const message = error instanceof Error ? error.message : 'Fehler beim Löschen des Projekts.'
+    return { status: 'error', message }
   }
-
-  // messages und change_requests referenzieren auth.users direkt (kein ON DELETE CASCADE) –
-  // vorab löschen, damit die Projekt-Löschung nicht durch FK-Constraints blockiert wird.
-  await supabase.from('messages').delete().eq('project_id', projectId)
-  await supabase.from('change_requests').delete().eq('project_id', projectId)
-  await supabase.from('reviews').delete().eq('project_id', projectId)
-
-  const { error } = await supabase.from('projects').delete().eq('id', projectId)
-
-  if (error) {
-    console.error('[deleteProject]', error.message)
-    return { status: 'error', message: 'Fehler beim Löschen des Projekts.' }
-  }
-
-  return { status: 'success', clientId: project.client_id }
 }
 
 // ── Admin File Upload ────────────────────────────────────────────────────────
@@ -452,7 +415,7 @@ export async function updateProjectMeta(
   _prev: UpdateMetaResult | null,
   formData: FormData
 ): Promise<UpdateMetaResult> {
-  const supabase = await assertAdmin()
+  await assertAdmin()
 
   const title = formData.get('title')
   const description = formData.get('description')
@@ -463,17 +426,14 @@ export async function updateProjectMeta(
     return { status: 'error', message: 'Titel ist erforderlich.' }
   }
 
-  const { error } = await supabase
-    .from('projects')
-    .update({
+  try {
+    await updateProjectRecord(projectId, {
       title: title.trim(),
       description: typeof description === 'string' && description.trim() ? description.trim() : null,
       start_date: typeof startDate === 'string' && startDate ? startDate : null,
       launch_date: typeof launchDate === 'string' && launchDate ? launchDate : null,
     })
-    .eq('id', projectId)
-
-  if (error) {
+  } catch {
     return { status: 'error', message: 'Fehler beim Speichern.' }
   }
 
@@ -488,17 +448,16 @@ export async function updateLaunchDate(
   _prev: { status: 'success' } | { status: 'error'; message: string } | null,
   formData: FormData
 ): Promise<{ status: 'success' } | { status: 'error'; message: string }> {
-  const supabase = await assertAdmin()
+  await assertAdmin()
 
   const raw = formData.get('launch_date')
   const launchDate = typeof raw === 'string' && raw ? raw : null
 
-  const { error } = await supabase
-    .from('projects')
-    .update({ launch_date: launchDate })
-    .eq('id', projectId)
-
-  if (error) return { status: 'error', message: 'Fehler beim Speichern.' }
+  try {
+    await updateProjectRecord(projectId, { launch_date: launchDate })
+  } catch {
+    return { status: 'error', message: 'Fehler beim Speichern.' }
+  }
 
   revalidatePath(`/admin/projects/${projectId}`)
   return { status: 'success' }

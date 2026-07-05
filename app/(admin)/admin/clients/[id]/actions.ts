@@ -1,20 +1,16 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { assertAdmin } from '@/lib/auth/assert-admin'
+import { resendClientInvite } from '@/lib/auth/invite-client'
+import { deleteClient as deleteClientRecord } from '@/lib/domain/clients'
 import { revalidatePath } from 'next/cache'
 
 type DeleteResult = { status: 'error'; message: string } | { status: 'success' }
 type ResendResult = { status: 'error'; message: string } | { status: 'success' }
 
 export async function resendInvite(clientId: string): Promise<ResendResult> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: adminProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (adminProfile?.role !== 'admin') redirect('/portal')
+  await assertAdmin()
 
   const adminClient = createAdminClient()
 
@@ -31,74 +27,28 @@ export async function resendInvite(clientId: string): Promise<ResendResult> {
 
   if (!email) return { status: 'error', message: 'Keine E-Mail-Adresse hinterlegt.' }
 
-  const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-  })
-
-  if (error) {
-    console.error('[resendInvite] error:', error.message)
+  try {
+    await resendClientInvite(email)
+  } catch (error) {
+    console.error('[resendInvite] error:', error instanceof Error ? error.message : error)
     return { status: 'error', message: 'Einladung konnte nicht erneut gesendet werden.' }
   }
 
-  await adminClient
-    .from('clients')
-    .update({ invite_sent_at: new Date().toISOString() })
-    .eq('id', clientId)
+  await adminClient.from('clients').update({ invite_sent_at: new Date().toISOString() }).eq('id', clientId)
 
   revalidatePath(`/admin/clients/${clientId}`)
   return { status: 'success' }
 }
 
 export async function deleteClient(clientId: string): Promise<DeleteResult> {
-  const supabase = await createClient()
+  await assertAdmin()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: adminProfile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  if (adminProfile?.role !== 'admin') redirect('/portal')
-
-  const { data: client } = await supabase
-    .from('clients')
-    .select('profile_id')
-    .eq('id', clientId)
-    .single()
-
-  if (!client) {
-    return { status: 'error', message: 'Kunde nicht gefunden.' }
+  try {
+    await deleteClientRecord(clientId)
+    return { status: 'success' }
+  } catch (error) {
+    console.error('[deleteClient] error:', error instanceof Error ? error.message : error)
+    const message = error instanceof Error ? error.message : 'Fehler beim Löschen des Kunden.'
+    return { status: 'error', message }
   }
-
-  const adminSupabase = createAdminClient()
-
-  // Projekt-IDs ermitteln, damit wir verknüpfte Zeilen vorab löschen können
-  const { data: projects } = await adminSupabase
-    .from('projects')
-    .select('id')
-    .eq('client_id', clientId)
-
-  const projectIds = (projects ?? []).map((p: { id: string }) => p.id)
-
-  // messages, change_requests und reviews referenzieren auth.users direkt (kein ON DELETE CASCADE).
-  // Sie müssen manuell gelöscht werden, bevor deleteUser die auth.users-Zeile entfernt.
-  if (projectIds.length > 0) {
-    await adminSupabase.from('messages').delete().in('project_id', projectIds)
-    await adminSupabase.from('change_requests').delete().in('project_id', projectIds)
-    await adminSupabase.from('reviews').delete().in('project_id', projectIds)
-  }
-  await adminSupabase.from('reviews').delete().eq('client_id', client.profile_id)
-
-  const { error } = await adminSupabase.auth.admin.deleteUser(client.profile_id)
-
-  if (error) {
-    console.error('[deleteClient] deleteUser error:', error.message)
-    return { status: 'error', message: 'Fehler beim Löschen des Kunden: ' + error.message }
-  }
-
-  return { status: 'success' }
 }

@@ -3,6 +3,7 @@
 import { useActionState } from 'react'
 import { updateClient } from './actions'
 import Link from 'next/link'
+import type { ClientStatus } from '@/types/database'
 
 type State = { status: 'error'; message: string } | null
 
@@ -13,7 +14,7 @@ type Props = {
     full_name: string
     phone: string
     website: string
-    status: 'active' | 'inactive' | 'pending'
+    status: ClientStatus
     address_street: string
     address_city: string
     address_zip: string
@@ -85,8 +86,11 @@ export function EditClientForm({ clientId, defaultValues }: Props) {
         <Field label="Status" id="status">
           <select id="status" name="status" defaultValue={defaultValues.status}
             disabled={pending} className={inputClass}>
-            <option value="active">Aktiv</option>
+            <option value="lead">Lead</option>
             <option value="pending">Ausstehend (Einladung offen)</option>
+            <option value="active">Aktiv</option>
+            <option value="paused">Pausiert</option>
+            <option value="completed">Abgeschlossen</option>
             <option value="inactive">Inaktiv</option>
           </select>
         </Field>

@@ -1,8 +1,8 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { assertAdmin } from '@/lib/auth/assert-admin'
+import { inviteClientUser } from '@/lib/auth/invite-client'
+import { createClient as createClientRecord } from '@/lib/domain/clients'
 
 type InviteResult =
   | { status: 'success'; email: string; clientId: string }
@@ -12,25 +12,8 @@ export async function inviteClient(
   _prev: InviteResult | null,
   formData: FormData
 ): Promise<InviteResult> {
-  // Admin-Check
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  await assertAdmin()
 
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    return { status: 'error', message: 'Keine Berechtigung.' }
-  }
-
-  // Formulardaten
   const email = formData.get('email')
   const name = formData.get('name')
   const companyName = formData.get('company_name')
@@ -46,60 +29,13 @@ export async function inviteClient(
   const cleanName = typeof name === 'string' ? name.trim() : ''
   const cleanCompany = companyName.trim()
 
-  // User einladen (Service Role)
-  const adminClient = createAdminClient()
-
-  const { data: invitedUser, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
-    cleanEmail,
-    {
-      data: {
-        full_name: cleanName,
-        role: 'client',
-      },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-    }
-  )
-
-  if (inviteError) {
-    console.error('[invite] inviteUserByEmail error:', inviteError.message)
-
-    if (inviteError.message.includes('already been registered')) {
-      return { status: 'error', message: 'Diese E-Mail ist bereits registriert.' }
-    }
-
-    return { status: 'error', message: 'Einladung fehlgeschlagen. Bitte versuche es erneut.' }
+  try {
+    const { profileId } = await inviteClientUser({ email: cleanEmail, fullName: cleanName })
+    const client = await createClientRecord({ profileId, companyName: cleanCompany, status: 'pending' })
+    return { status: 'success', email: cleanEmail, clientId: client.id }
+  } catch (error) {
+    console.error('[inviteClient] error:', error instanceof Error ? error.message : error)
+    const message = error instanceof Error ? error.message : 'Einladung fehlgeschlagen. Bitte versuche es erneut.'
+    return { status: 'error', message }
   }
-
-  if (!invitedUser.user) {
-    return { status: 'error', message: 'Kein User zurückgegeben. Bitte erneut versuchen.' }
-  }
-
-  const profileId = invitedUser.user.id
-
-  // Profil anlegen oder aktualisieren (upsert – funktioniert auch ohne DB-Trigger)
-  await adminClient
-    .from('profiles')
-    .upsert(
-      { id: profileId, email: cleanEmail, role: 'client', full_name: cleanName || null },
-      { onConflict: 'id' }
-    )
-
-  // clients-Row anlegen
-  const { data: clientRow, error: clientError } = await adminClient
-    .from('clients')
-    .insert({
-      profile_id: profileId,
-      company_name: cleanCompany,
-      status: 'pending',
-      invite_sent_at: new Date().toISOString(),
-    })
-    .select('id')
-    .single()
-
-  if (clientError) {
-    console.error('[invite] clients insert error:', clientError.message)
-    return { status: 'error', message: 'Kunde angelegt, aber Firmendaten konnten nicht gespeichert werden.' }
-  }
-
-  return { status: 'success', email: cleanEmail, clientId: clientRow.id }
 }

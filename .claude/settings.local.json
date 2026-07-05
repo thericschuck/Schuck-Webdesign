@@ -26,12 +26,23 @@
       "Bash(python3 -c ' *)",
       "Bash(powershell -Command \"\\(Get-Item 'c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\public\\\\icon.png'\\).Length\")",
       "Bash(node -e \"const sharp = require\\('sharp'\\); console.log\\('sharp ok', sharp.versions\\)\")",
-      "Bash(Remove-Item \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\public\\\\closeUp.webp\")"
+      "Bash(Remove-Item \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\public\\\\closeUp.webp\")",
+      "Bash(node -e \"const pkg = require\\('./node_modules/@anthropic-ai/sdk/package.json'\\); console.log\\(pkg.version\\)\")",
+      "Bash(npm run *)",
+      "Bash(npx eslint *)",
+      "Bash(python -m graphify . --update)",
+      "Bash(python -m graphify --help)",
+      "Read(//c/Users/eschu/OneDrive/**)",
+      "Read(//c/Users/eschu/Desktop/**)",
+      "Bash(mkdir -p \"c:/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/Schuck-Redesign/scripts/import\" && cp \"C:/Users/eschu/Desktop/Unternehmensstruktur/05-Arbeit & Business/Schuck Webdesign/Schuck_Webdesign_Produktkatalog.xlsx\" \"c:/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/Schuck-Redesign/scripts/import/Schuck_Webdesign_Produktkatalog.xlsx\" && ls -la \"c:/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/Schuck-Redesign/scripts/import/\")",
+      "Bash(npx tsx *)",
+      "Bash(cp \"C:/Users/eschu/Desktop/Unternehmensstruktur/05-Arbeit & Business/Schuck Webdesign/Schuck_Webdesign_Lead_Liste.xlsx\" \"c:/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/Schuck-Redesign/scripts/import/Schuck_Webdesign_Lead_Liste.xlsx\" && ls -la \"c:/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/Schuck-Redesign/scripts/import/\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign",
       "C:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\graphify-out",
-      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(public)\\projekte"
+      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(public)\\projekte",
+      "C:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\05-Arbeit & Business\\Schuck Webdesign"
     ]
   }
 }

@@ -45,9 +45,10 @@ export type Database = {
           id: string
           profile_id: string
           company_name: string
+          client_number: string | null
           website: string | null
           phone: string | null
-          status: 'active' | 'inactive' | 'pending'
+          status: ClientStatus
           address_street: string | null
           address_city: string | null
           address_zip: string | null
@@ -60,9 +61,10 @@ export type Database = {
           id?: string
           profile_id: string
           company_name: string
+          client_number?: string | null
           website?: string | null
           phone?: string | null
-          status?: 'active' | 'inactive' | 'pending'
+          status?: ClientStatus
           address_street?: string | null
           address_city?: string | null
           address_zip?: string | null
@@ -75,9 +77,10 @@ export type Database = {
           id?: string
           profile_id?: string
           company_name?: string
+          client_number?: string | null
           website?: string | null
           phone?: string | null
-          status?: 'active' | 'inactive' | 'pending'
+          status?: ClientStatus
           address_street?: string | null
           address_city?: string | null
           address_zip?: string | null
@@ -101,6 +104,7 @@ export type Database = {
           id: string
           client_id: string
           title: string
+          project_number: string | null
           description: string | null
           status: ProjectStatus
           start_date: string | null
@@ -113,6 +117,7 @@ export type Database = {
           id?: string
           client_id: string
           title: string
+          project_number?: string | null
           description?: string | null
           status?: ProjectStatus
           start_date?: string | null
@@ -125,6 +130,7 @@ export type Database = {
           id?: string
           client_id?: string
           title?: string
+          project_number?: string | null
           description?: string | null
           status?: ProjectStatus
           start_date?: string | null
@@ -477,6 +483,476 @@ export type Database = {
           }
         ]
       }
+      counters: {
+        Row: {
+          typ: string
+          scope_key: string
+          last_value: number
+        }
+        Insert: {
+          typ: string
+          scope_key?: string
+          last_value?: number
+        }
+        Update: {
+          typ?: string
+          scope_key?: string
+          last_value?: number
+        }
+        Relationships: []
+      }
+      pending_actions: {
+        Row: {
+          id: string
+          tool_name: string
+          tool_args: Json
+          conversation: Json
+          expires_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tool_name: string
+          tool_args: Json
+          conversation: Json
+          expires_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tool_name?: string
+          tool_args?: Json
+          conversation?: Json
+          expires_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      articles: {
+        Row: {
+          art_nr: string
+          bezeichnung: string
+          beschreibung: string | null
+          preis_min: number | null
+          preis_max: number | null
+          einheit: string | null
+          typ: string | null
+          kategorie: string | null
+          pflichtbetrieb_art_nr: string | null
+          aktiv: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          art_nr: string
+          bezeichnung: string
+          beschreibung?: string | null
+          preis_min?: number | null
+          preis_max?: number | null
+          einheit?: string | null
+          typ?: string | null
+          kategorie?: string | null
+          pflichtbetrieb_art_nr?: string | null
+          aktiv?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          art_nr?: string
+          bezeichnung?: string
+          beschreibung?: string | null
+          preis_min?: number | null
+          preis_max?: number | null
+          einheit?: string | null
+          typ?: string | null
+          kategorie?: string | null
+          pflichtbetrieb_art_nr?: string | null
+          aktiv?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'articles_pflichtbetrieb_art_nr_fkey'
+            columns: ['pflichtbetrieb_art_nr']
+            isOneToOne: false
+            referencedRelation: 'articles'
+            referencedColumns: ['art_nr']
+          }
+        ]
+      }
+      packages: {
+        Row: {
+          pkt_nr: string
+          paketname: string
+          paketpreis: number | null
+          zielgruppe: string | null
+          laufzeit: string | null
+          folgeprodukt: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          pkt_nr: string
+          paketname: string
+          paketpreis?: number | null
+          zielgruppe?: string | null
+          laufzeit?: string | null
+          folgeprodukt?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          pkt_nr?: string
+          paketname?: string
+          paketpreis?: number | null
+          zielgruppe?: string | null
+          laufzeit?: string | null
+          folgeprodukt?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      package_items: {
+        Row: {
+          pkt_nr: string
+          art_nr: string
+          pos: number
+          menge: number | null
+          ep: number | null
+          gesamt: number | null
+        }
+        Insert: {
+          pkt_nr: string
+          art_nr: string
+          pos: number
+          menge?: number | null
+          ep?: number | null
+          gesamt?: number | null
+        }
+        Update: {
+          pkt_nr?: string
+          art_nr?: string
+          pos?: number
+          menge?: number | null
+          ep?: number | null
+          gesamt?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'package_items_pkt_nr_fkey'
+            columns: ['pkt_nr']
+            isOneToOne: false
+            referencedRelation: 'packages'
+            referencedColumns: ['pkt_nr']
+          },
+          {
+            foreignKeyName: 'package_items_art_nr_fkey'
+            columns: ['art_nr']
+            isOneToOne: false
+            referencedRelation: 'articles'
+            referencedColumns: ['art_nr']
+          }
+        ]
+      }
+      leads: {
+        Row: {
+          id: string
+          lead_number: string
+          firmenname: string
+          ansprechpartner: string | null
+          position: string | null
+          zielgruppe: string | null
+          stadt: string | null
+          website: string | null
+          phone: string | null
+          email: string | null
+          quelle: string | null
+          website_qualitaet: string | null
+          prioritaet: LeadPrioritaet
+          erstkontakt_am: string | null
+          akquise_ergebnis: AkquiseErgebnis
+          wiedervorlage: string | null
+          notizen: string | null
+          current_stage: LeadStage
+          client_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          lead_number: string
+          firmenname: string
+          ansprechpartner?: string | null
+          position?: string | null
+          zielgruppe?: string | null
+          stadt?: string | null
+          website?: string | null
+          phone?: string | null
+          email?: string | null
+          quelle?: string | null
+          website_qualitaet?: string | null
+          prioritaet?: LeadPrioritaet
+          erstkontakt_am?: string | null
+          akquise_ergebnis?: AkquiseErgebnis
+          wiedervorlage?: string | null
+          notizen?: string | null
+          current_stage?: LeadStage
+          client_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          lead_number?: string
+          firmenname?: string
+          ansprechpartner?: string | null
+          position?: string | null
+          zielgruppe?: string | null
+          stadt?: string | null
+          website?: string | null
+          phone?: string | null
+          email?: string | null
+          quelle?: string | null
+          website_qualitaet?: string | null
+          prioritaet?: LeadPrioritaet
+          erstkontakt_am?: string | null
+          akquise_ergebnis?: AkquiseErgebnis
+          wiedervorlage?: string | null
+          notizen?: string | null
+          current_stage?: LeadStage
+          client_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'leads_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: false
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      quali_calls: {
+        Row: {
+          id: string
+          lead_id: string
+          quali_call_am: string | null
+          quali_ergebnis: QualiErgebnis
+          wiedervorlage: string | null
+          bedarf_notizen: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          lead_id: string
+          quali_call_am?: string | null
+          quali_ergebnis?: QualiErgebnis
+          wiedervorlage?: string | null
+          bedarf_notizen?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          lead_id?: string
+          quali_call_am?: string | null
+          quali_ergebnis?: QualiErgebnis
+          wiedervorlage?: string | null
+          bedarf_notizen?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'quali_calls_lead_id_fkey'
+            columns: ['lead_id']
+            isOneToOne: false
+            referencedRelation: 'leads'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      sales_calls: {
+        Row: {
+          id: string
+          lead_id: string
+          closing_call_am: string | null
+          leistungen: string | null
+          angebotsvolumen: number | null
+          leistungsbeginn: string | null
+          sales_ergebnis: SalesErgebnis
+          notizen: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          lead_id: string
+          closing_call_am?: string | null
+          leistungen?: string | null
+          angebotsvolumen?: number | null
+          leistungsbeginn?: string | null
+          sales_ergebnis?: SalesErgebnis
+          notizen?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          lead_id?: string
+          closing_call_am?: string | null
+          leistungen?: string | null
+          angebotsvolumen?: number | null
+          leistungsbeginn?: string | null
+          sales_ergebnis?: SalesErgebnis
+          notizen?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sales_calls_lead_id_fkey'
+            columns: ['lead_id']
+            isOneToOne: false
+            referencedRelation: 'leads'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      akquise_tracking: {
+        Row: {
+          id: string
+          datum: string
+          waehlversuche: number
+          gespraeche_empfang: number
+          gespraeche_entscheider: number
+          termine_vereinbart: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          datum: string
+          waehlversuche?: number
+          gespraeche_empfang?: number
+          gespraeche_entscheider?: number
+          termine_vereinbart?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          datum?: string
+          waehlversuche?: number
+          gespraeche_empfang?: number
+          gespraeche_entscheider?: number
+          termine_vereinbart?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      offers: {
+        Row: {
+          id: string
+          offer_number: string
+          lead_id: string | null
+          client_id: string | null
+          status: OfferStatus
+          total_net: number | null
+          pdf_url: string | null
+          valid_until: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          offer_number: string
+          lead_id?: string | null
+          client_id?: string | null
+          status?: OfferStatus
+          total_net?: number | null
+          pdf_url?: string | null
+          valid_until?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          offer_number?: string
+          lead_id?: string | null
+          client_id?: string | null
+          status?: OfferStatus
+          total_net?: number | null
+          pdf_url?: string | null
+          valid_until?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'offers_lead_id_fkey'
+            columns: ['lead_id']
+            isOneToOne: false
+            referencedRelation: 'leads'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'offers_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: false
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      offer_items: {
+        Row: {
+          id: string
+          offer_id: string
+          art_nr: string | null
+          pos: number
+          bezeichnung: string
+          menge: number
+          ep: number
+          gesamt: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          offer_id: string
+          art_nr?: string | null
+          pos: number
+          bezeichnung: string
+          menge?: number
+          ep: number
+          gesamt: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          offer_id?: string
+          art_nr?: string | null
+          pos?: number
+          bezeichnung?: string
+          menge?: number
+          ep?: number
+          gesamt?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'offer_items_offer_id_fkey'
+            columns: ['offer_id']
+            isOneToOne: false
+            referencedRelation: 'offers'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'offer_items_art_nr_fkey'
+            columns: ['art_nr']
+            isOneToOne: false
+            referencedRelation: 'articles'
+            referencedColumns: ['art_nr']
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -484,10 +960,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: 'admin' | 'client'
       }
+      get_next_number: {
+        Args: { p_typ: string; p_scope?: string }
+        Returns: number
+      }
     }
     Enums: {
       user_role: 'admin' | 'client'
-      client_status: 'active' | 'inactive' | 'pending'
+      client_status: ClientStatus
       project_status: ProjectStatus
       document_category: DocumentCategory
     }
@@ -500,9 +980,15 @@ export type Database = {
 // ============================================================
 
 export type UserRole = 'admin' | 'client'
-export type ClientStatus = 'active' | 'inactive' | 'pending'
+export type ClientStatus = 'active' | 'inactive' | 'pending' | 'lead' | 'paused' | 'completed'
 export type ProjectStatus = 'briefing' | 'design' | 'development' | 'review' | 'live'
 export type DocumentCategory = 'contract' | 'invoice' | 'briefing' | 'handover' | 'other'
+export type LeadPrioritaet = 'high' | 'medium' | 'low'
+export type AkquiseErgebnis = 'offen' | 'nicht_erreicht' | 'wiedervorlage' | 'kein_interesse' | 'qualifiziert'
+export type LeadStage = 'erstkontakt' | 'quali_call' | 'closing_call' | 'gewonnen' | 'verloren'
+export type QualiErgebnis = 'offen' | 'follow_up' | 'qualifiziert' | 'disqualifiziert'
+export type SalesErgebnis = 'offen' | 'follow_up' | 'abgeschlossen' | 'abgelehnt'
+export type OfferStatus = 'entwurf' | 'gesendet' | 'angenommen' | 'abgelehnt'
 
 // ============================================================
 // ROW TYPES (Kurzform)
@@ -520,6 +1006,17 @@ export type Client        = Tables<'clients'>
 export type Project       = Tables<'projects'>
 export type Document      = Tables<'documents'>
 export type ProjectUpdate = Tables<'project_updates'>
+export type Counter       = Tables<'counters'>
+export type PendingAction = Tables<'pending_actions'>
+export type Article       = Tables<'articles'>
+export type Package       = Tables<'packages'>
+export type PackageItem   = Tables<'package_items'>
+export type Lead          = Tables<'leads'>
+export type QualiCall     = Tables<'quali_calls'>
+export type SalesCall     = Tables<'sales_calls'>
+export type AkquiseTracking = Tables<'akquise_tracking'>
+export type Offer         = Tables<'offers'>
+export type OfferItem     = Tables<'offer_items'>
 
 // ============================================================
 // JOINED / EXTENDED TYPES

@@ -1,7 +1,9 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { assertAdmin } from '@/lib/auth/assert-admin'
+import { updateClient as updateClientRecord, CLIENT_STATUS_VALUES } from '@/lib/domain/clients'
 import { redirect } from 'next/navigation'
+import type { ClientStatus } from '@/types/database'
 
 type ActionResult = { status: 'error'; message: string }
 
@@ -10,21 +12,7 @@ export async function updateClient(
   _prev: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  if (profile?.role !== 'admin') {
-    return { status: 'error', message: 'Keine Berechtigung.' }
-  }
+  const supabase = await assertAdmin()
 
   const companyName    = formData.get('company_name')
   const phone          = formData.get('phone')
@@ -51,26 +39,23 @@ export async function updateClient(
     .eq('id', clientId)
     .single()
 
-  const { error: clientError } = await supabase
-    .from('clients')
-    .update({
-      company_name:    companyName.trim(),
-      phone:           str(phone),
-      website:         str(website),
-      status:          status === 'inactive' ? 'inactive' : status === 'pending' ? 'pending' : 'active',
-      address_street:  str(addressStreet),
-      address_city:    str(addressCity),
-      address_zip:     str(addressZip),
+  try {
+    await updateClientRecord(clientId, {
+      company_name: companyName.trim(),
+      phone: str(phone),
+      website: str(website),
+      status: CLIENT_STATUS_VALUES.includes(status as ClientStatus) ? (status as ClientStatus) : 'active',
+      address_street: str(addressStreet),
+      address_city: str(addressCity),
+      address_zip: str(addressZip),
       address_country: str(addressCountry) ?? 'Deutschland',
-      notes:           str(notes),
+      notes: str(notes),
     })
-    .eq('id', clientId)
-
-  if (clientError) {
+  } catch {
     return { status: 'error', message: 'Fehler beim Speichern.' }
   }
 
-  // Profile-Name synchronisieren
+  // Profile-Name synchronisieren (eigene Tabelle, kein Teil der clients-Domain)
   if (clientRow?.profile_id && typeof fullName === 'string') {
     await supabase
       .from('profiles')

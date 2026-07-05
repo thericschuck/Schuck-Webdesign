@@ -39,6 +39,7 @@ export default async function ProjectDetailPage({
     .from('projects')
     .select(`
       id,
+      project_number,
       title,
       description,
       status,
@@ -109,9 +110,16 @@ export default async function ProjectDetailPage({
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
-            {project.title}
-          </h1>
+          <div className="flex items-center gap-2">
+            {project.project_number && (
+              <span className="text-xs text-gray-400 font-mono" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                {project.project_number}
+              </span>
+            )}
+            <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
+              {project.title}
+            </h1>
+          </div>
           {client && (
             <Link
               href={`/admin/clients/${client.id}`}

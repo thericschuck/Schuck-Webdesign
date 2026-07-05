@@ -30,6 +30,7 @@ export default async function ProjectsPage({
     .from('projects')
     .select(`
       id,
+      project_number,
       title,
       status,
       start_date,
@@ -123,6 +124,11 @@ export default async function ProjectsPage({
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
+                        {project.project_number && (
+                          <span className="text-xs text-gray-400 font-mono shrink-0" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                            {project.project_number}
+                          </span>
+                        )}
                         <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                           {project.title}
                         </p>
@@ -153,6 +159,7 @@ export default async function ProjectsPage({
             <table className="hidden md:table w-full">
               <thead>
                 <tr className="border-b border-gray-100">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Nr.</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Projekt</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Kunde</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Status</th>
@@ -165,6 +172,11 @@ export default async function ProjectsPage({
                   const client = Array.isArray(project.client) ? project.client[0] : project.client
                   return (
                     <tr key={project.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="text-xs text-gray-400 font-mono" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                          {project.project_number ?? '—'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>{project.title}</p>

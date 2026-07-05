@@ -1,0 +1,213 @@
+import { createAdminClient } from '@/lib/supabase/admin'
+import { DomainError } from './errors'
+import type { Client, ClientStatus, Database } from '@/types/database'
+
+type ClientUpdate = Database['public']['Tables']['clients']['Update']
+
+export const CLIENT_STATUS_VALUES: ClientStatus[] = [
+  'lead',
+  'pending',
+  'active',
+  'paused',
+  'inactive',
+  'completed',
+]
+
+const UPDATABLE_CLIENT_FIELDS = [
+  'company_name',
+  'website',
+  'phone',
+  'status',
+  'address_street',
+  'address_city',
+  'address_zip',
+  'address_country',
+  'notes',
+] as const
+
+export interface ProjectListItem {
+  id: string
+  project_number: string | null
+  title: string
+  status: string
+  launch_date: string | null
+  created_at: string
+}
+
+export interface ClientWithProjects extends Client {
+  projects: ProjectListItem[]
+}
+
+export interface ListClientsFilter {
+  status?: ClientStatus
+}
+
+export async function listClients(filter: ListClientsFilter = {}): Promise<Client[]> {
+  const adminClient = createAdminClient()
+  let query = adminClient
+    .from('clients')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (filter.status) query = query.eq('status', filter.status)
+
+  const { data, error } = await query
+  if (error) throw new DomainError(error.message)
+  return data
+}
+
+export async function getClient(clientId: string): Promise<ClientWithProjects> {
+  const adminClient = createAdminClient()
+
+  const [{ data: client, error: clientError }, { data: projects, error: projectsError }] = await Promise.all([
+    adminClient.from('clients').select('*').eq('id', clientId).single(),
+    adminClient
+      .from('projects')
+      .select('id, project_number, title, status, launch_date, created_at')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false }),
+  ])
+
+  if (clientError) throw new DomainError('Kunde nicht gefunden.')
+  if (projectsError) throw new DomainError(projectsError.message)
+
+  return { ...client, projects: projects ?? [] }
+}
+
+export interface CreateClientInput {
+  /** UUID des zugehörigen auth-Users/Profils — wird vorab über den Invite-Flow (lib/auth/invite-client.ts) erzeugt. */
+  profileId: string
+  companyName: string
+  status?: ClientStatus
+  website?: string | null
+  phone?: string | null
+  addressStreet?: string | null
+  addressCity?: string | null
+  addressZip?: string | null
+  addressCountry?: string | null
+  notes?: string | null
+  /** Für den Invite-Flow: wann die Einladungs-E-Mail versendet wurde. */
+  inviteSentAt?: string | null
+}
+
+/**
+ * Legt die clients-Zeile an und vergibt die nächste KD-Nummer. Enthält bewusst
+ * KEINEN E-Mail-Versand — profileId muss bereits über den eigenständigen
+ * Invite-Flow (lib/auth/invite-client.ts) erzeugt worden sein.
+ */
+export async function createClient(input: CreateClientInput): Promise<Client> {
+  const companyName = input.companyName.trim()
+  if (!companyName) throw new DomainError('Firmenname ist erforderlich.')
+
+  const status = input.status ?? 'pending'
+  if (!CLIENT_STATUS_VALUES.includes(status)) {
+    throw new DomainError(`Ungültiger Status "${status}".`)
+  }
+
+  const adminClient = createAdminClient()
+
+  const { data: seq, error: seqError } = await adminClient.rpc('get_next_number', {
+    p_typ: 'KD',
+    p_scope: '',
+  })
+  if (seqError) throw new DomainError(seqError.message)
+  const clientNumber = `KD-${String(seq).padStart(3, '0')}`
+
+  const { data: client, error: clientError } = await adminClient
+    .from('clients')
+    .insert({
+      profile_id: input.profileId,
+      company_name: companyName,
+      client_number: clientNumber,
+      status,
+      website: input.website ?? null,
+      phone: input.phone ?? null,
+      address_street: input.addressStreet ?? null,
+      address_city: input.addressCity ?? null,
+      address_zip: input.addressZip ?? null,
+      address_country: input.addressCountry ?? 'Deutschland',
+      notes: input.notes ?? null,
+      invite_sent_at: input.inviteSentAt ?? new Date().toISOString(),
+    })
+    .select('*')
+    .single()
+
+  if (clientError) throw new DomainError(`Kunde konnte nicht gespeichert werden: ${clientError.message}`)
+  return client
+}
+
+export interface UpdateClientInput {
+  company_name?: string
+  website?: string | null
+  phone?: string | null
+  status?: ClientStatus
+  address_street?: string | null
+  address_city?: string | null
+  address_zip?: string | null
+  address_country?: string | null
+  notes?: string | null
+}
+
+export async function updateClient(clientId: string, patch: UpdateClientInput): Promise<Client> {
+  const updates: Record<string, unknown> = {}
+  for (const key of UPDATABLE_CLIENT_FIELDS) {
+    if (patch[key] !== undefined) updates[key] = patch[key]
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new DomainError('Keine Felder zum Aktualisieren angegeben.')
+  }
+  if (updates.company_name !== undefined && !String(updates.company_name).trim()) {
+    throw new DomainError('Firmenname ist erforderlich.')
+  }
+  if (updates.status !== undefined && !CLIENT_STATUS_VALUES.includes(updates.status as ClientStatus)) {
+    throw new DomainError(`Ungültiger Status "${updates.status}".`)
+  }
+
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('clients')
+    .update(updates as ClientUpdate)
+    .eq('id', clientId)
+    .select('*')
+    .single()
+
+  if (error) throw new DomainError(error.message)
+  return data
+}
+
+export interface DeleteClientResult {
+  companyName: string
+}
+
+/**
+ * Löscht Kunde + Portal-Zugang unwiderruflich. Das Entfernen des auth-Users
+ * gehört hier zur Domain-Logik (nicht zum Invite-Flow) — es ist der einzige
+ * Weg, das ON-DELETE-CASCADE profiles → clients auszulösen.
+ */
+export async function deleteClient(clientId: string): Promise<DeleteClientResult> {
+  const adminClient = createAdminClient()
+
+  const { data: client } = await adminClient
+    .from('clients')
+    .select('profile_id, company_name')
+    .eq('id', clientId)
+    .single()
+
+  if (!client) throw new DomainError('Kunde nicht gefunden.')
+
+  const { data: projects } = await adminClient.from('projects').select('id').eq('client_id', clientId)
+  const projectIds = (projects ?? []).map((p) => p.id)
+
+  if (projectIds.length > 0) {
+    await adminClient.from('messages').delete().in('project_id', projectIds)
+    await adminClient.from('change_requests').delete().in('project_id', projectIds)
+    await adminClient.from('reviews').delete().in('project_id', projectIds)
+  }
+  await adminClient.from('reviews').delete().eq('client_id', client.profile_id)
+
+  const { error } = await adminClient.auth.admin.deleteUser(client.profile_id)
+  if (error) throw new DomainError(`Fehler beim Löschen: ${error.message}`)
+
+  return { companyName: client.company_name }
+}
