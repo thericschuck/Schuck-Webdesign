@@ -1,6 +1,7 @@
 import type { JarvisTool } from '../tool-types'
 import { optionalString, requireString } from './helpers'
 import * as figma from '@/lib/integrations/figma'
+import * as github from '@/lib/integrations/github'
 
 // ── figma_get_design_context ────────────────────────────────────────────────
 
@@ -56,4 +57,91 @@ const figmaGetScreenshot: JarvisTool = {
   },
 }
 
-export const integrationTools: JarvisTool[] = [figmaGetDesignContext, figmaGetScreenshot]
+// ── github_get_repo_status ──────────────────────────────────────────────────
+
+const githubGetRepoStatus: JarvisTool = {
+  name: 'github_get_repo_status',
+  requiresConfirmation: false,
+  definition: {
+    name: 'github_get_repo_status',
+    description:
+      'Liefert Repo-Status (Default-Branch, offene Issues, letzter Push, archiviert?) für ein GitHub-Repo. ' +
+      'Nur verfügbar, wenn GITHUB_TOKEN konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        owner: { type: 'string', description: 'GitHub-Organisation/-Nutzername.' },
+        repo: { type: 'string', description: 'Repo-Name.' },
+      },
+      required: ['owner', 'repo'],
+    },
+  },
+  async execute(args) {
+    return github.getRepoStatus(requireString(args, 'owner'), requireString(args, 'repo'))
+  },
+}
+
+// ── github_list_issues ───────────────────────────────────────────────────────
+
+const githubListIssues: JarvisTool = {
+  name: 'github_list_issues',
+  requiresConfirmation: false,
+  definition: {
+    name: 'github_list_issues',
+    description: 'Listet Issues eines GitHub-Repos (ohne Pull Requests). Nur verfügbar, wenn GITHUB_TOKEN konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        owner: { type: 'string', description: 'GitHub-Organisation/-Nutzername.' },
+        repo: { type: 'string', description: 'Repo-Name.' },
+        state: { type: 'string', enum: ['open', 'closed', 'all'], description: 'Default: open.' },
+      },
+      required: ['owner', 'repo'],
+    },
+  },
+  async execute(args) {
+    const state = optionalString(args, 'state')
+    return github.listIssues(
+      requireString(args, 'owner'),
+      requireString(args, 'repo'),
+      state === 'closed' || state === 'all' ? state : 'open'
+    )
+  },
+}
+
+// ── github_get_file ───────────────────────────────────────────────────────────
+
+const githubGetFile: JarvisTool = {
+  name: 'github_get_file',
+  requiresConfirmation: false,
+  definition: {
+    name: 'github_get_file',
+    description: 'Liest den Inhalt einer Datei aus einem GitHub-Repo. Nur verfügbar, wenn GITHUB_TOKEN konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        owner: { type: 'string', description: 'GitHub-Organisation/-Nutzername.' },
+        repo: { type: 'string', description: 'Repo-Name.' },
+        path: { type: 'string', description: 'Pfad zur Datei im Repo, z.B. "package.json".' },
+        ref: { type: 'string', description: 'Branch/Tag/Commit (optional, Default: Default-Branch).' },
+      },
+      required: ['owner', 'repo', 'path'],
+    },
+  },
+  async execute(args) {
+    return github.getFile(
+      requireString(args, 'owner'),
+      requireString(args, 'repo'),
+      requireString(args, 'path'),
+      optionalString(args, 'ref') ?? undefined
+    )
+  },
+}
+
+export const integrationTools: JarvisTool[] = [
+  figmaGetDesignContext,
+  figmaGetScreenshot,
+  githubGetRepoStatus,
+  githubListIssues,
+  githubGetFile,
+]
