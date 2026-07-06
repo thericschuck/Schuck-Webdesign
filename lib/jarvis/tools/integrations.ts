@@ -3,6 +3,7 @@ import { optionalString, requireString } from './helpers'
 import * as figma from '@/lib/integrations/figma'
 import * as github from '@/lib/integrations/github'
 import * as vercel from '@/lib/integrations/vercel'
+import * as gsc from '@/lib/integrations/gsc'
 
 // ── figma_get_design_context ────────────────────────────────────────────────
 
@@ -162,6 +163,35 @@ const vercelGetDeploymentStatus: JarvisTool = {
   },
 }
 
+// ── gsc_get_performance ──────────────────────────────────────────────────────
+
+const gscGetPerformance: JarvisTool = {
+  name: 'gsc_get_performance',
+  requiresConfirmation: false,
+  definition: {
+    name: 'gsc_get_performance',
+    description:
+      'Liefert die Top-10-Suchanfragen (Klicks, Impressionen, CTR, Position) einer Search-Console-Property. ' +
+      'Default-Zeitraum: letzte 28 Tage. Nur verfügbar, wenn GSC_REFRESH_TOKEN konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        site_url: { type: 'string', description: 'Search-Console-Property, z.B. "https://kunde.de/" oder "sc-domain:kunde.de".' },
+        from_date: { type: 'string', description: 'Format YYYY-MM-DD (optional).' },
+        to_date: { type: 'string', description: 'Format YYYY-MM-DD (optional).' },
+      },
+      required: ['site_url'],
+    },
+  },
+  async execute(args) {
+    return gsc.getPerformance(
+      requireString(args, 'site_url'),
+      optionalString(args, 'from_date') ?? undefined,
+      optionalString(args, 'to_date') ?? undefined
+    )
+  },
+}
+
 export const integrationTools: JarvisTool[] = [
   figmaGetDesignContext,
   figmaGetScreenshot,
@@ -169,4 +199,5 @@ export const integrationTools: JarvisTool[] = [
   githubListIssues,
   githubGetFile,
   vercelGetDeploymentStatus,
+  gscGetPerformance,
 ]
