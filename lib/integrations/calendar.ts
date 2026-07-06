@@ -34,6 +34,53 @@ export interface AvailabilityResult {
   isFullyFree: boolean
 }
 
+export interface CreateEventInput {
+  summary: string
+  description?: string
+  startISO: string
+  endISO: string
+  calendarId?: string
+  attendeeEmails?: string[]
+}
+
+export interface CreatedEvent {
+  id: string
+  htmlLink: string
+}
+
+export async function createEvent(input: CreateEventInput): Promise<CreatedEvent> {
+  try {
+    const accessToken = await getAccessToken()
+    const calendarId = input.calendarId ?? 'primary'
+    const response = await fetch(`${API_BASE}/calendars/${encodeURIComponent(calendarId)}/events`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        summary: input.summary,
+        description: input.description,
+        start: { dateTime: input.startISO },
+        end: { dateTime: input.endISO },
+        attendees: input.attendeeEmails?.map((email) => ({ email })),
+      }),
+    })
+
+    if (response.status === 401 || response.status === 403) {
+      throw new IntegrationError(SERVICE, 'unauthorized', 'Google-Calendar-Zugriff verweigert — Token ungültig oder ohne Berechtigung.')
+    }
+    if (!response.ok) {
+      throw new IntegrationError(SERVICE, 'upstream_error', `Google-Calendar-API-Fehler (${response.status}).`)
+    }
+
+    const data = (await response.json()) as { id: string; htmlLink: string }
+    const result: CreatedEvent = { id: data.id, htmlLink: data.htmlLink }
+    await logIntegrationCall(SERVICE, true)
+    return result
+  } catch (error) {
+    await logIntegrationCall(SERVICE, false, error instanceof Error ? error.message : 'Unbekannter Fehler')
+    throw error
+  }
+}
+
 export async function checkAvailability(fromISO: string, toISO: string, calendarId = 'primary'): Promise<AvailabilityResult> {
   try {
     const accessToken = await getAccessToken()

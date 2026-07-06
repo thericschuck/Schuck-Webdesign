@@ -74,6 +74,33 @@ export async function getExpiry(domain: string): Promise<DomainExpiry> {
   }
 }
 
+/**
+ * Cloudflare Registrar hat keine "Jetzt verlängern"-Aktion — Verlängerung läuft ausschließlich über
+ * Auto-Renew, das automatisch einige Tage vor Ablauf greift. "Verlängern" bedeutet hier daher: Auto-Renew
+ * aktivieren (idempotent, kein Fehler falls bereits aktiv).
+ */
+export async function renew(domainName: string): Promise<DomainExpiry> {
+  try {
+    const accountId = requireAccountId()
+    const data = (await cloudflareFetch(`/accounts/${encodeURIComponent(accountId)}/registrar/domains/${encodeURIComponent(domainName)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ auto_renew: true }),
+    })) as { expires_at: string; current_registrar?: string; auto_renew: boolean }
+
+    const result: DomainExpiry = {
+      domain: domainName,
+      expiresAt: data.expires_at,
+      status: data.current_registrar ? `bei ${data.current_registrar}` : 'unbekannt',
+      autoRenew: data.auto_renew,
+    }
+    await logIntegrationCall(SERVICE, true)
+    return result
+  } catch (error) {
+    await logIntegrationCall(SERVICE, false, error instanceof Error ? error.message : 'Unbekannter Fehler')
+    throw error
+  }
+}
+
 export interface DnsRecord {
   type: string
   name: string

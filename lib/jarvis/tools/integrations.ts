@@ -398,6 +398,66 @@ const domainListDnsRecords: JarvisTool = {
   },
 }
 
+// ── calendar_create_event (⚠ Bestätigung) ───────────────────────────────────
+
+const calendarCreateEvent: JarvisTool = {
+  name: 'calendar_create_event',
+  requiresConfirmation: true,
+  definition: {
+    name: 'calendar_create_event',
+    description:
+      'Legt einen Termin im Google-Kalender an (z.B. Wiedervorlage, Meeting). Nur verfügbar, wenn ' +
+      'GOOGLE_CALENDAR_REFRESH_TOKEN konfiguriert ist. Erfordert Bestätigung.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        summary: { type: 'string', description: 'Titel des Termins.' },
+        description: { type: 'string', description: 'Beschreibung (optional).' },
+        start: { type: 'string', description: 'Start, ISO 8601 (z.B. "2026-07-10T09:00:00+02:00").' },
+        end: { type: 'string', description: 'Ende, ISO 8601.' },
+        calendar_id: { type: 'string', description: 'Kalender-ID, Default "primary".' },
+        attendee_emails: { type: 'array', items: { type: 'string' }, description: 'Optionale Teilnehmer-E-Mails.' },
+      },
+      required: ['summary', 'start', 'end'],
+    },
+  },
+  async execute(args) {
+    const attendees = args.attendee_emails
+    return calendar.createEvent({
+      summary: requireString(args, 'summary'),
+      description: optionalString(args, 'description') ?? undefined,
+      startISO: requireString(args, 'start'),
+      endISO: requireString(args, 'end'),
+      calendarId: optionalString(args, 'calendar_id') ?? undefined,
+      attendeeEmails: Array.isArray(attendees) ? attendees.filter((e): e is string => typeof e === 'string') : undefined,
+    })
+  },
+}
+
+// ── domain_renew (⚠ Bestätigung) ────────────────────────────────────────────
+
+const domainRenew: JarvisTool = {
+  name: 'domain_renew',
+  requiresConfirmation: true,
+  definition: {
+    name: 'domain_renew',
+    description:
+      'Aktiviert Auto-Renew für eine über Cloudflare Registrar registrierte Domain (Cloudflare bietet keine ' +
+      'sofortige manuelle Verlängerung — Auto-Renew greift automatisch vor Ablauf). Nur verfügbar, wenn ' +
+      'CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID konfiguriert sind. Erfordert Bestätigung.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        domain: { type: 'string', description: 'Domain, z.B. "kunde.de".' },
+      },
+      required: ['domain'],
+    },
+  },
+  async execute(args) {
+    return domain.renew(requireString(args, 'domain'))
+  },
+}
+
 export const integrationTools: JarvisTool[] = [
   figmaGetDesignContext,
   figmaGetScreenshot,
@@ -415,4 +475,6 @@ export const integrationTools: JarvisTool[] = [
   calendarCheckAvailability,
   domainGetExpiry,
   domainListDnsRecords,
+  calendarCreateEvent,
+  domainRenew,
 ]
