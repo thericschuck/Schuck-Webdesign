@@ -1,10 +1,11 @@
 import type { JarvisTool } from '../tool-types'
-import { optionalString, requireString } from './helpers'
+import { optionalNumber, optionalString, requireString } from './helpers'
 import * as figma from '@/lib/integrations/figma'
 import * as github from '@/lib/integrations/github'
 import * as vercel from '@/lib/integrations/vercel'
 import * as gsc from '@/lib/integrations/gsc'
 import * as pagespeed from '@/lib/integrations/pagespeed'
+import * as uptime from '@/lib/integrations/uptime'
 
 // ── figma_get_design_context ────────────────────────────────────────────────
 
@@ -218,6 +219,49 @@ const pagespeedCheck: JarvisTool = {
   },
 }
 
+// ── uptime_get_status / uptime_get_incidents ────────────────────────────────
+
+const uptimeGetStatus: JarvisTool = {
+  name: 'uptime_get_status',
+  requiresConfirmation: false,
+  definition: {
+    name: 'uptime_get_status',
+    description:
+      'Liefert den aktuellen Uptime-Status (up/down/paused, 30-Tage-Uptime-Quote) einer überwachten Website. ' +
+      'Nur verfügbar, wenn UPTIMEROBOT_API_KEY konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        search: { type: 'string', description: 'Domain oder Monitor-Name zur Suche, z.B. "kunde.de".' },
+      },
+      required: ['search'],
+    },
+  },
+  async execute(args) {
+    return uptime.getStatus(requireString(args, 'search'))
+  },
+}
+
+const uptimeGetIncidents: JarvisTool = {
+  name: 'uptime_get_incidents',
+  requiresConfirmation: false,
+  definition: {
+    name: 'uptime_get_incidents',
+    description: 'Liefert die letzten Down/Up-Incidents einer überwachten Website. Nur verfügbar, wenn UPTIMEROBOT_API_KEY konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        search: { type: 'string', description: 'Domain oder Monitor-Name zur Suche.' },
+        limit: { type: 'number', description: 'Max. Anzahl Einträge, Default 10.' },
+      },
+      required: ['search'],
+    },
+  },
+  async execute(args) {
+    return uptime.getIncidents(requireString(args, 'search'), optionalNumber(args, 'limit') ?? undefined)
+  },
+}
+
 export const integrationTools: JarvisTool[] = [
   figmaGetDesignContext,
   figmaGetScreenshot,
@@ -227,4 +271,6 @@ export const integrationTools: JarvisTool[] = [
   vercelGetDeploymentStatus,
   gscGetPerformance,
   pagespeedCheck,
+  uptimeGetStatus,
+  uptimeGetIncidents,
 ]
