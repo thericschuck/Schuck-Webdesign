@@ -7,6 +7,7 @@ import * as gsc from '@/lib/integrations/gsc'
 import * as pagespeed from '@/lib/integrations/pagespeed'
 import * as uptime from '@/lib/integrations/uptime'
 import * as vapi from '@/lib/integrations/vapi'
+import * as gbp from '@/lib/integrations/gbp'
 
 // ── figma_get_design_context ────────────────────────────────────────────────
 
@@ -305,6 +306,29 @@ const vapiGetStats: JarvisTool = {
   },
 }
 
+// ── gbp_get_reviews ──────────────────────────────────────────────────────────
+
+const gbpGetReviews: JarvisTool = {
+  name: 'gbp_get_reviews',
+  requiresConfirmation: false,
+  definition: {
+    name: 'gbp_get_reviews',
+    description:
+      'Liefert Kundenbewertungen (Ø-Bewertung, Anzahl, letzte Reviews mit Antwort-Status) für ein Google-Business-Profile. ' +
+      'Ohne Angaben werden die Default-Account/Location aus der Konfiguration verwendet. Nur verfügbar, wenn GBP_* konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'Business-Profile-Account-ID (optional, Default aus Konfiguration).' },
+        location_id: { type: 'string', description: 'Business-Profile-Location-ID (optional, Default aus Konfiguration).' },
+      },
+    },
+  },
+  async execute(args) {
+    return gbp.getReviews(optionalString(args, 'account_id') ?? undefined, optionalString(args, 'location_id') ?? undefined)
+  },
+}
+
 export const integrationTools: JarvisTool[] = [
   figmaGetDesignContext,
   figmaGetScreenshot,
@@ -318,4 +342,5 @@ export const integrationTools: JarvisTool[] = [
   uptimeGetIncidents,
   vapiGetCallLogs,
   vapiGetStats,
+  gbpGetReviews,
 ]
