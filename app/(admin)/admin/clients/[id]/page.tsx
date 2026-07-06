@@ -2,8 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { ClientStatus, ProjectStatus } from '@/types/database'
+import { clientDisplayName, clientDisplaySubtitle } from '@/lib/client-name'
 import { DeleteClientButton } from './DeleteClientButton'
 import { ResendInviteButton } from './ResendInviteButton'
+import { ClientDocuments } from './ClientDocuments'
 
 const INVITE_EXPIRY_HOURS = 24
 
@@ -75,6 +77,13 @@ export default async function ClientDetailPage({
 
   const profile = Array.isArray(client.profile) ? client.profile[0] : client.profile
   const projects = client.projects ?? []
+  const displayName = clientDisplayName(profile?.full_name, client.company_name)
+  const displaySubtitle = clientDisplaySubtitle(profile?.full_name, client.company_name)
+
+  const [{ data: offers }, { data: documents }] = await Promise.all([
+    supabase.from('offers').select('id, offer_number').eq('client_id', client.id).order('created_at', { ascending: false }),
+    supabase.from('documents').select('id, name, created_at').eq('client_id', client.id).order('created_at', { ascending: false }),
+  ])
 
   return (
     <div className="flex flex-col gap-6">
@@ -82,14 +91,14 @@ export default async function ClientDetailPage({
       <nav className="flex items-center gap-2 text-sm text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
         <Link href="/admin/clients" className="hover:text-gray-600 transition-colors">Kunden</Link>
         <span>/</span>
-        <span className="text-gray-700">{profile?.full_name ?? client.company_name}</span>
+        <span className="text-gray-700">{displayName}</span>
       </nav>
 
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-600 text-xl font-bold shrink-0">
-            {(profile?.full_name ?? client.company_name).charAt(0).toUpperCase()}
+            {displayName.charAt(0).toUpperCase()}
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -99,12 +108,14 @@ export default async function ClientDetailPage({
                 </span>
               )}
               <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
-                {profile?.full_name ?? client.company_name}
+                {displayName}
               </h1>
             </div>
-            <p className="text-sm text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              {client.company_name}
-            </p>
+            {displaySubtitle && (
+              <p className="text-sm text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                {displaySubtitle}
+              </p>
+            )}
             <div className="flex items-center gap-2 mt-1">
               <span
                 className={`text-xs px-2.5 py-1 rounded-full font-medium ${CLIENT_STATUS_COLOR[client.status]}`}
@@ -209,6 +220,14 @@ export default async function ClientDetailPage({
             </div>
           )}
 
+          {/* Dokumente */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 className="text-sm font-semibold text-gray-900 mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Dokumente
+            </h2>
+            <ClientDocuments clientId={client.id} clientEmail={profile?.email ?? null} offers={offers ?? []} documents={documents ?? []} />
+          </div>
+
           {/* Invite status — nur für ausstehende Kunden */}
           {client.status === 'pending' && (() => {
             const sentAt = client.invite_sent_at ?? client.created_at
@@ -257,7 +276,7 @@ export default async function ClientDetailPage({
             <h2 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: 'var(--font-dm-sans)' }}>
               Gefahrenbereich
             </h2>
-            <DeleteClientButton clientId={client.id} companyName={client.company_name} />
+            <DeleteClientButton clientId={client.id} displayName={displayName} />
           </div>
         </div>
 

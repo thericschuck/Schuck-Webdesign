@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NewProjectForm } from './NewProjectForm'
 import Link from 'next/link'
+import { clientDisplayName } from '@/lib/client-name'
 
 export default async function NewProjectPage({
   searchParams,
@@ -10,11 +11,17 @@ export default async function NewProjectPage({
   const { client_id } = await searchParams
   const supabase = await createClient()
 
-  const { data: clients } = await supabase
+  const { data: clientsRaw } = await supabase
     .from('clients')
-    .select('id, company_name, status')
+    .select('id, company_name, status, profiles(full_name)')
     .in('status', ['active', 'pending'])
-    .order('company_name', { ascending: true })
+
+  const clients = (clientsRaw ?? [])
+    .map((c) => {
+      const profile = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
+      return { id: c.id, status: c.status, display_name: clientDisplayName(profile?.full_name, c.company_name) }
+    })
+    .sort((a, b) => a.display_name.localeCompare(b.display_name))
 
   return (
     <div className="max-w-lg">
@@ -28,7 +35,7 @@ export default async function NewProjectPage({
         Neues Projekt anlegen
       </h1>
 
-      <NewProjectForm clients={clients ?? []} preselectedClientId={client_id} />
+      <NewProjectForm clients={clients} preselectedClientId={client_id} />
     </div>
   )
 }

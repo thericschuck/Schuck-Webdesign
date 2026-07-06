@@ -10,7 +10,9 @@
     "import:catalog": "tsx scripts/import/import-catalog.ts",
     "import:catalog:dry": "tsx scripts/import/import-catalog.ts --dry-run",
     "import:leads": "tsx scripts/import/import-leads.ts",
-    "import:leads:dry": "tsx scripts/import/import-leads.ts --dry-run"
+    "import:leads:dry": "tsx scripts/import/import-leads.ts --dry-run",
+    "import:backfill-graph": "tsx scripts/import/backfill-graph.ts",
+    "import:backfill-graph:dry": "tsx scripts/import/backfill-graph.ts --dry-run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -18,8 +20,11 @@
     "@supabase/supabase-js": "^2.103.0",
     "framer-motion": "^12.38.0",
     "next": "^16.2.4",
+    "openai": "^6.45.0",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-force-graph-2d": "^1.29.1",
     "resend": "^6.12.4",
     "supabase": "^2.91.1"
   },

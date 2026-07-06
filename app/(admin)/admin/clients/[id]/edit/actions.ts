@@ -25,8 +25,8 @@ export async function updateClient(
   const addressCountry = formData.get('address_country')
   const notes          = formData.get('notes')
 
-  if (!companyName || typeof companyName !== 'string' || companyName.trim().length < 2) {
-    return { status: 'error', message: 'Firmenname ist erforderlich.' }
+  if (!fullName || typeof fullName !== 'string' || fullName.trim().length < 2) {
+    return { status: 'error', message: 'Name ist erforderlich.' }
   }
 
   const str = (v: FormDataEntryValue | null) =>
@@ -41,7 +41,7 @@ export async function updateClient(
 
   try {
     await updateClientRecord(clientId, {
-      company_name: companyName.trim(),
+      company_name: str(companyName),
       phone: str(phone),
       website: str(website),
       status: CLIENT_STATUS_VALUES.includes(status as ClientStatus) ? (status as ClientStatus) : 'active',

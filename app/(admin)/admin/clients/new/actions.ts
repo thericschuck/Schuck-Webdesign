@@ -21,13 +21,13 @@ export async function inviteClient(
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     return { status: 'error', message: 'Bitte eine gültige E-Mail eingeben.' }
   }
-  if (!companyName || typeof companyName !== 'string' || companyName.trim().length < 2) {
-    return { status: 'error', message: 'Bitte einen Firmennamen eingeben.' }
+  if (!name || typeof name !== 'string' || name.trim().length < 2) {
+    return { status: 'error', message: 'Bitte einen Namen eingeben.' }
   }
 
   const cleanEmail = email.trim().toLowerCase()
-  const cleanName = typeof name === 'string' ? name.trim() : ''
-  const cleanCompany = companyName.trim()
+  const cleanName = name.trim()
+  const cleanCompany = typeof companyName === 'string' && companyName.trim() ? companyName.trim() : null
 
   try {
     const { profileId } = await inviteClientUser({ email: cleanEmail, fullName: cleanName })

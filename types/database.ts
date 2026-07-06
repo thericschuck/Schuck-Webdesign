@@ -44,7 +44,7 @@ export type Database = {
         Row: {
           id: string
           profile_id: string
-          company_name: string
+          company_name: string | null
           client_number: string | null
           website: string | null
           phone: string | null
@@ -60,7 +60,7 @@ export type Database = {
         Insert: {
           id?: string
           profile_id: string
-          company_name: string
+          company_name?: string | null
           client_number?: string | null
           website?: string | null
           phone?: string | null
@@ -76,7 +76,7 @@ export type Database = {
         Update: {
           id?: string
           profile_id?: string
-          company_name?: string
+          company_name?: string | null
           client_number?: string | null
           website?: string | null
           phone?: string | null
@@ -953,6 +953,364 @@ export type Database = {
           }
         ]
       }
+      company_settings: {
+        Row: {
+          id: string
+          company_name: string
+          inhaber: string | null
+          address_street: string | null
+          address_zip: string | null
+          address_city: string | null
+          address_country: string
+          email: string | null
+          phone: string | null
+          website: string | null
+          iban: string | null
+          bic: string | null
+          steuernummer: string | null
+          ust_id: string | null
+          ust_pflichtig: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_name?: string
+          inhaber?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          address_city?: string | null
+          address_country?: string
+          email?: string | null
+          phone?: string | null
+          website?: string | null
+          iban?: string | null
+          bic?: string | null
+          steuernummer?: string | null
+          ust_id?: string | null
+          ust_pflichtig?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_name?: string
+          inhaber?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          address_city?: string | null
+          address_country?: string
+          email?: string | null
+          phone?: string | null
+          website?: string | null
+          iban?: string | null
+          bic?: string | null
+          steuernummer?: string | null
+          ust_id?: string | null
+          ust_pflichtig?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      invoices: {
+        Row: {
+          id: string
+          invoice_number: string | null
+          client_id: string
+          project_id: string | null
+          status: InvoiceStatus
+          invoice_date: string | null
+          service_date: string | null
+          ust_pflichtig: boolean
+          total_net: number
+          pdf_url: string | null
+          sent_at: string | null
+          paid_at: string | null
+          recurring_source: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_number?: string | null
+          client_id: string
+          project_id?: string | null
+          status?: InvoiceStatus
+          invoice_date?: string | null
+          service_date?: string | null
+          ust_pflichtig?: boolean
+          total_net?: number
+          pdf_url?: string | null
+          sent_at?: string | null
+          paid_at?: string | null
+          recurring_source?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          invoice_number?: string | null
+          client_id?: string
+          project_id?: string | null
+          status?: InvoiceStatus
+          invoice_date?: string | null
+          service_date?: string | null
+          ust_pflichtig?: boolean
+          total_net?: number
+          pdf_url?: string | null
+          sent_at?: string | null
+          paid_at?: string | null
+          recurring_source?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'invoices_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: false
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'invoices_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      invoice_items: {
+        Row: {
+          id: string
+          invoice_id: string
+          art_nr: string | null
+          pos: number
+          bezeichnung: string
+          menge: number
+          ep: number
+          gesamt: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          art_nr?: string | null
+          pos: number
+          bezeichnung: string
+          menge?: number
+          ep: number
+          gesamt: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          art_nr?: string | null
+          pos?: number
+          bezeichnung?: string
+          menge?: number
+          ep?: number
+          gesamt?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'invoice_items_invoice_id_fkey'
+            columns: ['invoice_id']
+            isOneToOne: false
+            referencedRelation: 'invoices'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'invoice_items_art_nr_fkey'
+            columns: ['art_nr']
+            isOneToOne: false
+            referencedRelation: 'articles'
+            referencedColumns: ['art_nr']
+          }
+        ]
+      }
+      credit_notes: {
+        Row: {
+          id: string
+          credit_note_number: string
+          invoice_id: string
+          reason: string | null
+          total_net: number
+          pdf_url: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          credit_note_number: string
+          invoice_id: string
+          reason?: string | null
+          total_net: number
+          pdf_url?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          credit_note_number?: string
+          invoice_id?: string
+          reason?: string | null
+          total_net?: number
+          pdf_url?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'credit_notes_invoice_id_fkey'
+            columns: ['invoice_id']
+            isOneToOne: false
+            referencedRelation: 'invoices'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      nodes: {
+        Row: {
+          id: string
+          type: NodeType
+          label: string
+          body: string | null
+          ref_id: string | null
+          ref_table: string | null
+          source: NodeSource
+          confidence: NodeConfidence
+          embedding: number[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          type: NodeType
+          label: string
+          body?: string | null
+          ref_id?: string | null
+          ref_table?: string | null
+          source?: NodeSource
+          confidence?: NodeConfidence
+          embedding?: number[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          type?: NodeType
+          label?: string
+          body?: string | null
+          ref_id?: string | null
+          ref_table?: string | null
+          source?: NodeSource
+          confidence?: NodeConfidence
+          embedding?: number[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      edges: {
+        Row: {
+          id: string
+          from_id: string
+          to_id: string
+          type: EdgeType
+          weight: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          from_id: string
+          to_id: string
+          type: EdgeType
+          weight?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          from_id?: string
+          to_id?: string
+          type?: EdgeType
+          weight?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'edges_from_id_fkey'
+            columns: ['from_id']
+            isOneToOne: false
+            referencedRelation: 'nodes'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'edges_to_id_fkey'
+            columns: ['to_id']
+            isOneToOne: false
+            referencedRelation: 'nodes'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      conversation_logs: {
+        Row: {
+          id: string
+          node_id: string | null
+          messages: Json
+          summary: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          node_id?: string | null
+          messages?: Json
+          summary?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          node_id?: string | null
+          messages?: Json
+          summary?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'conversation_logs_node_id_fkey'
+            columns: ['node_id']
+            isOneToOne: false
+            referencedRelation: 'nodes'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      integration_calls: {
+        Row: {
+          id: string
+          service: string
+          success: boolean
+          error_message: string | null
+          called_at: string
+        }
+        Insert: {
+          id?: string
+          service: string
+          success: boolean
+          error_message?: string | null
+          called_at?: string
+        }
+        Update: {
+          id?: string
+          service?: string
+          success?: boolean
+          error_message?: string | null
+          called_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -963,6 +1321,22 @@ export type Database = {
       get_next_number: {
         Args: { p_typ: string; p_scope?: string }
         Returns: number
+      }
+      issue_invoice: {
+        Args: { p_id: string }
+        Returns: Database['public']['Tables']['invoices']['Row']
+      }
+      create_credit_note: {
+        Args: { p_invoice_id: string; p_reason: string | null; p_total_net: number }
+        Returns: Database['public']['Tables']['credit_notes']['Row']
+      }
+      link_nodes: {
+        Args: { p_from: string; p_to: string; p_type: string; p_weight?: number }
+        Returns: Database['public']['Tables']['edges']['Row']
+      }
+      match_nodes: {
+        Args: { query_embedding: number[]; match_count?: number }
+        Returns: Database['public']['Tables']['nodes']['Row'][]
       }
     }
     Enums: {
@@ -982,13 +1356,26 @@ export type Database = {
 export type UserRole = 'admin' | 'client'
 export type ClientStatus = 'active' | 'inactive' | 'pending' | 'lead' | 'paused' | 'completed'
 export type ProjectStatus = 'briefing' | 'design' | 'development' | 'review' | 'live'
-export type DocumentCategory = 'contract' | 'invoice' | 'briefing' | 'handover' | 'other'
+export type DocumentCategory = 'contract' | 'invoice' | 'briefing' | 'handover' | 'offer' | 'care_report' | 'other'
 export type LeadPrioritaet = 'high' | 'medium' | 'low'
 export type AkquiseErgebnis = 'offen' | 'nicht_erreicht' | 'wiedervorlage' | 'kein_interesse' | 'qualifiziert'
 export type LeadStage = 'erstkontakt' | 'quali_call' | 'closing_call' | 'gewonnen' | 'verloren'
 export type QualiErgebnis = 'offen' | 'follow_up' | 'qualifiziert' | 'disqualifiziert'
 export type SalesErgebnis = 'offen' | 'follow_up' | 'abgeschlossen' | 'abgelehnt'
 export type OfferStatus = 'entwurf' | 'gesendet' | 'angenommen' | 'abgelehnt'
+export type InvoiceStatus = 'entwurf' | 'versendet' | 'bezahlt' | 'storniert'
+export type NodeType = 'client' | 'project' | 'contact' | 'fact' | 'preference' | 'note' | 'process' | 'product' | 'session'
+export type NodeSource = 'jarvis_auto' | 'user_explicit' | 'imported'
+export type NodeConfidence = 'high' | 'medium' | 'low' | 'deprecated'
+export type EdgeType =
+  | 'has_project'
+  | 'has_contact'
+  | 'mentioned_in'
+  | 'contradicts'
+  | 'confirms'
+  | 'relates_to'
+  | 'learned_from'
+  | 'part_of_session'
 
 // ============================================================
 // ROW TYPES (Kurzform)
@@ -1017,6 +1404,13 @@ export type SalesCall     = Tables<'sales_calls'>
 export type AkquiseTracking = Tables<'akquise_tracking'>
 export type Offer         = Tables<'offers'>
 export type OfferItem     = Tables<'offer_items'>
+export type CompanySettings = Tables<'company_settings'>
+export type Invoice       = Tables<'invoices'>
+export type InvoiceItem   = Tables<'invoice_items'>
+export type CreditNote    = Tables<'credit_notes'>
+export type KnowledgeNode = Tables<'nodes'>
+export type KnowledgeEdge = Tables<'edges'>
+export type ConversationLog = Tables<'conversation_logs'>
 
 // ============================================================
 // JOINED / EXTENDED TYPES

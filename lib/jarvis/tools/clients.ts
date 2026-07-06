@@ -68,12 +68,12 @@ const createClientTool: JarvisTool = {
     input_schema: {
       type: 'object',
       properties: {
-        company_name: { type: 'string', description: 'Firmenname des Kunden.' },
+        full_name: { type: 'string', description: 'Name des Kunden/der Kontaktperson — primäre Bezeichnung.' },
         email: {
           type: 'string',
           description: 'E-Mail-Adresse für den Portal-Zugang. Erhält automatisch eine Einladung.',
         },
-        full_name: { type: 'string', description: 'Name der Kontaktperson (optional).' },
+        company_name: { type: 'string', description: 'Firmenname (optional, nur falls vorhanden).' },
         website: { type: 'string', description: 'Website-URL (optional).' },
         phone: { type: 'string', description: 'Telefonnummer (optional).' },
         status: {
@@ -87,18 +87,19 @@ const createClientTool: JarvisTool = {
         address_country: { type: 'string', description: "Land (optional, Default 'Deutschland')." },
         notes: { type: 'string', description: 'Interne Notizen (optional).' },
       },
-      required: ['company_name', 'email'],
+      required: ['full_name', 'email'],
     },
   },
   async execute(args) {
+    const fullName = requireString(args, 'full_name')
     const { profileId } = await inviteClientUser({
       email: requireString(args, 'email'),
-      fullName: optionalString(args, 'full_name'),
+      fullName,
     })
 
     return clientsDomain.createClient({
       profileId,
-      companyName: requireString(args, 'company_name'),
+      companyName: optionalString(args, 'company_name'),
       status: (optionalString(args, 'status') as ClientStatus | null) ?? undefined,
       website: optionalString(args, 'website'),
       phone: optionalString(args, 'phone'),
@@ -172,7 +173,7 @@ const deleteClientTool: JarvisTool = {
   },
   async execute(args) {
     const result = await clientsDomain.deleteClient(requireString(args, 'client_id'))
-    return { deleted: true, company_name: result.companyName }
+    return { deleted: true, display_name: result.displayName }
   },
 }
 

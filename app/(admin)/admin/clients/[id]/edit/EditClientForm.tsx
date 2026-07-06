@@ -60,14 +60,14 @@ export function EditClientForm({ clientId, defaultValues }: Props) {
           Kontakt
         </h2>
 
-        <Field label="Firmenname" id="company_name" required>
-          <input id="company_name" name="company_name" type="text" required
-            defaultValue={defaultValues.company_name} disabled={pending} className={inputClass} />
+        <Field label="Name" id="full_name" required>
+          <input id="full_name" name="full_name" type="text" required
+            defaultValue={defaultValues.full_name} disabled={pending} className={inputClass} />
         </Field>
 
-        <Field label="Ansprechpartner" id="full_name">
-          <input id="full_name" name="full_name" type="text"
-            defaultValue={defaultValues.full_name} disabled={pending} className={inputClass} />
+        <Field label="Firmenname" id="company_name">
+          <input id="company_name" name="company_name" type="text"
+            defaultValue={defaultValues.company_name} disabled={pending} className={inputClass} />
         </Field>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

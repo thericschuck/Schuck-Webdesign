@@ -207,6 +207,7 @@ export default function ProjektePage() {
                     alt={project.name}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                    quality={95}
                     className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
                     placeholder="blur"
                     blurDataURL={project.blurDataURL}
@@ -235,11 +236,11 @@ export default function ProjektePage() {
                       {project.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                     </p>
                     <span
-                      className="rounded-full px-2.5 py-1 text-xs font-medium"
+                      className="rounded-full px-2.5 py-1 text-xs font-semibold backdrop-blur-sm"
                       style={{
-                        color: "#7F77DD",
-                        backgroundColor: "rgba(127, 119, 221, 0.15)",
-                        border: "1px solid rgba(127, 119, 221, 0.25)",
+                        color: "#E3E1FB",
+                        backgroundColor: "rgba(23, 20, 45, 0.82)",
+                        border: "1px solid rgba(154, 146, 235, 0.5)",
                         fontFamily: "var(--font-dm-sans)",
                       }}
                     >

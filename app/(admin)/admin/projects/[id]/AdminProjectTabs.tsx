@@ -15,9 +15,12 @@ import {
   editTodo,
   toggleTodo,
   deleteTodo,
+  generateDocumentAction,
+  sendDocumentAction,
 } from './actions'
 import { AddUpdateForm } from './AddUpdateForm'
 import { AdminFileExplorer } from './AdminFileExplorer'
+import { DocumentGenerator, type OfferOption } from '@/components/admin/DocumentGenerator'
 
 type ActionResult = { status: 'success' } | { status: 'error'; message: string }
 
@@ -76,6 +79,8 @@ type ClientProject = {
 type Props = {
   projectId: string
   clientId: string
+  clientEmail: string | null
+  offers: OfferOption[]
   adminId: string
   updates: Update[]
   meetings: Meeting[]
@@ -92,6 +97,7 @@ const TABS = [
   { id: 'meetings' as const, label: 'Besprechungen' },
   { id: 'requests' as const, label: 'Anfragen' },
   { id: 'reviews' as const, label: 'Bewertungen' },
+  { id: 'documents' as const, label: 'Dokumente' },
   { id: 'files' as const, label: 'Dateien' },
 ]
 type TabId = typeof TABS[number]['id']
@@ -386,7 +392,7 @@ function EditTodoForm({
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function AdminProjectTabs({
-  projectId, clientId, adminId, updates, meetings, changeRequests, reviews, todos, documents, clientProjects,
+  projectId, clientId, clientEmail, offers, adminId, updates, meetings, changeRequests, reviews, todos, documents, clientProjects,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('updates')
   const [showMeetingForm, setShowMeetingForm] = useState(false)
@@ -1061,6 +1067,17 @@ export function AdminProjectTabs({
             ))
           )}
         </div>
+      )}
+
+      {/* ── Dokumente ── */}
+      {activeTab === 'documents' && (
+        <DocumentGenerator
+          clientEmail={clientEmail}
+          offers={offers}
+          documents={documents}
+          onGenerate={(template, offerId) => generateDocumentAction(projectId, clientId, template, offerId)}
+          onSend={(documentId, to, subject) => sendDocumentAction(projectId, documentId, to, subject)}
+        />
       )}
 
       {/* ── Dateien ── */}

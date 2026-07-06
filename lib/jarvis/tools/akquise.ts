@@ -39,12 +39,18 @@ const listLeads: JarvisTool = {
   requiresConfirmation: false,
   definition: {
     name: 'list_leads',
-    description: 'Listet Leads, optional gefiltert nach Funnel-Stage und/oder Priorität.',
+    description: 'Listet Leads, optional gefiltert nach Funnel-Stage, Priorität, Quelle, fälliger Wiedervorlage oder Firmenname (Suche).',
     input_schema: {
       type: 'object',
       properties: {
         current_stage: { type: 'string', enum: LEAD_STAGE_VALUES, description: 'Optionaler Filter nach Funnel-Stage.' },
         prioritaet: { type: 'string', enum: LEAD_PRIORITAET_VALUES, description: 'Optionaler Filter nach Priorität.' },
+        quelle: { type: 'string', description: "Optionaler Filter nach Quelle, z.B. 'KI', 'Google', 'Netzwerk' (optional)." },
+        wiedervorlage_faellig: {
+          type: 'boolean',
+          description: 'Nur Leads mit Wiedervorlage heute oder früher (optional).',
+        },
+        search: { type: 'string', description: 'Freitextsuche über den Firmennamen (optional).' },
       },
     },
   },
@@ -52,6 +58,9 @@ const listLeads: JarvisTool = {
     return akquiseDomain.listLeads({
       currentStage: (optionalString(args, 'current_stage') as LeadStage | null) ?? undefined,
       prioritaet: (optionalString(args, 'prioritaet') as LeadPrioritaet | null) ?? undefined,
+      quelle: optionalString(args, 'quelle') ?? undefined,
+      wiedervorlageDue: args.wiedervorlage_faellig === true,
+      search: optionalString(args, 'search') ?? undefined,
     })
   },
 }
@@ -376,6 +385,30 @@ const draftFollowupEmail: JarvisTool = {
   },
 }
 
+// ── send_followup_email ────────────────────────────────────────────────────
+
+const sendFollowupEmail: JarvisTool = {
+  name: 'send_followup_email',
+  requiresConfirmation: true,
+  definition: {
+    name: 'send_followup_email',
+    description:
+      'Verfasst und versendet direkt eine Follow-Up-E-Mail an den Lead (nutzt draft_followup_email intern) und ' +
+      'protokolliert den Versand in den Lead-Notizen. Erfordert Bestätigung.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        lead_id: { type: 'string', description: 'UUID des Leads (leads.id).' },
+        anlass: { type: 'string', description: 'Anlass/Kontext für den Follow-Up, z.B. "nach Quali-Call" (optional).' },
+      },
+      required: ['lead_id'],
+    },
+  },
+  async execute(args) {
+    return akquiseDomain.sendFollowupEmail(requireString(args, 'lead_id'), optionalString(args, 'anlass'))
+  },
+}
+
 // ── set_wiedervorlage ─────────────────────────────────────────────────────────
 
 const setWiedervorlage: JarvisTool = {
@@ -460,6 +493,7 @@ export const akquiseTools: JarvisTool[] = [
   convertLeadToClient,
   createOffer,
   draftFollowupEmail,
+  sendFollowupEmail,
   setWiedervorlage,
   logAkquiseTracking,
   getFunnelStats,

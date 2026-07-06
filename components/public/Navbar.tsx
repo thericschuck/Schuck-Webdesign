@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 
 const NAV_LINKS = [
@@ -14,56 +15,15 @@ const NAV_LINKS = [
 
 function Logo() {
   return (
-    <Link href="/" className="flex flex-col items-center leading-none group">
-      <div className="flex items-baseline">
-        <span
-          style={{
-            fontFamily: "Georgia, serif",
-            fontWeight: 200,
-            color: "rgba(245,245,240,0.45)",
-            fontSize: "21px",
-            lineHeight: 1,
-          }}
-        >
-          [
-        </span>
-        <span
-          style={{
-            fontFamily: "var(--font-dm-sans)",
-            fontWeight: 700,
-            color: "#F5F5F0",
-            fontSize: "18px",
-            margin: "0 4px",
-            lineHeight: 1,
-          }}
-        >
-          Schuck
-        </span>
-        <span
-          style={{
-            fontFamily: "Georgia, serif",
-            fontWeight: 200,
-            color: "rgba(245,245,240,0.45)",
-            fontSize: "21px",
-            lineHeight: 1,
-          }}
-        >
-          ]
-        </span>
-      </div>
-      <span
-        style={{
-          fontFamily: "var(--font-dm-sans)",
-          fontSize: "7px",
-          letterSpacing: "0.24em",
-          textTransform: "uppercase",
-          color: "rgba(245,245,240,0.28)",
-          marginTop: "3px",
-          display: "block",
-        }}
-      >
-        Webdesign
-      </span>
+    <Link href="/" className="flex items-center group">
+      <Image
+        src="/logo_transparent.png"
+        alt="Schuck Webdesign"
+        width={880}
+        height={400}
+        priority
+        className="h-11 w-auto"
+      />
     </Link>
   );
 }

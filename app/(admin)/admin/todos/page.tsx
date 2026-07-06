@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { toggleTodo, deleteTodo } from '@/app/(admin)/admin/projects/[id]/actions'
 import { AddTodoGlobalForm } from './AddTodoGlobalForm'
+import { clientDisplayName } from '@/lib/client-name'
 
 const PRIORITY_LABEL = { high: 'Hoch', medium: 'Mittel', low: 'Niedrig' } as const
 const PRIORITY_COLOR = {
@@ -26,7 +27,10 @@ type RawTodo = {
   projects: {
     id: string
     title: string
-    clients: { company_name: string } | { company_name: string }[] | null
+    clients:
+      | { company_name: string | null; profiles: { full_name: string | null } | { full_name: string | null }[] | null }
+      | { company_name: string | null; profiles: { full_name: string | null } | { full_name: string | null }[] | null }[]
+      | null
   } | null
 }
 
@@ -204,7 +208,7 @@ export default async function TodosPage() {
       .from('todos')
       .select(`
         id, title, done, priority, due_date, created_at, project_id,
-        projects(id, title, clients(company_name))
+        projects(id, title, clients(company_name, profiles(full_name)))
       `)
       .order('created_at', { ascending: true }),
     supabase
@@ -225,8 +229,9 @@ export default async function TodosPage() {
   for (const todo of projectTodos) {
     if (!todo.projects) continue
     if (!projectMap.has(todo.project_id!)) {
-      const c = todo.projects.clients
-      const company = Array.isArray(c) ? (c[0]?.company_name ?? '') : (c?.company_name ?? '')
+      const c = Array.isArray(todo.projects.clients) ? todo.projects.clients[0] : todo.projects.clients
+      const cProfile = c ? (Array.isArray(c.profiles) ? c.profiles[0] : c.profiles) : null
+      const company = c ? clientDisplayName(cProfile?.full_name, c.company_name) : ''
       projectMap.set(todo.project_id!, {
         id: todo.projects.id,
         title: todo.projects.title,

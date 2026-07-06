@@ -61,32 +61,32 @@ export default function NewClientPage() {
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <form action={action} className="flex flex-col gap-5">
-          {/* Firmenname */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="company_name" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              Firmenname <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="company_name"
-              name="company_name"
-              type="text"
-              required
-              placeholder="Mustermann GmbH"
-              disabled={pending}
-              className="rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50 transition-colors"
-            />
-          </div>
-
           {/* Name */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="name" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              Ansprechpartner
+              Name <span className="text-red-500">*</span>
             </label>
             <input
               id="name"
               name="name"
               type="text"
+              required
               placeholder="Max Mustermann"
+              disabled={pending}
+              className="rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50 transition-colors"
+            />
+          </div>
+
+          {/* Firmenname */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="company_name" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Firmenname <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <input
+              id="company_name"
+              name="company_name"
+              type="text"
+              placeholder="Mustermann GmbH"
               disabled={pending}
               className="rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50 transition-colors"
             />

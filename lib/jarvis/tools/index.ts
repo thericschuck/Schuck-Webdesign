@@ -3,7 +3,22 @@ import { clientTools } from './clients'
 import { projectTools } from './projects'
 import { productTools } from './products'
 import { akquiseTools } from './akquise'
+import { financeTools } from './finance'
+import { documentTools } from './documents'
+import { knowledgeTools } from './knowledge'
+import { integrationTools } from './integrations'
+import { subagentTools } from './subagents'
 
 export const toolRegistry: ToolRegistry = new Map(
-  [...clientTools, ...projectTools, ...productTools, ...akquiseTools].map((tool) => [tool.name, tool])
+  [
+    ...clientTools,
+    ...projectTools,
+    ...productTools,
+    ...akquiseTools,
+    ...financeTools,
+    ...documentTools,
+    ...knowledgeTools,
+    ...integrationTools,
+    ...subagentTools,
+  ].map((tool) => [tool.name, tool])
 )

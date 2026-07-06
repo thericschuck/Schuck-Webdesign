@@ -155,21 +155,28 @@ export default async function ProjektDetailPage({
         </div>
       </section>
 
-      <section style={{ backgroundColor: "#080808" }} className="px-6 py-12 md:px-12">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+      <section style={{ backgroundColor: "#080808" }} className="px-6 py-14 md:px-12">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
           <a
             href={project.url}
             target="_blank"
             rel="noreferrer"
-            className="text-sm transition-colors duration-200 hover:text-white"
-            style={{ fontFamily: "var(--font-dm-sans)", color: "#555" }}
+            className="inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-medium transition-opacity duration-200 hover:opacity-85"
+            style={{
+              backgroundColor: "#7F77DD",
+              color: "#fff",
+              fontFamily: "var(--font-dm-sans)",
+            }}
           >
-            Live ansehen -&gt;
+            Live ansehen
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 17 17 7M7 7h10v10" />
+            </svg>
           </a>
           <Link
             href="/projekte"
-            className="text-sm transition-colors duration-200 hover:text-white"
-            style={{ fontFamily: "var(--font-dm-sans)", color: "#555" }}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 px-7 py-3.5 text-sm font-medium text-[#F5F5F0]/75 transition-colors duration-200 hover:border-white/30 hover:text-[#F5F5F0]"
+            style={{ fontFamily: "var(--font-dm-sans)" }}
           >
             Alle Projekte
           </Link>

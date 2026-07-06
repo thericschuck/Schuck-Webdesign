@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { markAsRead, markAllAsRead } from './actions'
+import { convertContactToLead } from '../akquise/actions'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('de-DE', {
@@ -125,7 +126,19 @@ export default async function ContactPage() {
                 </p>
               </div>
               {/* Reply CTA */}
-              <div className="px-6 py-3 border-t border-gray-50 flex justify-end">
+              <div className="px-6 py-3 border-t border-gray-50 flex justify-end gap-4">
+                <form action={convertContactToLead.bind(null, s.id)}>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-900 hover:text-violet-700 transition-colors"
+                    style={{ fontFamily: 'var(--font-dm-sans)' }}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    Als Lead übernehmen
+                  </button>
+                </form>
                 <a
                   href={`mailto:${s.email}?subject=Re: ${encodeURIComponent(s.type)}`}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-900 hover:text-violet-700 transition-colors"

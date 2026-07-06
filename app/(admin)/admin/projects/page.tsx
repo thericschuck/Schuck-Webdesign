@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { ProjectStatus } from '@/types/database'
+import { clientDisplayName } from '@/lib/client-name'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   briefing: 'Briefing',
@@ -36,7 +37,7 @@ export default async function ProjectsPage({
       start_date,
       launch_date,
       created_at,
-      client:clients(id, company_name)
+      client:clients(id, company_name, profiles(full_name))
     `)
     .order('created_at', { ascending: false })
 
@@ -115,6 +116,8 @@ export default async function ProjectsPage({
             <div className="md:hidden divide-y divide-gray-50">
               {projects.map((project) => {
                 const client = Array.isArray(project.client) ? project.client[0] : project.client
+                const clientProfile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
+                const clientName = client ? clientDisplayName(clientProfile?.full_name, client.company_name) : null
                 const unread = unreadByProject.get(project.id) ?? 0
                 return (
                   <Link
@@ -139,7 +142,7 @@ export default async function ProjectsPage({
                         )}
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {client?.company_name ?? '—'}{project.launch_date ? ` · Launch: ${new Date(project.launch_date).toLocaleDateString('de-DE')}` : ''}
+                        {clientName ?? '—'}{project.launch_date ? ` · Launch: ${new Date(project.launch_date).toLocaleDateString('de-DE')}` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -170,6 +173,8 @@ export default async function ProjectsPage({
               <tbody className="divide-y divide-gray-50">
                 {projects.map((project) => {
                   const client = Array.isArray(project.client) ? project.client[0] : project.client
+                  const clientProfile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
+                  const clientName = client ? clientDisplayName(clientProfile?.full_name, client.company_name) : null
                   return (
                     <tr key={project.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
@@ -193,7 +198,7 @@ export default async function ProjectsPage({
                       <td className="px-6 py-4">
                         {client ? (
                           <Link href={`/admin/clients/${client.id}`} className="text-sm text-gray-700 hover:text-gray-900 hover:underline" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                            {client.company_name}
+                            {clientName}
                           </Link>
                         ) : (
                           <span className="text-sm text-gray-400">—</span>

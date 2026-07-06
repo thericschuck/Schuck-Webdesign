@@ -41,20 +41,20 @@ const SERVICES = [
 
 const FEATURED_PROJECTS = [
   {
-    slug: "bendix-official",
-    name: "Bendix Official",
-    category: "Artist Website",
-    desc: "Klarer, markanter Webauftritt für DJ und Producer Bendix mit Fokus auf Persona und Wirkung.",
-    image: "/bendixofficial.webp",
-    blurDataURL: "data:image/webp;base64,UklGRjAAAABXRUJQVlA4ICQAAAAwAQCdASoQAAkABUB8JYwAA3AA/vAi9c8cGZ3lHS6ohkvAAAA=",
-  },
-  {
     slug: "vmp-kuenstlerpool",
     name: "VMP Künstlerpool",
     category: "Talent & Booking Platform",
     desc: "Für Vivid Music Productions — eine der etablierten Booking-Agentur für Live-Musik im Rhein-Main-Gebiet — haben wir eine neue digitale Präsenz entwickelt, die das Niveau der Acts widerspiegelt, die sie vertreten.",
     image: "/vmp-kuenstlerpool.webp",
     blurDataURL: "data:image/webp;base64,UklGRk4AAABXRUJQVlA4IEIAAADwAQCdASoQAAkABUB8JYgCdAEORn6UGXAA/tT7AaPRJrYcslRqGEMewJC/AUlFXagE7TKUA/ChIzrXxsHhGaEAAAA=",
+  },
+  {
+    slug: "safe-untermain",
+    name: "SAFE — Sven Zöller",
+    category: "Sicherheitstraining & Coaching",
+    desc: "Klarer, vertrauensbildender Webauftritt für Sicherheitstrainer Sven Zöller mit Fokus auf Deeskalation und Konfliktprävention.",
+    image: "/safe-untermain.webp",
+    blurDataURL: "data:image/webp;base64,UklGRkQAAABXRUJQVlA4IDgAAADwAQCdASoQAAgAAsBMJZwAAt41Vt9N14AA/u45OtK6rp+KLP1L56jIxwFQUOSM07qXA6oLdAAAAA==",
   },
 ];
 
@@ -505,7 +505,7 @@ function HeroSection() {
       >
         <div className="flex items-center gap-10 md:gap-14 border-t border-white/8 pt-6 px-4">
           {[
-            { value: 4, suffix: "+", prefix: "", label: "Projekte" },
+            { value: 6, suffix: "+", prefix: "", label: "Projekte" },
             { value: 1, suffix: "s", prefix: "<", label: "Ladezeit" },
             { value: 100, suffix: "%", prefix: "", label: "Kundenzufriedenheit" },
           ].map(({ value, suffix, prefix, label }) => (
@@ -959,6 +959,7 @@ function ProjectsSection() {
                         alt={p.name}
                         fill
                         sizes="(max-width: 768px) 100vw, 50vw"
+                        quality={95}
                         className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
                         placeholder="blur"
                         blurDataURL={p.blurDataURL}
@@ -966,8 +967,13 @@ function ProjectsSection() {
                       <div className="absolute inset-0 bg-linear-to-t from-black/50 via-black/10 to-transparent" />
                       <div className="absolute bottom-4 left-4">
                         <span
-                          className="text-[10px] uppercase tracking-widest text-[#7F77DD] bg-[#7F77DD]/10 px-2.5 py-1 rounded-full border border-[#7F77DD]/20"
-                          style={{ fontFamily: "var(--font-dm-sans)" }}
+                          className="text-[10px] font-semibold uppercase tracking-widest px-2.5 py-1 rounded-full backdrop-blur-sm"
+                          style={{
+                            color: "#E3E1FB",
+                            backgroundColor: "rgba(23, 20, 45, 0.82)",
+                            border: "1px solid rgba(154, 146, 235, 0.5)",
+                            fontFamily: "var(--font-dm-sans)",
+                          }}
                         >
                           {p.category}
                         </span>
@@ -1370,7 +1376,7 @@ function FinalCtaSection() {
             className="text-sm text-[#666] mb-8 leading-relaxed"
             style={{ fontFamily: "var(--font-dm-sans)" }}
           >
-            Kostenloses Erstgespräch — 30 Minuten, kein Druck, kein Pitch. Nur
+            Kostenloses Erstgespräch — 15 Minuten, kein Druck, kein Pitch. Nur
             ein offenes Gespräch darüber, was du brauchst.
           </p>
           <Link

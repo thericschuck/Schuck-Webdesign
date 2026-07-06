@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getClientContext } from '@/lib/domain/knowledge'
 
 export interface ColdStartContext {
   openTodos: { title: string; priority: string; due_date: string | null }[]
@@ -43,5 +44,27 @@ export async function getColdStartContext(): Promise<ColdStartContext> {
     unreadContacts: contactsRes.data ?? [],
     unreadContactsCount: contactsRes.count ?? 0,
     projectsByStatus,
+  }
+}
+
+/**
+ * Per-Prompt-Kontext aus dem Wissensgraph (Semantic Search Top-20 + Traversal
+ * Tiefe 3, s. lib/domain/knowledge.ts#getClientContext). Läuft best-effort —
+ * ohne OPENAI_API_KEY oder bei sonstigen Fehlern liefert sie `null`, JARVIS
+ * arbeitet dann einfach ohne diesen Block weiter statt abzustürzen.
+ */
+export async function getPromptContext(lastUserText: string): Promise<string | null> {
+  const trimmed = lastUserText.trim()
+  if (!trimmed) return null
+
+  try {
+    const { contextBlock } = await getClientContext({ query: trimmed })
+    return contextBlock || null
+  } catch (error) {
+    console.error(
+      '[jarvis] Kontext aus Wissensgraph konnte nicht geladen werden:',
+      error instanceof Error ? error.message : error
+    )
+    return null
   }
 }

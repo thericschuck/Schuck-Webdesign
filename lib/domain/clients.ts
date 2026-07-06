@@ -1,5 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DomainError } from './errors'
+import { addNode as addKnowledgeNode } from './knowledge'
+import { clientDisplayName } from '@/lib/client-name'
 import type { Client, ClientStatus, Database } from '@/types/database'
 
 type ClientUpdate = Database['public']['Tables']['clients']['Update']
@@ -77,7 +79,8 @@ export async function getClient(clientId: string): Promise<ClientWithProjects> {
 export interface CreateClientInput {
   /** UUID des zugehörigen auth-Users/Profils — wird vorab über den Invite-Flow (lib/auth/invite-client.ts) erzeugt. */
   profileId: string
-  companyName: string
+  /** Firmenname ist optionale Zusatzinfo — der primäre Kundenname liegt auf profiles.full_name. */
+  companyName?: string | null
   status?: ClientStatus
   website?: string | null
   phone?: string | null
@@ -96,8 +99,7 @@ export interface CreateClientInput {
  * Invite-Flow (lib/auth/invite-client.ts) erzeugt worden sein.
  */
 export async function createClient(input: CreateClientInput): Promise<Client> {
-  const companyName = input.companyName.trim()
-  if (!companyName) throw new DomainError('Firmenname ist erforderlich.')
+  const companyName = input.companyName?.trim() || null
 
   const status = input.status ?? 'pending'
   if (!CLIENT_STATUS_VALUES.includes(status)) {
@@ -133,11 +135,31 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
     .single()
 
   if (clientError) throw new DomainError(`Kunde konnte nicht gespeichert werden: ${clientError.message}`)
+
+  try {
+    const { data: profile } = await adminClient.from('profiles').select('full_name').eq('id', input.profileId).single()
+    const bodyParts = [
+      client.website,
+      client.phone,
+      [client.address_street, client.address_zip, client.address_city].filter(Boolean).join(' '),
+    ].filter(Boolean)
+    await addKnowledgeNode({
+      type: 'client',
+      label: clientDisplayName(profile?.full_name, client.company_name),
+      body: bodyParts.length > 0 ? bodyParts.join(' · ') : null,
+      refId: client.id,
+      refTable: 'clients',
+      source: 'jarvis_auto',
+    })
+  } catch (error) {
+    console.error('[clients] Knowledge-Node konnte nicht angelegt werden:', error instanceof Error ? error.message : error)
+  }
+
   return client
 }
 
 export interface UpdateClientInput {
-  company_name?: string
+  company_name?: string | null
   website?: string | null
   phone?: string | null
   status?: ClientStatus
@@ -157,9 +179,6 @@ export async function updateClient(clientId: string, patch: UpdateClientInput): 
   if (Object.keys(updates).length === 0) {
     throw new DomainError('Keine Felder zum Aktualisieren angegeben.')
   }
-  if (updates.company_name !== undefined && !String(updates.company_name).trim()) {
-    throw new DomainError('Firmenname ist erforderlich.')
-  }
   if (updates.status !== undefined && !CLIENT_STATUS_VALUES.includes(updates.status as ClientStatus)) {
     throw new DomainError(`Ungültiger Status "${updates.status}".`)
   }
@@ -177,7 +196,7 @@ export async function updateClient(clientId: string, patch: UpdateClientInput): 
 }
 
 export interface DeleteClientResult {
-  companyName: string
+  displayName: string
 }
 
 /**
@@ -190,11 +209,14 @@ export async function deleteClient(clientId: string): Promise<DeleteClientResult
 
   const { data: client } = await adminClient
     .from('clients')
-    .select('profile_id, company_name')
+    .select('profile_id, company_name, profiles(full_name)')
     .eq('id', clientId)
     .single()
 
   if (!client) throw new DomainError('Kunde nicht gefunden.')
+
+  const profile = Array.isArray(client.profiles) ? client.profiles[0] : client.profiles
+  const displayName = clientDisplayName(profile?.full_name, client.company_name)
 
   const { data: projects } = await adminClient.from('projects').select('id').eq('client_id', clientId)
   const projectIds = (projects ?? []).map((p) => p.id)
@@ -209,5 +231,5 @@ export async function deleteClient(clientId: string): Promise<DeleteClientResult
   const { error } = await adminClient.auth.admin.deleteUser(client.profile_id)
   if (error) throw new DomainError(`Fehler beim Löschen: ${error.message}`)
 
-  return { companyName: client.company_name }
+  return { displayName }
 }

@@ -6,10 +6,10 @@ import { deleteClient } from './actions'
 
 export function DeleteClientButton({
   clientId,
-  companyName,
+  displayName,
 }: {
   clientId: string
-  companyName: string
+  displayName: string
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -33,7 +33,7 @@ export function DeleteClientButton({
     return (
       <div className="flex flex-col gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl">
         <p className="text-sm text-gray-800 font-medium" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          <strong>{companyName}</strong> wirklich löschen?
+          <strong>{displayName}</strong> wirklich löschen?
         </p>
         <p className="text-xs text-gray-500 leading-relaxed" style={{ fontFamily: 'var(--font-dm-sans)' }}>
           Alle Projekte, Dokumente und der Login-Zugang werden dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { ClientStatus } from '@/types/database'
+import { clientDisplayName } from '@/lib/client-name'
 
 const CLIENT_STATUS_LABEL: Record<ClientStatus, string> = {
   lead: 'Lead',
@@ -71,6 +72,7 @@ export default async function ClientsPage() {
               {clients.map((client) => {
                 const profile = Array.isArray(client.profile) ? client.profile[0] : client.profile
                 const projectCount = Array.isArray(client.projects) ? client.projects.length : 0
+                const displayName = clientDisplayName(profile?.full_name, client.company_name)
                 return (
                   <Link
                     key={client.id}
@@ -78,7 +80,7 @@ export default async function ClientsPage() {
                     className="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 transition-colors"
                   >
                     <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 text-sm font-semibold shrink-0">
-                      {(profile?.full_name ?? client.company_name).charAt(0).toUpperCase()}
+                      {displayName.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -88,11 +90,11 @@ export default async function ClientsPage() {
                           </span>
                         )}
                         <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                          {profile?.full_name ?? client.company_name}
+                          {displayName}
                         </p>
                       </div>
                       <p className="text-xs text-gray-400 truncate mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {profile?.email ?? client.company_name} · {projectCount} {projectCount === 1 ? 'Projekt' : 'Projekte'}
+                        {profile?.email ?? '—'} · {projectCount} {projectCount === 1 ? 'Projekt' : 'Projekte'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -124,6 +126,7 @@ export default async function ClientsPage() {
                 {clients.map((client) => {
                   const profile = Array.isArray(client.profile) ? client.profile[0] : client.profile
                   const projectCount = Array.isArray(client.projects) ? client.projects.length : 0
+                  const displayName = clientDisplayName(profile?.full_name, client.company_name)
                   return (
                     <tr key={client.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
@@ -134,11 +137,13 @@ export default async function ClientsPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 text-sm font-semibold shrink-0">
-                            {(profile?.full_name ?? client.company_name).charAt(0).toUpperCase()}
+                            {displayName.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>{profile?.full_name ?? client.company_name}</p>
-                            <p className="text-xs text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>{client.company_name}</p>
+                            <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>{displayName}</p>
+                            {client.company_name && profile?.full_name && (
+                              <p className="text-xs text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>{client.company_name}</p>
+                            )}
                           </div>
                         </div>
                       </td>

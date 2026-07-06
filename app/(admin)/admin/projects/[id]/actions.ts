@@ -10,6 +10,8 @@ import {
   deleteProject as deleteProjectRecord,
   addProjectUpdate as addProjectUpdateRecord,
 } from '@/lib/domain/projects'
+import * as documentsDomain from '@/lib/domain/documents'
+import type { DocumentTemplate } from '@/lib/domain/documents'
 
 // ── Update Status ────────────────────────────────────────────────────────────
 
@@ -521,6 +523,49 @@ export async function editTodo(
     .eq('id', todoId)
 
   if (error) return { status: 'error', message: 'Fehler beim Speichern.' }
+  revalidatePath(`/admin/projects/${projectId}`)
+  return { status: 'success' }
+}
+
+// ── Dokumente erstellen/senden ───────────────────────────────────────────────
+
+type GenerateDocumentResult =
+  | { status: 'error'; message: string }
+  | { status: 'success'; documentId: string; name: string }
+
+export async function generateDocumentAction(
+  projectId: string,
+  clientId: string,
+  template: DocumentTemplate,
+  offerId: string | null
+): Promise<GenerateDocumentResult> {
+  await assertAdmin()
+
+  try {
+    const doc = await documentsDomain.generateDocument({ template, clientId, projectId, offerId })
+    revalidatePath(`/admin/projects/${projectId}`)
+    return { status: 'success', documentId: doc.id, name: doc.name }
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Dokument konnte nicht erstellt werden.' }
+  }
+}
+
+type SendDocumentResult = { status: 'error'; message: string } | { status: 'success' }
+
+export async function sendDocumentAction(
+  projectId: string,
+  documentId: string,
+  to: string,
+  subject: string | null
+): Promise<SendDocumentResult> {
+  await assertAdmin()
+
+  try {
+    await documentsDomain.sendDocument({ documentId, to, subject: subject ?? undefined })
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Dokument konnte nicht gesendet werden.' }
+  }
+
   revalidatePath(`/admin/projects/${projectId}`)
   return { status: 'success' }
 }

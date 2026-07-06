@@ -1,11 +1,14 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DomainError } from './errors'
-import type { Article, Database } from '@/types/database'
+import type { Article, Database, Package } from '@/types/database'
 
 type ArticleUpdate = Database['public']['Tables']['articles']['Update']
 
 export interface ListArticlesFilter {
   kategorie?: string
+  search?: string
+  /** true = auch deaktivierte Artikel einschließen; Standard: nur aktive (wie bisher). */
+  includeInactive?: boolean
 }
 
 export async function listArticles(filter: ListArticlesFilter = {}) {
@@ -13,10 +16,11 @@ export async function listArticles(filter: ListArticlesFilter = {}) {
   let query = adminClient
     .from('articles')
     .select('art_nr, bezeichnung, beschreibung, preis_min, preis_max, einheit, typ, kategorie, pflichtbetrieb_art_nr, aktiv')
-    .eq('aktiv', true)
     .order('art_nr', { ascending: true })
 
+  if (!filter.includeInactive) query = query.eq('aktiv', true)
   if (filter.kategorie) query = query.eq('kategorie', filter.kategorie)
+  if (filter.search) query = query.or(`bezeichnung.ilike.%${filter.search}%,art_nr.ilike.%${filter.search}%`)
 
   const { data, error } = await query
   if (error) throw new DomainError(error.message)
@@ -87,6 +91,96 @@ export async function checkPflichtbetrieb(artNr: string): Promise<Pflichtbetrieb
 
   if (betriebError) throw new DomainError(betriebError.message)
   return { art_nr: artNr, pflichtbetrieb: betrieb }
+}
+
+export interface ListPackagesForArticleResult {
+  pkt_nr: string
+  paketname: string
+  paketpreis: number | null
+}
+
+export async function listPackagesForArticle(artNr: string): Promise<ListPackagesForArticleResult[]> {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('package_items')
+    .select('packages(pkt_nr, paketname, paketpreis)')
+    .eq('art_nr', artNr)
+
+  if (error) throw new DomainError(error.message)
+
+  return (data ?? [])
+    .map((row) => (Array.isArray(row.packages) ? row.packages[0] : row.packages))
+    .filter((pkg): pkg is ListPackagesForArticleResult => pkg != null)
+}
+
+export interface PackageWithSavings extends Package {
+  einzelpreise_summe: number | null
+  ersparnis: number | null
+}
+
+export async function listPackagesWithSavings(): Promise<PackageWithSavings[]> {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('packages')
+    .select('pkt_nr, paketname, paketpreis, zielgruppe, laufzeit, folgeprodukt, created_at, updated_at, package_items(ep, menge, gesamt)')
+    .order('pkt_nr', { ascending: true })
+
+  if (error) throw new DomainError(error.message)
+
+  return (data ?? []).map(({ package_items, ...pkg }) => {
+    const items = Array.isArray(package_items) ? package_items : []
+    const hasPriceData = items.some((i) => i.gesamt != null || i.ep != null)
+    const summe = hasPriceData
+      ? items.reduce((sum, i) => sum + (i.gesamt ?? (i.ep ?? 0) * (i.menge ?? 1)), 0)
+      : null
+
+    return {
+      ...pkg,
+      einzelpreise_summe: summe,
+      ersparnis: summe != null && pkg.paketpreis != null ? summe - pkg.paketpreis : null,
+    }
+  })
+}
+
+export interface UpdateArticleInput {
+  bezeichnung?: string
+  beschreibung?: string | null
+  preisMin?: number | null
+  preisMax?: number | null
+  einheit?: string | null
+  typ?: string | null
+  kategorie?: string | null
+  pflichtbetriebArtNr?: string | null
+  aktiv?: boolean
+}
+
+export async function updateArticle(artNr: string, patch: UpdateArticleInput): Promise<Article> {
+  const updates: ArticleUpdate = {}
+  if (patch.bezeichnung !== undefined) updates.bezeichnung = patch.bezeichnung
+  if (patch.beschreibung !== undefined) updates.beschreibung = patch.beschreibung
+  if (patch.preisMin !== undefined) updates.preis_min = patch.preisMin
+  if (patch.preisMax !== undefined) updates.preis_max = patch.preisMax
+  if (patch.einheit !== undefined) updates.einheit = patch.einheit
+  if (patch.typ !== undefined) updates.typ = patch.typ
+  if (patch.kategorie !== undefined) updates.kategorie = patch.kategorie
+  if (patch.pflichtbetriebArtNr !== undefined) updates.pflichtbetrieb_art_nr = patch.pflichtbetriebArtNr
+  if (patch.aktiv !== undefined) updates.aktiv = patch.aktiv
+
+  if (Object.keys(updates).length === 0) throw new DomainError('Keine Änderungen übergeben.')
+  if (updates.pflichtbetrieb_art_nr === artNr) {
+    throw new DomainError('Ein Artikel kann nicht sein eigener Pflichtbetrieb-Artikel sein.')
+  }
+
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('articles')
+    .update(updates)
+    .eq('art_nr', artNr)
+    .select('*')
+    .single()
+
+  if (error) throw new DomainError(error.message)
+  return data
 }
 
 export interface UpdateArticlePriceInput {

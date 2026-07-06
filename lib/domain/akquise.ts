@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { inviteClientUser } from '@/lib/auth/invite-client'
+import { sendEmail } from '@/lib/email/send'
 import { DomainError } from './errors'
 import { createClient as createClientRecord } from './clients'
 import type {
@@ -66,22 +67,64 @@ export async function listContactSubmissions(filter: ListContactSubmissionsFilte
   return data
 }
 
+/**
+ * Übernimmt eine Kontaktanfrage als Lead. Das Kontaktformular kennt keinen
+ * Firmennamen — der Anfragename wird als firmenname UND ansprechpartner
+ * übernommen; Eric kann den Firmennamen anschließend im Lead editieren.
+ */
+export async function convertContactSubmissionToLead(submissionId: string): Promise<Lead> {
+  const adminClient = createAdminClient()
+
+  const { data: submission, error: submissionError } = await adminClient
+    .from('contact_submissions')
+    .select('*')
+    .eq('id', submissionId)
+    .single()
+  if (submissionError) throw new DomainError('Kontaktanfrage nicht gefunden.')
+
+  const lead = await createLead({
+    firmenname: submission.name,
+    ansprechpartner: submission.name,
+    email: submission.email,
+    phone: submission.phone,
+    quelle: 'Website',
+    notizen: `Anfrage-Typ: ${submission.type}\n\n${submission.message}`,
+  })
+
+  await adminClient.from('contact_submissions').update({ read: true }).eq('id', submissionId)
+
+  return lead
+}
+
 // ── leads ─────────────────────────────────────────────────────────────────────
 
 export interface ListLeadsFilter {
   currentStage?: LeadStage
   prioritaet?: LeadPrioritaet
+  quelle?: string
+  /** true = nur Leads mit wiedervorlage <= heute (fällig); false/undefined = kein Filter. */
+  wiedervorlageDue?: boolean
+  search?: string
 }
 
 export async function listLeads(filter: ListLeadsFilter = {}) {
   const adminClient = createAdminClient()
   let query = adminClient
     .from('leads')
-    .select('id, lead_number, firmenname, zielgruppe, stadt, prioritaet, akquise_ergebnis, current_stage, wiedervorlage, created_at')
+    .select(
+      'id, lead_number, firmenname, zielgruppe, stadt, quelle, prioritaet, akquise_ergebnis, current_stage, wiedervorlage, created_at'
+    )
     .order('created_at', { ascending: false })
 
   if (filter.currentStage) query = query.eq('current_stage', filter.currentStage)
   if (filter.prioritaet) query = query.eq('prioritaet', filter.prioritaet)
+  if (filter.quelle) query = query.eq('quelle', filter.quelle)
+  if (filter.wiedervorlageDue) {
+    query = query.not('wiedervorlage', 'is', null).lte('wiedervorlage', new Date().toISOString().slice(0, 10))
+  }
+  if (filter.search) {
+    query = query.ilike('firmenname', `%${filter.search}%`)
+  }
 
   const { data, error } = await query
   if (error) throw new DomainError(error.message)
@@ -91,18 +134,24 @@ export async function listLeads(filter: ListLeadsFilter = {}) {
 export async function getLead(leadId: string) {
   const adminClient = createAdminClient()
 
-  const [{ data: lead, error: leadError }, { data: qualiCalls, error: qualiError }, { data: salesCalls, error: salesError }] =
-    await Promise.all([
-      adminClient.from('leads').select('*').eq('id', leadId).single(),
-      adminClient.from('quali_calls').select('*').eq('lead_id', leadId).order('created_at', { ascending: false }),
-      adminClient.from('sales_calls').select('*').eq('lead_id', leadId).order('created_at', { ascending: false }),
-    ])
+  const [
+    { data: lead, error: leadError },
+    { data: qualiCalls, error: qualiError },
+    { data: salesCalls, error: salesError },
+    { data: offers, error: offersError },
+  ] = await Promise.all([
+    adminClient.from('leads').select('*').eq('id', leadId).single(),
+    adminClient.from('quali_calls').select('*').eq('lead_id', leadId).order('created_at', { ascending: false }),
+    adminClient.from('sales_calls').select('*').eq('lead_id', leadId).order('created_at', { ascending: false }),
+    adminClient.from('offers').select('*').eq('lead_id', leadId).order('created_at', { ascending: false }),
+  ])
 
   if (leadError) throw new DomainError('Lead nicht gefunden.')
   if (qualiError) throw new DomainError(qualiError.message)
   if (salesError) throw new DomainError(salesError.message)
+  if (offersError) throw new DomainError(offersError.message)
 
-  return { ...lead, quali_calls: qualiCalls ?? [], sales_calls: salesCalls ?? [] }
+  return { ...lead, quali_calls: qualiCalls ?? [], sales_calls: salesCalls ?? [], offers: offers ?? [] }
 }
 
 export interface CreateLeadInput {
@@ -444,6 +493,24 @@ Schuck Webdesign`
   }
 }
 
+// ── send_followup_email ───────────────────────────────────────────────────
+
+export async function sendFollowupEmail(leadId: string, anlass?: string | null) {
+  const draft = await draftFollowupEmail(leadId, anlass)
+  if (!draft.to) throw new DomainError('Für diesen Lead ist keine E-Mail-Adresse hinterlegt.')
+
+  const result = await sendEmail({ to: draft.to, subject: draft.subject, html: draft.body.replace(/\n/g, '<br>') })
+  if (!result.sent) throw new DomainError(`E-Mail konnte nicht gesendet werden: ${result.error}`)
+
+  const adminClient = createAdminClient()
+  const { data: existing } = await adminClient.from('leads').select('notizen').eq('id', leadId).single()
+  const dated = `[${new Date().toLocaleDateString('de-DE')}] Follow-Up-E-Mail gesendet: "${draft.subject}"`
+  const notizen = existing?.notizen ? `${existing.notizen}\n${dated}` : dated
+  await adminClient.from('leads').update({ notizen }).eq('id', leadId)
+
+  return { lead_id: leadId, to: draft.to, subject: draft.subject, sent: true as const }
+}
+
 // ── set_wiedervorlage ─────────────────────────────────────────────────────────
 
 export async function setWiedervorlage(leadId: string, wiedervorlage: string, notiz?: string | null) {
@@ -515,6 +582,23 @@ export async function logAkquiseTracking(input: LogAkquiseTrackingInput) {
     .insert({ datum, ...deltas })
     .select('*')
     .single()
+  if (error) throw new DomainError(error.message)
+  return data
+}
+
+export interface ListAkquiseTrackingFilter {
+  fromDate?: string
+  toDate?: string
+}
+
+export async function listAkquiseTracking(filter: ListAkquiseTrackingFilter = {}) {
+  const adminClient = createAdminClient()
+  let query = adminClient.from('akquise_tracking').select('*').order('datum', { ascending: false })
+
+  if (filter.fromDate) query = query.gte('datum', filter.fromDate)
+  if (filter.toDate) query = query.lte('datum', filter.toDate)
+
+  const { data, error } = await query
   if (error) throw new DomainError(error.message)
   return data
 }

@@ -40,6 +40,7 @@ export function ImageLightbox({ src, alt, blurDataURL, badge }: Props) {
           alt={alt}
           fill
           sizes="(max-width: 768px) 100vw, 1152px"
+          quality={95}
           className="object-cover"
           placeholder="blur"
           blurDataURL={blurDataURL}
@@ -86,6 +87,7 @@ export function ImageLightbox({ src, alt, blurDataURL, badge }: Props) {
               alt={alt}
               fill
               sizes="100vw"
+              quality={95}
               className="object-contain"
               placeholder="blur"
               blurDataURL={blurDataURL}

@@ -6,6 +6,7 @@ import { ProjectStatusControl } from './ProjectStatusControl'
 import { AdminProjectTabs } from './AdminProjectTabs'
 import { DeleteProjectButton } from './DeleteProjectButton'
 import { LaunchDateEditor } from './LaunchDateEditor'
+import { clientDisplayName } from '@/lib/client-name'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   briefing: 'Briefing',
@@ -46,7 +47,7 @@ export default async function ProjectDetailPage({
       start_date,
       launch_date,
       created_at,
-      client:clients(id, company_name),
+      client:clients(id, company_name, profiles(email, full_name)),
       documents(id, name, file_url, folder, created_at)
     `)
     .eq('id', id)
@@ -91,12 +92,20 @@ export default async function ProjectDetailPage({
 
   const client = Array.isArray(project.client) ? project.client[0] : project.client
   const documents = project.documents ?? []
+  const clientProfile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
 
-  const { data: allClientProjects } = await supabase
-    .from('projects')
-    .select('id, title, documents(id, name, file_url, folder, created_at)')
-    .eq('client_id', client!.id)
-    .order('created_at', { ascending: false })
+  const [{ data: allClientProjects }, { data: offers }] = await Promise.all([
+    supabase
+      .from('projects')
+      .select('id, title, documents(id, name, file_url, folder, created_at)')
+      .eq('client_id', client!.id)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('offers')
+      .select('id, offer_number')
+      .eq('client_id', client!.id)
+      .order('created_at', { ascending: false }),
+  ])
 
   return (
     <div className="flex flex-col gap-6">
@@ -126,7 +135,7 @@ export default async function ProjectDetailPage({
               className="text-sm text-gray-500 hover:text-gray-700 mt-1 inline-block"
               style={{ fontFamily: 'var(--font-dm-sans)' }}
             >
-              {client.company_name}
+              {clientDisplayName(clientProfile?.full_name, client.company_name)}
             </Link>
           )}
         </div>
@@ -198,6 +207,8 @@ export default async function ProjectDetailPage({
           <AdminProjectTabs
             projectId={project.id}
             clientId={client!.id}
+            clientEmail={clientProfile?.email ?? null}
+            offers={offers ?? []}
             adminId={user!.id}
             updates={updates ?? []}
             meetings={meetings ?? []}

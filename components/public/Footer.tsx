@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const NAV_LINKS = [
   { label: "Leistungen", href: "/leistungen" },
@@ -20,53 +21,13 @@ export function Footer() {
         <div className="flex flex-col md:flex-row justify-between gap-10 md:gap-6">
           {/* Logo + tagline */}
           <div className="flex flex-col gap-4">
-            <div className="inline-flex flex-col items-center self-start">
-              <div className="inline-flex items-baseline">
-                <span
-                  style={{
-                    fontFamily: "Georgia, serif",
-                    fontWeight: 200,
-                    color: "rgba(245,245,240,0.4)",
-                    fontSize: "20px",
-                  }}
-                >
-                  [
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-dm-sans)",
-                    fontWeight: 700,
-                    color: "#F5F5F0",
-                    fontSize: "18px",
-                    margin: "0 4px",
-                  }}
-                >
-                  Schuck
-                </span>
-                <span
-                  style={{
-                    fontFamily: "Georgia, serif",
-                    fontWeight: 200,
-                    color: "rgba(245,245,240,0.4)",
-                    fontSize: "20px",
-                  }}
-                >
-                  ]
-                </span>
-              </div>
-              <span
-                style={{
-                  fontFamily: "var(--font-dm-sans)",
-                  fontSize: "7px",
-                  letterSpacing: "0.22em",
-                  textTransform: "uppercase",
-                  color: "rgba(245,245,240,0.25)",
-                  marginTop: "3px",
-                }}
-              >
-                Webdesign
-              </span>
-            </div>
+            <Image
+              src="/logo_transparent.png"
+              alt="Schuck Webdesign"
+              width={880}
+              height={400}
+              className="h-13 w-auto self-start"
+            />
             <p
               className="text-sm text-[#555] max-w-50 leading-relaxed"
               style={{ fontFamily: "var(--font-dm-sans)" }}
@@ -78,7 +39,7 @@ export function Footer() {
           {/* Navigation */}
           <div className="flex flex-col gap-3">
             <p
-              className="text-[10px] uppercase tracking-[0.14em] text-[#3a3a3a]"
+              className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7F77DD]"
               style={{ fontFamily: "var(--font-dm-sans)" }}
             >
               Navigation
@@ -98,7 +59,7 @@ export function Footer() {
           {/* Contact */}
           <div className="flex flex-col gap-3">
             <p
-              className="text-[10px] uppercase tracking-[0.14em] text-[#3a3a3a]"
+              className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7F77DD]"
               style={{ fontFamily: "var(--font-dm-sans)" }}
             >
               Kontakt

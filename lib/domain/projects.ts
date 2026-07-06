@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DomainError } from './errors'
+import { addNode as addKnowledgeNode } from './knowledge'
 import type { Database, Project, ProjectStatus } from '@/types/database'
 
 type ProjectUpdate = Database['public']['Tables']['projects']['Update']
@@ -132,6 +133,20 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
     .single()
 
   if (error) throw new DomainError(`Projekt konnte nicht gespeichert werden: ${error.message}`)
+
+  try {
+    await addKnowledgeNode({
+      type: 'project',
+      label: project.title,
+      body: project.description ?? null,
+      refId: project.id,
+      refTable: 'projects',
+      source: 'jarvis_auto',
+    })
+  } catch (error) {
+    console.error('[projects] Knowledge-Node konnte nicht angelegt werden:', error instanceof Error ? error.message : error)
+  }
+
   return project
 }
 

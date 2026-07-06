@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { EditClientForm } from './EditClientForm'
 import Link from 'next/link'
+import { clientDisplayName } from '@/lib/client-name'
 
 export default async function EditClientPage({
   params,
@@ -31,7 +32,9 @@ export default async function EditClientPage({
       <nav className="flex items-center gap-2 text-sm text-gray-400 mb-6" style={{ fontFamily: 'var(--font-dm-sans)' }}>
         <Link href="/admin/clients" className="hover:text-gray-600 transition-colors">Kunden</Link>
         <span>/</span>
-        <Link href={`/admin/clients/${client.id}`} className="hover:text-gray-600 transition-colors">{client.company_name}</Link>
+        <Link href={`/admin/clients/${client.id}`} className="hover:text-gray-600 transition-colors">
+          {clientDisplayName(profile?.full_name, client.company_name)}
+        </Link>
         <span>/</span>
         <span className="text-gray-700">Bearbeiten</span>
       </nav>
@@ -43,7 +46,7 @@ export default async function EditClientPage({
       <EditClientForm
         clientId={id}
         defaultValues={{
-          company_name:    client.company_name,
+          company_name:    client.company_name ?? '',
           full_name:       profile?.full_name ?? '',
           phone:           client.phone ?? '',
           website:         client.website ?? '',
