@@ -1,8 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { buildJarvisSystemPrompt } from './system-prompt'
-import { getColdStartContext } from './context'
+import { getColdStartContext, getPromptContext } from './context'
 import { JARVIS_COLD_START_TRIGGER } from './constants'
 import { toolRegistry as defaultToolRegistry } from './tools'
+import { IntegrationError } from '@/lib/integrations/errors'
 import type { ToolRegistry } from './tool-types'
 
 export type { JarvisTool, ToolRegistry } from './tool-types'
@@ -24,11 +25,24 @@ function isColdStartTrigger(message: Anthropic.MessageParam | undefined): boolea
   return typeof message.content === 'string' && message.content === JARVIS_COLD_START_TRIGGER
 }
 
+function getLastUserText(message: Anthropic.MessageParam | undefined): string | null {
+  if (!message || message.role !== 'user') return null
+  return typeof message.content === 'string' ? message.content : null
+}
+
 // ── Agent-Loop ──────────────────────────────────────────────────────────────
 
 export interface RunJarvisAgentOptions {
   messages: Anthropic.MessageParam[]
   tools?: ToolRegistry
+  /**
+   * Überschreibt den vollen JARVIS-System-Prompt — genutzt von Sub-Agenten
+   * (lib/jarvis/tools/subagents.ts), die einen fokussierten, eigenen Prompt
+   * bekommen. Wenn gesetzt, werden Cold-Start-Kontext und Wissensgraph-Kontext
+   * NICHT ermittelt (sparen sich die OpenAI-Embedding-Anfrage + Graph-
+   * Traversal, deren Ergebnis sonst ungenutzt verworfen würde).
+   */
+  systemPrompt?: string
   onTextDelta?: (text: string) => void
 }
 
@@ -45,16 +59,24 @@ export type JarvisAgentResult =
 export async function runJarvisAgent({
   messages,
   tools = defaultToolRegistry,
+  systemPrompt: systemPromptOverride,
   onTextDelta,
 }: RunJarvisAgentOptions): Promise<JarvisAgentResult> {
   const client = getClient()
   const conversation: Anthropic.MessageParam[] = [...messages]
   const toolFailureCounts = new Map<string, number>()
 
-  const coldStartContext = isColdStartTrigger(messages[messages.length - 1])
-    ? await getColdStartContext()
-    : null
-  const systemPrompt = buildJarvisSystemPrompt(coldStartContext)
+  let systemPrompt = systemPromptOverride
+  if (!systemPrompt) {
+    const lastMessage = messages[messages.length - 1]
+    const isColdStart = isColdStartTrigger(lastMessage)
+    const coldStartContext = isColdStart ? await getColdStartContext() : null
+
+    const lastUserText = !isColdStart ? getLastUserText(lastMessage) : null
+    const knowledgeContext = lastUserText ? await getPromptContext(lastUserText) : null
+
+    systemPrompt = buildJarvisSystemPrompt(coldStartContext, knowledgeContext)
+  }
 
   let finalText = ''
 
@@ -131,15 +153,22 @@ export async function runJarvisAgent({
           content: typeof result === 'string' ? result : JSON.stringify(result),
         })
       } catch (error) {
-        const failures = (toolFailureCounts.get(tool.name) ?? 0) + 1
-        toolFailureCounts.set(tool.name, failures)
-
         const message = error instanceof Error ? error.message : 'Unbekannter Fehler'
 
-        const content =
-          failures >= MAX_TOOL_RETRIES
-            ? `Tool "${tool.name}" ist nach ${MAX_TOOL_RETRIES} Versuchen weiterhin fehlgeschlagen: ${message}. Brich diesen Ansatz ab und informiere Eric, dass er das manuell prüfen muss.`
-            : `Fehler beim Ausführen von "${tool.name}": ${message}. Versuche einen alternativen Ansatz.`
+        let content: string
+        if (error instanceof IntegrationError && (error.code === 'missing_key' || error.code === 'unauthorized')) {
+          // Ein fehlender/ungültiger Schlüssel behebt sich nicht durch einen erneuten Versuch —
+          // sofort eskalieren statt die 3 Retries zu verbrauchen.
+          content = `Tool "${tool.name}" ist nicht verfügbar (${message}). Sag Eric ehrlich, dass der Dienst nicht konfiguriert ist, und versuch es nicht erneut.`
+        } else {
+          const failures = (toolFailureCounts.get(tool.name) ?? 0) + 1
+          toolFailureCounts.set(tool.name, failures)
+
+          content =
+            failures >= MAX_TOOL_RETRIES
+              ? `Tool "${tool.name}" ist nach ${MAX_TOOL_RETRIES} Versuchen weiterhin fehlgeschlagen: ${message}. Brich diesen Ansatz ab und informiere Eric, dass er das manuell prüfen muss.`
+              : `Fehler beim Ausführen von "${tool.name}": ${message}. Versuche einen alternativen Ansatz.`
+        }
 
         toolResults.push({
           type: 'tool_result',
