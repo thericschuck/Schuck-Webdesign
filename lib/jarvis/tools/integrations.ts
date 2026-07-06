@@ -4,6 +4,7 @@ import * as figma from '@/lib/integrations/figma'
 import * as github from '@/lib/integrations/github'
 import * as vercel from '@/lib/integrations/vercel'
 import * as gsc from '@/lib/integrations/gsc'
+import * as pagespeed from '@/lib/integrations/pagespeed'
 
 // ── figma_get_design_context ────────────────────────────────────────────────
 
@@ -192,6 +193,31 @@ const gscGetPerformance: JarvisTool = {
   },
 }
 
+// ── pagespeed_check ──────────────────────────────────────────────────────────
+
+const pagespeedCheck: JarvisTool = {
+  name: 'pagespeed_check',
+  requiresConfirmation: false,
+  definition: {
+    name: 'pagespeed_check',
+    description:
+      'Prüft Performance-Score und Core Web Vitals (LCP, CLS, TBT, FCP) einer URL via PageSpeed Insights. ' +
+      'Nur verfügbar, wenn PAGESPEED_API_KEY konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Zu prüfende URL, z.B. "https://kunde.de".' },
+        strategy: { type: 'string', enum: ['mobile', 'desktop'], description: 'Default: mobile.' },
+      },
+      required: ['url'],
+    },
+  },
+  async execute(args) {
+    const strategy = optionalString(args, 'strategy')
+    return pagespeed.check(requireString(args, 'url'), strategy === 'desktop' ? 'desktop' : 'mobile')
+  },
+}
+
 export const integrationTools: JarvisTool[] = [
   figmaGetDesignContext,
   figmaGetScreenshot,
@@ -200,4 +226,5 @@ export const integrationTools: JarvisTool[] = [
   githubGetFile,
   vercelGetDeploymentStatus,
   gscGetPerformance,
+  pagespeedCheck,
 ]
