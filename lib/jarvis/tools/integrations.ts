@@ -6,6 +6,7 @@ import * as vercel from '@/lib/integrations/vercel'
 import * as gsc from '@/lib/integrations/gsc'
 import * as pagespeed from '@/lib/integrations/pagespeed'
 import * as uptime from '@/lib/integrations/uptime'
+import * as vapi from '@/lib/integrations/vapi'
 
 // ── figma_get_design_context ────────────────────────────────────────────────
 
@@ -262,6 +263,48 @@ const uptimeGetIncidents: JarvisTool = {
   },
 }
 
+// ── vapi_get_call_logs / vapi_get_stats ─────────────────────────────────────
+
+const vapiGetCallLogs: JarvisTool = {
+  name: 'vapi_get_call_logs',
+  requiresConfirmation: false,
+  definition: {
+    name: 'vapi_get_call_logs',
+    description: 'Listet die letzten Telefonbot-Calls (Zeitpunkt, Dauer, Ende-Grund, Kosten, Zusammenfassung). Nur verfügbar, wenn VAPI_API_KEY konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        assistant_id: { type: 'string', description: 'Vapi-Assistant-ID (optional, filtert auf einen Bot).' },
+        limit: { type: 'number', description: 'Max. Anzahl Calls, Default 20.' },
+      },
+    },
+  },
+  async execute(args) {
+    return vapi.getCallLogs(optionalNumber(args, 'limit') ?? undefined, optionalString(args, 'assistant_id') ?? undefined)
+  },
+}
+
+const vapiGetStats: JarvisTool = {
+  name: 'vapi_get_stats',
+  requiresConfirmation: false,
+  definition: {
+    name: 'vapi_get_stats',
+    description:
+      'Aggregiert Statistiken über die letzten Telefonbot-Calls (Gesamtanzahl, Kosten, Ø-Dauer, Ende-Gründe). ' +
+      'Nur verfügbar, wenn VAPI_API_KEY konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        assistant_id: { type: 'string', description: 'Vapi-Assistant-ID (optional, filtert auf einen Bot).' },
+        sample_size: { type: 'number', description: 'Wie viele der letzten Calls einbezogen werden, Default 100.' },
+      },
+    },
+  },
+  async execute(args) {
+    return vapi.getStats(optionalString(args, 'assistant_id') ?? undefined, optionalNumber(args, 'sample_size') ?? undefined)
+  },
+}
+
 export const integrationTools: JarvisTool[] = [
   figmaGetDesignContext,
   figmaGetScreenshot,
@@ -273,4 +316,6 @@ export const integrationTools: JarvisTool[] = [
   pagespeedCheck,
   uptimeGetStatus,
   uptimeGetIncidents,
+  vapiGetCallLogs,
+  vapiGetStats,
 ]
