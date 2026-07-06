@@ -8,6 +8,7 @@ import * as pagespeed from '@/lib/integrations/pagespeed'
 import * as uptime from '@/lib/integrations/uptime'
 import * as vapi from '@/lib/integrations/vapi'
 import * as gbp from '@/lib/integrations/gbp'
+import * as calendar from '@/lib/integrations/calendar'
 
 // ── figma_get_design_context ────────────────────────────────────────────────
 
@@ -329,6 +330,31 @@ const gbpGetReviews: JarvisTool = {
   },
 }
 
+// ── calendar_check_availability ─────────────────────────────────────────────
+
+const calendarCheckAvailability: JarvisTool = {
+  name: 'calendar_check_availability',
+  requiresConfirmation: false,
+  definition: {
+    name: 'calendar_check_availability',
+    description:
+      'Prüft, ob im angegebenen Zeitraum bereits Termine im Google-Kalender liegen (Free/Busy). ' +
+      'Nur verfügbar, wenn GOOGLE_CALENDAR_REFRESH_TOKEN konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        from: { type: 'string', description: 'Start des Zeitraums, ISO 8601 (z.B. "2026-07-10T09:00:00+02:00").' },
+        to: { type: 'string', description: 'Ende des Zeitraums, ISO 8601.' },
+        calendar_id: { type: 'string', description: 'Kalender-ID, Default "primary".' },
+      },
+      required: ['from', 'to'],
+    },
+  },
+  async execute(args) {
+    return calendar.checkAvailability(requireString(args, 'from'), requireString(args, 'to'), optionalString(args, 'calendar_id') ?? undefined)
+  },
+}
+
 export const integrationTools: JarvisTool[] = [
   figmaGetDesignContext,
   figmaGetScreenshot,
@@ -343,4 +369,5 @@ export const integrationTools: JarvisTool[] = [
   vapiGetCallLogs,
   vapiGetStats,
   gbpGetReviews,
+  calendarCheckAvailability,
 ]
