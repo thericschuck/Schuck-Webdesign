@@ -2,6 +2,7 @@ import type { JarvisTool } from '../tool-types'
 import { optionalString, requireString } from './helpers'
 import * as figma from '@/lib/integrations/figma'
 import * as github from '@/lib/integrations/github'
+import * as vercel from '@/lib/integrations/vercel'
 
 // ── figma_get_design_context ────────────────────────────────────────────────
 
@@ -138,10 +139,34 @@ const githubGetFile: JarvisTool = {
   },
 }
 
+// ── vercel_get_deployment_status ────────────────────────────────────────────
+
+const vercelGetDeploymentStatus: JarvisTool = {
+  name: 'vercel_get_deployment_status',
+  requiresConfirmation: false,
+  definition: {
+    name: 'vercel_get_deployment_status',
+    description:
+      'Liefert den neuesten Deployment-Status (READY/ERROR/BUILDING, URL, Zeitpunkt) eines Vercel-Projekts. ' +
+      'Nur verfügbar, wenn VERCEL_API_TOKEN konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'Vercel-Projekt-ID oder -Name.' },
+      },
+      required: ['project'],
+    },
+  },
+  async execute(args) {
+    return vercel.getDeploymentStatus(requireString(args, 'project'))
+  },
+}
+
 export const integrationTools: JarvisTool[] = [
   figmaGetDesignContext,
   figmaGetScreenshot,
   githubGetRepoStatus,
   githubListIssues,
   githubGetFile,
+  vercelGetDeploymentStatus,
 ]
