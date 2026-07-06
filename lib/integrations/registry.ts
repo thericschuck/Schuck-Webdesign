@@ -74,7 +74,7 @@ export const INTEGRATIONS: IntegrationDescriptor[] = [
   {
     service: 'domain',
     label: 'Domain (Cloudflare)',
-    envVars: ['CLOUDFLARE_API_TOKEN'],
-    isConfigured: () => hasEnv('CLOUDFLARE_API_TOKEN'),
+    envVars: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'],
+    isConfigured: () => hasEnv('CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'),
   },
 ]

@@ -9,6 +9,7 @@ import * as uptime from '@/lib/integrations/uptime'
 import * as vapi from '@/lib/integrations/vapi'
 import * as gbp from '@/lib/integrations/gbp'
 import * as calendar from '@/lib/integrations/calendar'
+import * as domain from '@/lib/integrations/domain'
 
 // ── figma_get_design_context ────────────────────────────────────────────────
 
@@ -355,6 +356,48 @@ const calendarCheckAvailability: JarvisTool = {
   },
 }
 
+// ── domain_get_expiry / domain_list_dns_records ─────────────────────────────
+
+const domainGetExpiry: JarvisTool = {
+  name: 'domain_get_expiry',
+  requiresConfirmation: false,
+  definition: {
+    name: 'domain_get_expiry',
+    description:
+      'Liefert das Ablaufdatum einer Domain (nur für über Cloudflare Registrar registrierte Domains, nicht für nur ' +
+      'DNS-verwaltete). Nur verfügbar, wenn CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID konfiguriert sind.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        domain: { type: 'string', description: 'Domain, z.B. "kunde.de".' },
+      },
+      required: ['domain'],
+    },
+  },
+  async execute(args) {
+    return domain.getExpiry(requireString(args, 'domain'))
+  },
+}
+
+const domainListDnsRecords: JarvisTool = {
+  name: 'domain_list_dns_records',
+  requiresConfirmation: false,
+  definition: {
+    name: 'domain_list_dns_records',
+    description: 'Listet DNS-Records einer bei Cloudflare verwalteten Domain. Nur verfügbar, wenn CLOUDFLARE_API_TOKEN konfiguriert ist.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        domain: { type: 'string', description: 'Domain, z.B. "kunde.de".' },
+      },
+      required: ['domain'],
+    },
+  },
+  async execute(args) {
+    return domain.listDnsRecords(requireString(args, 'domain'))
+  },
+}
+
 export const integrationTools: JarvisTool[] = [
   figmaGetDesignContext,
   figmaGetScreenshot,
@@ -370,4 +413,6 @@ export const integrationTools: JarvisTool[] = [
   vapiGetStats,
   gbpGetReviews,
   calendarCheckAvailability,
+  domainGetExpiry,
+  domainListDnsRecords,
 ]
