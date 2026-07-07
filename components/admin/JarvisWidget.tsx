@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { JARVIS_COLD_START_TRIGGER } from '@/lib/jarvis/constants'
@@ -123,6 +123,7 @@ function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStrea
 
 export function JarvisWidget({ mode }: { mode: 'floating' | 'full' }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [historyLoaded, setHistoryLoaded] = useState(false)
   const [input, setInput] = useState('')
@@ -255,6 +256,12 @@ export function JarvisWidget({ mode }: { mode: 'floating' | 'full' }) {
     }
 
     if (mode === 'floating' && !isOpen && gotAssistantText) setHasUnseen(true)
+
+    // JARVIS kann Tools ausführen, die Daten ändern (Todos, Kunden, Projekte, …) — die
+    // gerade offene Admin-Seite bekommt das sonst nicht mit, da Server Components nur beim
+    // Navigieren/Reload neu rendern. router.refresh() holt die aktuelle Route serverseitig
+    // frisch, ohne den Chat-Zustand des Widgets zu verlieren (kein Reload, kein Remount).
+    router.refresh()
   }
 
   async function sendMessage(text: string, opts?: { hidden?: boolean }) {
