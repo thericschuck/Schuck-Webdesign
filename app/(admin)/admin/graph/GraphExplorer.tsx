@@ -85,6 +85,61 @@ function phaseFromId(id: string): number {
   return hash
 }
 
+/** Größen-Hierarchie nach Entitäts-Typ statt nach Grad: Kunden am größten, Projekte etwas
+ * kleiner, alles andere nochmal kleiner. */
+function radiusForType(type: string, table: { client: number; project: number; other: number }): number {
+  if (type === 'client') return table.client
+  if (type === 'project') return table.project
+  return table.other
+}
+const NODE_RADIUS_3D = { client: 24, project: 16, other: 9 }
+const NODE_RADIUS_2D = { client: 10, project: 7, other: 4 }
+
+type ForceNode = SimNode & { vx?: number; vy?: number; vz?: number }
+
+/** Custom d3-Force (nur 3D): verbundene Knoten bekommen einen sanften Zug zur Mitte, unverbundene
+ * ("einzelne") Knoten werden auf eine stark abgeflachte Ellipse um die Mitte gezogen — wie
+ * Trabanten um einen Stern, aber bewusst KEINE gleichmäßige Kugelschale (dafür sorgt der stark
+ * gestauchte Z-Anteil). Winkel/Z-Jitter kommen aus dem Node-ID-Hash, damit die Verteilung stabil
+ * bleibt statt bei jedem Tick neu zu "springen".
+ */
+function createRadialSpreadForce(degreeById: Map<string, number>) {
+  let simNodes: ForceNode[] = []
+  const ringRadius = 320
+  const flattenZ = 70
+
+  function force(alpha: number) {
+    const k = alpha * 0.12
+    for (const n of simNodes) {
+      if (n.x == null || n.y == null) continue
+      const degree = degreeById.get(n.id) ?? 0
+
+      if (degree > 0) {
+        // Verbundene Knoten: zusätzlicher sanfter Zug Richtung Ursprung, oben auf Link-/Center-Kraft.
+        n.vx = (n.vx ?? 0) - n.x * k * 0.5
+        n.vy = (n.vy ?? 0) - n.y * k * 0.5
+        if (n.z != null) n.vz = (n.vz ?? 0) - n.z * k * 0.5
+        continue
+      }
+
+      const angle = (phaseFromId(n.id) / 1000) * Math.PI * 2
+      const tx = Math.cos(angle) * ringRadius
+      const ty = Math.sin(angle) * ringRadius
+      const tz = (phaseFromId(`${n.id}z`) / 1000 - 0.5) * flattenZ
+
+      n.vx = (n.vx ?? 0) + (tx - n.x) * k
+      n.vy = (n.vy ?? 0) + (ty - n.y) * k
+      if (n.z != null) n.vz = (n.vz ?? 0) + (tz - n.z) * k
+    }
+  }
+
+  force.initialize = (nodes: ForceNode[]) => {
+    simNodes = nodes
+  }
+
+  return force
+}
+
 export function GraphExplorer() {
   const [nodes, setNodes] = useState<GraphNode[]>([])
   const [edges, setEdges] = useState<GraphEdge[]>([])
@@ -212,6 +267,16 @@ export function GraphExplorer() {
     return { filteredNodes: fNodes, filteredEdges: fEdges }
   }, [nodes, edges, visibleTypes, focusClientId])
 
+  /** Grad (Anzahl Kanten) je Knoten — steuert u.a., welche Knoten als "verbunden" gelten (Radial-Kraft). */
+  const degreeById = useMemo(() => {
+    const degrees = new Map<string, number>()
+    for (const e of filteredEdges) {
+      degrees.set(e.source, (degrees.get(e.source) ?? 0) + 1)
+      degrees.set(e.target, (degrees.get(e.target) ?? 0) + 1)
+    }
+    return degrees
+  }, [filteredEdges])
+
   const connectedToHover = useMemo(() => {
     if (!hoveredId) return null
     const ids = new Set<string>([hoveredId])
@@ -247,7 +312,8 @@ export function GraphExplorer() {
     if (link) link.distance(90)
     const center = fg.d3Force('center')
     if (center) center.strength(0.02)
-  }, [graphReady, renderMode, filteredNodes, filteredEdges])
+    fg.d3Force('radialSpread', createRadialSpreadForce(degreeById))
+  }, [graphReady, renderMode, filteredNodes, filteredEdges, degreeById])
 
   /** Sanfte Kamera-Rotation im Leerlauf — nur im 3D-Modus (OrbitControls), pausiert sofort bei
    * Drag/Zoom, setzt nach kurzer Pause wieder ein. */
@@ -277,16 +343,6 @@ export function GraphExplorer() {
       if (idleTimer) clearTimeout(idleTimer)
     }
   }, [graphReady, renderMode])
-
-  /** Grad (Anzahl Kanten) je Knoten — größere/wichtigere Knoten (Hubs) wirken dadurch "näher". */
-  const degreeById = useMemo(() => {
-    const degrees = new Map<string, number>()
-    for (const e of filteredEdges) {
-      degrees.set(e.source, (degrees.get(e.source) ?? 0) + 1)
-      degrees.set(e.target, (degrees.get(e.target) ?? 0) + 1)
-    }
-    return degrees
-  }, [filteredEdges])
 
   const graphData = useMemo(
     () => ({
@@ -333,8 +389,7 @@ export function GraphExplorer() {
 
       const isDimmed = connectedToHover != null && !connectedToHover.has(n.id)
       const color = colorForType(n.type)
-      const degree = degreeById.get(n.id) ?? 0
-      const baseR = Math.min(4 + degree * 0.6, 11)
+      const baseR = radiusForType(n.type, NODE_RADIUS_2D)
 
       if (!isDimmed) {
         const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 850 + phaseFromId(n.id))
@@ -361,7 +416,7 @@ export function GraphExplorer() {
         ctx.fill()
       }
     },
-    [connectedToHover, degreeById]
+    [connectedToHover]
   )
 
   const nodePointerAreaPaint = useCallback((node: unknown, color: string, ctx: CanvasRenderingContext2D) => {
@@ -373,15 +428,15 @@ export function GraphExplorer() {
     ctx.fill()
   }, [])
 
-  /** Baut pro Knoten eine Kern-Kugel + eine additive Glow-Hülle. Die Größe ist bewusst deutlich
-   * größer als im 2D-Rendering (dort 4-11px) — im 3D-Raum mit Kamera-Perspektive wirken kleine
-   * Kugeln sonst wie Staubkörner. Farbe/Gruppierung bleiben unverändert über `colorForType`. */
+  /** Baut pro Knoten eine Kern-Kugel + eine additive Glow-Hülle. Größe nach Entitäts-Typ (Kunden
+   * am größten, Projekte kleiner, Rest am kleinsten) statt nach Grad — im 3D-Raum mit
+   * Kamera-Perspektive wirken kleine Kugeln sonst wie Staubkörner. Farbe/Gruppierung bleiben
+   * unverändert über `colorForType`. */
   const nodeThreeObject = useCallback(
     (node: unknown) => {
       const n = node as SimNode
       const color = colorForType(n.type)
-      const degree = degreeById.get(n.id) ?? 0
-      const baseR = Math.min(9 + degree * 1.4, 26)
+      const baseR = radiusForType(n.type, NODE_RADIUS_3D)
 
       const group = new THREE.Group()
 
@@ -408,7 +463,7 @@ export function GraphExplorer() {
       nodeVisualsRef.current.set(n.id, { core, glow, material, glowMaterial })
       return group
     },
-    [degreeById]
+    []
   )
 
   /** Läuft bei jedem Simulationstick (dauerhaft, da cooldownTime=Infinity): pulsiert Glow/Kern
