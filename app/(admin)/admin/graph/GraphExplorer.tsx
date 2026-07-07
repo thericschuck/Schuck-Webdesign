@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import Link from 'next/link'
 import { FilterPanel, type TypeCount } from './FilterPanel'
 import { NodePanel } from './NodePanel'
 import { colorForType, hexToRgba, type GraphEdge, type GraphNode, type GraphPayload } from './types'
@@ -127,6 +126,32 @@ export function GraphExplorer() {
     for (const n of nodes) counts.set(n.type, (counts.get(n.type) ?? 0) + 1)
     return [...counts.entries()].map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count)
   }, [nodes])
+
+  const nodesById = useMemo(() => {
+    const map = new Map<string, GraphNode>()
+    for (const n of nodes) map.set(n.id, n)
+    return map
+  }, [nodes])
+
+  /** Alle Knoten, auf die eine Kante des ausgewählten Knotens zeigt (oder umgekehrt) — für die
+   * "Verbindungen"-Liste im NodePanel. Läuft bewusst über die ungefilterten `edges`/`nodes`, damit
+   * Referenzen auch dann sichtbar sind, wenn ihr Typ gerade über die Legende ausgeblendet ist. */
+  const selectedConnections = useMemo(() => {
+    if (!selectedNode) return []
+    const seen = new Set<string>()
+    const result: { id: string; label: string; type: string }[] = []
+    for (const e of edges) {
+      let otherId: string | null = null
+      if (e.source === selectedNode.id) otherId = e.target
+      else if (e.target === selectedNode.id) otherId = e.source
+      if (!otherId || seen.has(otherId)) continue
+      const other = nodesById.get(otherId)
+      if (!other) continue
+      seen.add(otherId)
+      result.push({ id: other.id, label: other.label, type: other.type })
+    }
+    return result.sort((a, b) => a.label.localeCompare(b.label))
+  }, [selectedNode, edges, nodesById])
 
   const clientOptions = useMemo(
     () =>
@@ -273,6 +298,21 @@ export function GraphExplorer() {
     }
   }
 
+  /** Springt von einer Referenz im NodePanel direkt zum verlinkten Knoten — schaltet dessen Typ
+   * bei Bedarf sichtbar (analog zu "Nachbarschaft laden") und zentriert die Simulation darauf. */
+  function selectNodeById(id: string) {
+    const match = nodesById.get(id)
+    if (!match) return
+    setSelectedNode(match)
+    setVisibleTypes((prev) => (prev.has(match.type) ? prev : new Set(prev).add(match.type)))
+    const simNodes: SimNode[] = graphRef.current?.graphData().nodes ?? []
+    const simNode = simNodes.find((n) => n.id === id)
+    if (simNode && simNode.x != null && simNode.y != null) {
+      graphRef.current?.centerAt(simNode.x, simNode.y, 800)
+      graphRef.current?.zoom(4, 800)
+    }
+  }
+
   async function handleLoadNeighborhood() {
     if (!selectedNode) return
     setLoadingNeighborhood(true)
@@ -304,9 +344,9 @@ export function GraphExplorer() {
     }
   }
 
-  // z-60 liegt bewusst über der Admin-Sidebar/-Topbar (z-40/z-50) — die Ansicht nimmt den
-  // kompletten Bildschirm ein, deshalb der eigene "Zurück"-Button weiter unten statt der Sidebar.
-  const shellClass = 'fixed inset-0 z-60 overflow-hidden bg-[#080808]'
+  // Füllt den Content-Bereich randlos, lässt die Admin-Sidebar (links, z-40) und die mobile
+  // Topbar (oben, z-50) aber sichtbar/erreichbar — kein eigener "Zurück"-Button nötig.
+  const shellClass = 'fixed inset-x-0 bottom-0 top-14 md:top-0 md:left-60 overflow-hidden bg-[#080808]'
 
   if (loading) {
     return (
@@ -369,18 +409,6 @@ export function GraphExplorer() {
         />
       </div>
 
-      <Link
-        href="/admin/dashboard"
-        aria-label="Zurück zum Dashboard"
-        className="absolute top-5 right-5 z-20 flex items-center gap-2 px-3 py-2 bg-white/7 backdrop-blur-2xl border border-white/15 rounded-xl text-white/70 hover:text-white hover:bg-white/12 transition-colors text-sm"
-        style={{ fontFamily: 'var(--font-dm-sans)' }}
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-        Verlassen
-      </Link>
-
       <div className="absolute top-5 left-5 bottom-5 z-20 pointer-events-none">
         <div className="pointer-events-auto h-full">
           <FilterPanel
@@ -403,6 +431,8 @@ export function GraphExplorer() {
         <NodePanel
           node={selectedNode}
           onClose={() => setSelectedNode(null)}
+          connections={selectedConnections}
+          onSelectConnection={selectNodeById}
           showLoadNeighborhood={truncated && !loadedNeighborhoods.has(selectedNode.id)}
           loadingNeighborhood={loadingNeighborhood}
           onLoadNeighborhood={handleLoadNeighborhood}
