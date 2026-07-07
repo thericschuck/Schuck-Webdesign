@@ -8,6 +8,7 @@ import { documentTools } from './documents'
 import { knowledgeTools } from './knowledge'
 import { integrationTools } from './integrations'
 import { subagentTools } from './subagents'
+import { todoTools } from './todos'
 
 export const toolRegistry: ToolRegistry = new Map(
   [
@@ -20,5 +21,6 @@ export const toolRegistry: ToolRegistry = new Map(
     ...knowledgeTools,
     ...integrationTools,
     ...subagentTools,
+    ...todoTools,
   ].map((tool) => [tool.name, tool])
 )

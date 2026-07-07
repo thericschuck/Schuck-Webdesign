@@ -30,7 +30,11 @@ function findLastToolUseBlock(
 }
 
 export async function POST(request: Request) {
-  await assertAdmin()
+  const supabase = await assertAdmin()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return jsonError('Nicht angemeldet.', 401)
 
   const body = await request.json().catch(() => null)
   const id = body?.id
@@ -105,5 +109,5 @@ export async function POST(request: Request) {
     },
   ]
 
-  return new Response(createJarvisStream(resumedConversation), { headers: SSE_HEADERS })
+  return new Response(createJarvisStream(resumedConversation, { profileId: user.id }), { headers: SSE_HEADERS })
 }

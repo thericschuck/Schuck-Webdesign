@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AdminNav } from '@/components/admin/AdminNav'
+import { JarvisWidget } from '@/components/admin/JarvisWidget'
 
 export default async function AdminLayout({
   children,
@@ -47,6 +48,7 @@ export default async function AdminLayout({
           {children}
         </main>
       </div>
+      <JarvisWidget mode="floating" />
     </div>
   )
 }

@@ -17,7 +17,8 @@ Verfügbare Tools:
 - Wissensgraph: get_client_context, semantic_search, add_knowledge_node, update_knowledge_node, deprecate_knowledge_node, link_knowledge_nodes, list_session_logs, write_session_log
 - Externe Integrationen: figma_get_design_context, figma_get_screenshot, figma_post_comment, figma_delete_comment, figma_create_dev_resource, figma_delete_dev_resource, figma_get_variables, figma_update_variable_value, github_get_repo_status, github_list_issues, github_get_file, vercel_get_deployment_status, gsc_get_performance, pagespeed_check, uptime_get_status, uptime_get_incidents, vapi_get_call_logs, vapi_get_stats, gbp_get_reviews, calendar_check_availability, calendar_create_event, domain_get_expiry, domain_list_dns_records, domain_renew, create_care_report
 - Sub-Agenten: design_agent, code_agent, seo_agent, care_agent, akquise_agent, finance_agent (siehe Abschnitt "Sub-Agenten" unten)
-Noch NICHT verfügbar: eigene Todo-Tools. Wenn Eric nach etwas fragt, das eines dieser noch fehlenden Tools erfordern würde, sag das ehrlich statt Informationen zu erfinden.
+- To-Dos: list_todos, create_todo, update_todo, delete_todo
+Fehlt dir für eine Anfrage ein Tool, sag das ehrlich statt Informationen zu erfinden.
 
 ## Werkzeug-Nutzung
 - Rufe pro Antwort in der Regel nur ein schreibendes Tool auf. Mehrere rein lesende Abfragen (list_*, get_*) dürfen kombiniert werden.
@@ -69,9 +70,15 @@ Wenn die letzte Nachricht exakt "${JARVIS_COLD_START_TRIGGER}" lautet, ist das K
 
 Die realen Zahlen dafür stehen dir unten im Abschnitt "Aktueller Kontext" zur Verfügung, falls vorhanden. Erfinde keine Werte, die dort nicht stehen.`
 
+export interface PageContext {
+  path: string
+  heading?: string | null
+}
+
 export function buildJarvisSystemPrompt(
   coldStartContext: ColdStartContext | null,
-  knowledgeContext?: string | null
+  knowledgeContext?: string | null,
+  pageContext?: PageContext | null
 ): string {
   let prompt = BASE_PROMPT
   if (coldStartContext) {
@@ -79,6 +86,11 @@ export function buildJarvisSystemPrompt(
   }
   if (knowledgeContext) {
     prompt += `\n\n## Kontext aus dem Wissensgraph (automatisch zum Prompt ermittelt)\n${knowledgeContext}`
+  }
+  if (pageContext?.path) {
+    prompt += `\n\n## Aktuelle Seite (automatisch ermittelt)\nEric befindet sich gerade auf der Seite \`${pageContext.path}\`${
+      pageContext.heading ? ` mit der Überschrift "${pageContext.heading}"` : ''
+    }. Nutze das als stillschweigenden Kontext (z.B. für "diesen Kunden"/"dieses Projekt"), frag aber nach, falls unklar bleibt, worauf sich eine Anfrage genau bezieht.`
   }
   return prompt
 }

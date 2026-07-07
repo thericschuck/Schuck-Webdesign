@@ -1,6 +1,8 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { runJarvisAgent } from './agent'
+import { appendMessage } from './persistence'
+import type { PageContext } from './system-prompt'
 import type { Json } from '@/types/database'
 
 export const SSE_HEADERS = {
@@ -9,12 +11,25 @@ export const SSE_HEADERS = {
   Connection: 'keep-alive',
 } as const
 
+export interface JarvisStreamOptions {
+  profileId: string
+  /** Nur bei einer echten neuen Nutzer-Nachricht gesetzt (nicht beim Cold-Start-
+   * Trigger und nicht beim Fortsetzen nach einer Bestätigung — die Nutzer-Nachricht
+   * wurde dort bereits beim ursprünglichen /chat-Call persistiert). */
+  userMessage?: string
+  pageContext?: PageContext | null
+}
+
 /**
  * Führt den Agent-Loop aus und streamt das Ergebnis per SSE. Wird von
  * /api/jarvis/chat (neue Nachricht) und /api/jarvis/confirm (Fortsetzung nach
- * Bestätigung) gleichermaßen genutzt.
+ * Bestätigung) gleichermaßen genutzt. Persistiert nebenbei die sichtbaren
+ * Text-Turns (lib/jarvis/persistence.ts), damit die Konversation Reloads übersteht.
  */
-export function createJarvisStream(conversation: Anthropic.MessageParam[]): ReadableStream<Uint8Array> {
+export function createJarvisStream(
+  conversation: Anthropic.MessageParam[],
+  { profileId, userMessage, pageContext }: JarvisStreamOptions
+): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
 
   return new ReadableStream<Uint8Array>({
@@ -24,8 +39,13 @@ export function createJarvisStream(conversation: Anthropic.MessageParam[]): Read
       }
 
       try {
+        if (userMessage) {
+          await appendMessage(profileId, 'user', userMessage)
+        }
+
         const result = await runJarvisAgent({
           messages: conversation,
+          pageContext,
           onTextDelta: (text) => send('delta', { text }),
         })
 
@@ -51,6 +71,9 @@ export function createJarvisStream(conversation: Anthropic.MessageParam[]): Read
             })
           }
         } else {
+          if (result.text) {
+            await appendMessage(profileId, 'assistant', result.text)
+          }
           send('done', {})
         }
       } catch (error) {

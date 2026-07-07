@@ -427,6 +427,38 @@ export type Database = {
           }
         ]
       }
+      jarvis_messages: {
+        Row: {
+          id: string
+          profile_id: string
+          role: 'user' | 'assistant'
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          role: 'user' | 'assistant'
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          role?: 'user' | 'assistant'
+          content?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'jarvis_messages_profile_id_fkey'
+            columns: ['profile_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       contact_submissions: {
         Row: {
           id: string

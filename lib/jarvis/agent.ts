@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { buildJarvisSystemPrompt } from './system-prompt'
+import { buildJarvisSystemPrompt, type PageContext } from './system-prompt'
 import { getColdStartContext, getPromptContext } from './context'
 import { JARVIS_COLD_START_TRIGGER } from './constants'
 import { toolRegistry as defaultToolRegistry } from './tools'
@@ -43,6 +43,9 @@ export interface RunJarvisAgentOptions {
    * Traversal, deren Ergebnis sonst ungenutzt verworfen würde).
    */
   systemPrompt?: string
+  /** Automatisch ermittelter Kontext zur gerade geöffneten Admin-Seite (Widget) — fließt nur
+   * in den selbst gebauten System-Prompt ein, nicht in einen `systemPrompt`-Override. */
+  pageContext?: PageContext | null
   onTextDelta?: (text: string) => void
 }
 
@@ -60,6 +63,7 @@ export async function runJarvisAgent({
   messages,
   tools = defaultToolRegistry,
   systemPrompt: systemPromptOverride,
+  pageContext,
   onTextDelta,
 }: RunJarvisAgentOptions): Promise<JarvisAgentResult> {
   const client = getClient()
@@ -75,7 +79,7 @@ export async function runJarvisAgent({
     const lastUserText = !isColdStart ? getLastUserText(lastMessage) : null
     const knowledgeContext = lastUserText ? await getPromptContext(lastUserText) : null
 
-    systemPrompt = buildJarvisSystemPrompt(coldStartContext, knowledgeContext)
+    systemPrompt = buildJarvisSystemPrompt(coldStartContext, knowledgeContext, pageContext)
   }
 
   let finalText = ''
