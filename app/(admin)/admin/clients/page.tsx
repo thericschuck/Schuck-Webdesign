@@ -39,7 +39,7 @@ export default async function ClientsPage() {
       profile:profiles(full_name, email),
       projects(id)
     `)
-    .order('created_at', { ascending: false })
+    .order('client_number', { ascending: false, nullsFirst: false })
 
   return (
     <div className="flex flex-col gap-6">
