@@ -1311,6 +1311,27 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_settings: {
+        Row: {
+          service: string
+          key: string
+          value: string | null
+          updated_at: string
+        }
+        Insert: {
+          service: string
+          key: string
+          value?: string | null
+          updated_at?: string
+        }
+        Update: {
+          service?: string
+          key?: string
+          value?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {

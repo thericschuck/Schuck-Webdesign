@@ -1,5 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { INTEGRATIONS, getExpiryStatus } from '@/lib/integrations/registry'
+import { getIntegrationSettings } from '@/lib/integrations/settings'
+import { setTokenIssuedAt } from './actions'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -11,11 +13,10 @@ function fmtDay(date: Date) {
 
 export default async function IntegrationenPage() {
   const adminClient = createAdminClient()
-  const { data: calls } = await adminClient
-    .from('integration_calls')
-    .select('service, success, error_message, called_at')
-    .order('called_at', { ascending: false })
-    .limit(500)
+  const [{ data: calls }, settings] = await Promise.all([
+    adminClient.from('integration_calls').select('service, success, error_message, called_at').order('called_at', { ascending: false }).limit(500),
+    getIntegrationSettings(),
+  ])
 
   const latestByService = new Map<string, { success: boolean; error_message: string | null; called_at: string }>()
   for (const call of calls ?? []) {
@@ -48,7 +49,7 @@ export default async function IntegrationenPage() {
             {INTEGRATIONS.map((integration) => {
               const configured = integration.isConfigured()
               const lastCall = latestByService.get(integration.service)
-              const expiry = getExpiryStatus(integration)
+              const expiry = getExpiryStatus(integration, settings)
 
               return (
                 <tr key={integration.service}>
@@ -66,26 +67,45 @@ export default async function IntegrationenPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
-                    {!expiry ? (
+                    {!integration.expiry ? (
                       <span className="text-xs text-gray-300">—</span>
-                    ) : expiry.status === 'unknown' ? (
-                      <span className="text-xs text-gray-400">Ausstellungsdatum fehlt</span>
                     ) : (
-                      <div>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            expiry.status === 'expired'
-                              ? 'bg-red-50 text-red-700'
-                              : expiry.status === 'warning'
-                                ? 'bg-amber-50 text-amber-700'
-                                : 'bg-green-50 text-green-700'
-                          }`}
-                        >
-                          {expiry.status === 'expired'
-                            ? `Abgelaufen (${fmtDay(expiry.expiresAt)})`
-                            : `${expiry.daysRemaining} Tage`}
-                        </span>
-                        {expiry.status !== 'expired' && <p className="text-xs text-gray-400 mt-1">bis {fmtDay(expiry.expiresAt)}</p>}
+                      <div className="flex flex-col gap-1.5">
+                        {expiry?.status === 'unknown' ? (
+                          <span className="text-xs text-gray-400">Ausstellungsdatum fehlt</span>
+                        ) : (
+                          expiry && (
+                            <div>
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                  expiry.status === 'expired'
+                                    ? 'bg-red-50 text-red-700'
+                                    : expiry.status === 'warning'
+                                      ? 'bg-amber-50 text-amber-700'
+                                      : 'bg-green-50 text-green-700'
+                                }`}
+                              >
+                                {expiry.status === 'expired' ? `Abgelaufen (${fmtDay(expiry.expiresAt)})` : `${expiry.daysRemaining} Tage`}
+                              </span>
+                              {expiry.status !== 'expired' && <p className="text-xs text-gray-400 mt-1">bis {fmtDay(expiry.expiresAt)}</p>}
+                            </div>
+                          )
+                        )}
+                        <form action={setTokenIssuedAt.bind(null, integration.service, integration.expiry.settingKey)} className="flex items-center gap-1.5">
+                          <input
+                            type="date"
+                            name="issued_at"
+                            required
+                            title="Datum, an dem der Token erzeugt wurde"
+                            className="text-xs rounded-lg border border-gray-200 px-2 py-1 text-gray-700"
+                          />
+                          <button
+                            type="submit"
+                            className="text-xs px-2 py-1 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors shrink-0"
+                          >
+                            {expiry?.status === 'unknown' ? 'Setzen' : 'Aktualisieren'}
+                          </button>
+                        </form>
                       </div>
                     )}
                   </td>

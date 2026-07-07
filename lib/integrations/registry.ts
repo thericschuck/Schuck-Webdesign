@@ -1,6 +1,10 @@
 export interface TokenExpiry {
-  /** Env-Var mit dem Ausstellungsdatum des Tokens, Format YYYY-MM-DD (vom Nutzer manuell eingetragen). */
-  issuedAtEnvVar: string
+  /**
+   * Key in integration_settings (service = descriptor.service, key = dieser Wert) mit dem
+   * Ausstellungsdatum des Tokens, Format YYYY-MM-DD — editierbar über /admin/integrationen,
+   * bewusst NICHT in .env.local (kein Secret, soll ohne Server-Neustart setzbar sein).
+   */
+  settingKey: string
   /** Feste Gültigkeitsdauer des Tokens in Tagen ab Ausstellung (z.B. Figma: 90). */
   validDays: number
 }
@@ -28,15 +32,16 @@ export interface ExpiryStatus {
 const EXPIRY_WARNING_THRESHOLD_DAYS = 14
 
 /**
- * Berechnet Ablaufdatum + verbleibende Tage für Dienste mit `expiry`-Angabe.
- * "unknown" heißt: Laufzeit ist bekannt, aber das Ausstellungsdatum wurde nicht eingetragen —
- * kein Alarm, nur "kann nicht berechnet werden". Gibt null zurück, wenn der Dienst gar keine
- * feste Token-Laufzeit hat (Feld `expiry` nicht gesetzt).
+ * Berechnet Ablaufdatum + verbleibende Tage für Dienste mit `expiry`-Angabe, anhand vorher via
+ * getIntegrationSettings() geladener Werte (Key-Format "service:settingKey"). "unknown" heißt:
+ * Laufzeit ist bekannt, aber das Ausstellungsdatum wurde noch nicht eingetragen — kein Alarm,
+ * nur "kann nicht berechnet werden". Gibt null zurück, wenn der Dienst gar keine feste
+ * Token-Laufzeit hat (Feld `expiry` nicht gesetzt).
  */
-export function getExpiryStatus(descriptor: IntegrationDescriptor): ExpiryStatus | null {
+export function getExpiryStatus(descriptor: IntegrationDescriptor, settings: Map<string, string>): ExpiryStatus | null {
   if (!descriptor.expiry) return null
 
-  const issuedAtRaw = process.env[descriptor.expiry.issuedAtEnvVar]?.trim()
+  const issuedAtRaw = settings.get(`${descriptor.service}:${descriptor.expiry.settingKey}`)?.trim()
   const issuedAt = issuedAtRaw ? new Date(issuedAtRaw) : null
   if (!issuedAt || Number.isNaN(issuedAt.getTime())) {
     return { expiresAt: new Date(NaN), daysRemaining: NaN, status: 'unknown' }
@@ -60,7 +65,7 @@ export const INTEGRATIONS: IntegrationDescriptor[] = [
     label: 'Figma',
     envVars: ['FIGMA_ACCESS_TOKEN'],
     isConfigured: () => hasEnv('FIGMA_ACCESS_TOKEN'),
-    expiry: { issuedAtEnvVar: 'FIGMA_TOKEN_ISSUED_AT', validDays: 90 },
+    expiry: { settingKey: 'token_issued_at', validDays: 90 },
   },
   {
     service: 'github',
