@@ -3,7 +3,9 @@ import * as productsDomain from '@/lib/domain/products'
 import * as countersDomain from '@/lib/domain/counters'
 import { PriceInlineEdit } from './PriceInlineEdit'
 import { ActiveToggle } from './ActiveToggle'
+import { ProductsViewToggle } from './ProductsViewToggle'
 import { KATEGORIE_ORDER, kategorieChip } from './category-constants'
+import { InfoTooltip } from '@/components/admin/InfoTooltip'
 import type { Article } from '@/types/database'
 
 type ArticleRow = Pick<
@@ -70,13 +72,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
             {hasFilters ? ' (gefiltert)' : ' insgesamt'}
           </p>
         </div>
-        <Link
-          href="/admin/products/packages"
-          className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        >
-          Pakete →
-        </Link>
+        <ProductsViewToggle active="products" />
       </div>
 
       {/* Stats */}
@@ -276,12 +272,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {counters.map((counter) => (
               <div key={counter.key} className="relative rounded-xl border border-gray-100 p-3">
-                <span
-                  className="absolute top-2 right-2 w-4 h-4 rounded-full bg-gray-100 text-gray-400 text-[10px] font-semibold flex items-center justify-center cursor-help"
-                  style={{ fontFamily: 'var(--font-dm-sans)' }}
-                  title={counter.info}
-                >
-                  i
+                <span className="absolute top-2 right-2">
+                  <InfoTooltip text={counter.info} />
                 </span>
                 <p className="text-xs text-gray-400 truncate pr-5" style={{ fontFamily: 'var(--font-dm-sans)' }} title={counter.label}>
                   {counter.label}

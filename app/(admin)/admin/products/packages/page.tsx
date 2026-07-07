@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import * as productsDomain from '@/lib/domain/products'
+import { ProductsViewToggle } from '../ProductsViewToggle'
 
 function fmtEuro(value: number | null) {
   return value == null ? '—' : `${value.toLocaleString('de-DE')} €`
@@ -10,21 +11,17 @@ export default async function PackagesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <nav className="flex items-center gap-2 text-sm text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-        <Link href="/admin/products" className="hover:text-gray-600 transition-colors">
-          Produkte
-        </Link>
-        <span>/</span>
-        <span className="text-gray-700">Pakete</span>
-      </nav>
-
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
-          Pakete
-        </h1>
-        <p className="text-gray-500 text-sm mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          {packages.length} {packages.length === 1 ? 'Paket' : 'Pakete'}
-        </p>
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
+            Pakete
+          </h1>
+          <p className="text-gray-500 text-sm mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            {packages.length} {packages.length === 1 ? 'Paket' : 'Pakete'}
+          </p>
+        </div>
+        <ProductsViewToggle active="packages" />
       </div>
 
       {packages.length === 0 ? (
