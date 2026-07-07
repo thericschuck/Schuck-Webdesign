@@ -3,6 +3,7 @@
 import { useActionState, useState, useRef, useEffect } from 'react'
 import { adminUploadFile, adminDeleteFile, getAdminDownloadUrl, moveDocument } from './actions'
 import { resizeIfNeeded } from '@/lib/resizeImage'
+import { DocumentPreviewPanel } from '@/components/admin/DocumentPreviewPanel'
 
 type DocRow = {
   id: string
@@ -364,7 +365,7 @@ function UploadForm({
             </svg>
             <div className="flex-1">
               <p className="text-sm text-gray-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>Datei wählen oder hierher ziehen</p>
-              <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>PDF, Bilder, ZIP, Word · max. 10 MB</p>
+              <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>Alle gängigen Dateitypen · max. 50 MB — größere Bilder/PDFs werden automatisch komprimiert</p>
             </div>
           </>
         )}
@@ -373,7 +374,6 @@ function UploadForm({
           name="file"
           type="file"
           className="hidden"
-          accept=".pdf,.jpg,.jpeg,.png,.webp,.svg,.zip,.txt,.doc,.docx"
           disabled={resizing}
           onChange={handleFileChange}
         />
@@ -426,10 +426,12 @@ function FileList({
   files,
   projectId,
   allFolderPaths,
+  onPreview,
 }: {
   files: DocRow[]
   projectId: string
   allFolderPaths: string[]
+  onPreview: (doc: DocRow) => void
 }) {
   const [movingId, setMovingId] = useState<string | null>(null)
 
@@ -437,16 +439,21 @@ function FileList({
     <div className="divide-y divide-gray-50 pb-2">
       {files.map((doc) => (
         <div key={doc.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors group">
-          <FileTypeIcon name={doc.name} />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              {doc.name}
-            </p>
-            <p className="text-xs text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              {formatDate(doc.created_at)}
-              {doc.folder && <span className="ml-1 text-gray-300">· {doc.folder}</span>}
-            </p>
-          </div>
+          <button
+            onClick={() => onPreview(doc)}
+            className="flex-1 min-w-0 flex items-center gap-3 text-left"
+          >
+            <FileTypeIcon name={doc.name} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                {doc.name}
+              </p>
+              <p className="text-xs text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                {formatDate(doc.created_at)}
+                {doc.folder && <span className="ml-1 text-gray-300">· {doc.folder}</span>}
+              </p>
+            </div>
+          </button>
           <div className="flex items-center gap-1.5 shrink-0">
             {movingId === doc.id ? (
               <form
@@ -542,6 +549,7 @@ export function AdminFileExplorer({
   const [droppedFile, setDroppedFile] = useState<File | null>(null)
   const [pendingNewFolderPath, setPendingNewFolderPath] = useState<string | null>(null)
   const [globalDragOver, setGlobalDragOver] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<DocRow | null>(null)
   const dragCounter = useRef(0)
 
   const isRoot = view.type === 'root'
@@ -859,7 +867,7 @@ export function AdminFileExplorer({
                     </p>
                   </div>
                 )}
-                <FileList files={viewFiles} projectId={activeProjectId} allFolderPaths={allFolderPaths} />
+                <FileList files={viewFiles} projectId={activeProjectId} allFolderPaths={allFolderPaths} onPreview={setPreviewDoc} />
               </>
             )}
 
@@ -875,6 +883,15 @@ export function AdminFileExplorer({
           </div>
         )}
       </div>
+
+      {previewDoc && (
+        <DocumentPreviewPanel
+          fileName={previewDoc.name}
+          fileUrl={previewDoc.file_url}
+          getSignedUrl={getAdminDownloadUrl}
+          onClose={() => setPreviewDoc(null)}
+        />
+      )}
     </>
   )
 }

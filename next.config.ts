@@ -12,6 +12,15 @@ const nextConfig: NextConfig = {
     // Startseite explizit angefordert (app/(public)/page.tsx) und muss deshalb hier freigegeben sein.
     qualities: [75, 95],
   },
+  experimental: {
+    serverActions: {
+      // Next.js' Default (1 MB) wäre für Datei-Uploads (Server Actions in
+      // app/(portal)/portal/upload/actions.ts und app/(admin)/admin/projects/[id]/actions.ts)
+      // längst vor dem eigenen 50-MB-App-Limit dichtgemacht — etwas Puffer über dem
+      // App-Limit für Multipart-Overhead.
+      bodySizeLimit: '60mb',
+    },
+  },
   async redirects() {
     return [
       {

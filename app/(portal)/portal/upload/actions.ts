@@ -2,22 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-
-const MAX_SIZE_MB    = 10
-const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
-
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/svg+xml',
-  'application/zip',
-  'application/x-zip-compressed',
-  'text/plain',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-]
+import * as documentsDomain from '@/lib/domain/documents'
 
 type UploadResult =
   | { status: 'success'; fileName: string }
@@ -49,12 +34,6 @@ export async function uploadFile(
   if (!file || file.size === 0) {
     return { status: 'error', message: 'Bitte eine Datei auswählen.' }
   }
-  if (file.size > MAX_SIZE_BYTES) {
-    return { status: 'error', message: `Datei zu groß. Maximal ${MAX_SIZE_MB} MB erlaubt.` }
-  }
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return { status: 'error', message: 'Dateityp nicht erlaubt. Erlaubt: PDF, Bilder, ZIP, Word.' }
-  }
 
   // Wenn project_id angegeben, prüfen ob das Projekt dem Client gehört
   if (projectId) {
@@ -70,39 +49,21 @@ export async function uploadFile(
     }
   }
 
-  // Pfad: <client_id>/<timestamp>_<filename>
-  const safeName    = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const storagePath = `${client.id}/${Date.now()}_${safeName}`
+  try {
+    const doc = await documentsDomain.uploadDocumentFile({
+      file,
+      clientId: client.id,
+      projectId,
+      folder,
+      uploadedBy: user.id,
+    })
 
-  const bytes = await file.arrayBuffer()
-  const { error: uploadError } = await supabase.storage
-    .from('documents')
-    .upload(storagePath, bytes, { contentType: file.type, upsert: false })
+    revalidatePath('/portal/documents')
+    revalidatePath('/portal/upload')
+    revalidatePath('/portal')
 
-  if (uploadError) {
-    console.error('[upload] storage error:', uploadError.message)
-    return { status: 'error', message: 'Upload fehlgeschlagen. Bitte erneut versuchen.' }
+    return { status: 'success', fileName: doc.name }
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Upload fehlgeschlagen.' }
   }
-
-  const { error: dbError } = await supabase.from('documents').insert({
-    client_id:   client.id,
-    project_id:  projectId || null,
-    folder:      folder,
-    name:        file.name,
-    file_url:    storagePath,
-    category:    'other',
-    uploaded_by: user.id,
-  })
-
-  if (dbError) {
-    console.error('[upload] db error:', dbError.message)
-    await supabase.storage.from('documents').remove([storagePath])
-    return { status: 'error', message: 'Datenbankfehler. Bitte erneut versuchen.' }
-  }
-
-  revalidatePath('/portal/documents')
-  revalidatePath('/portal/upload')
-  revalidatePath('/portal')
-
-  return { status: 'success', fileName: file.name }
 }

@@ -10,6 +10,7 @@ import { generateUebergabePdf } from '@/lib/pdf/templates/uebergabe'
 import { generateCareReportPdf } from '@/lib/pdf/templates/care-report'
 import { clientDisplayName } from '@/lib/client-name'
 import { gatherCareReportData } from './care'
+import { compressImageIfPossible, compressPdfIfPossible } from '@/lib/uploadCompression'
 import type { Document, DocumentCategory } from '@/types/database'
 
 export const DOCUMENT_TEMPLATES = ['angebot', 'vertrag', 'briefing', 'uebergabe', 'care_report'] as const
@@ -303,4 +304,99 @@ export async function deleteDocument(documentId: string): Promise<void> {
 
   const { error: deleteError } = await adminClient.from('documents').delete().eq('id', documentId)
   if (deleteError) throw new DomainError(deleteError.message)
+}
+
+// ── upload ────────────────────────────────────────────────────────────────
+// Gemeinsame Logik für Portal- (app/(portal)/portal/upload/actions.ts) und
+// Admin-Upload (app/(admin)/admin/projects/[id]/actions.ts) — beide Server Actions
+// übernehmen nur noch Auth/Ownership-Check und rufen diese Funktion auf.
+
+export const MAX_UPLOAD_SIZE_MB = 50
+export const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
+/** Eindeutig gefährliche ausführbare Formate — alles andere ist erlaubt (Schriftarten,
+ * Design-Dateien, Archive, Office, Audio/Video, …). Endung statt MIME-Type, weil Browser
+ * für exotischere Typen oft nur "application/octet-stream" oder gar nichts liefern. */
+const DANGEROUS_EXTENSIONS = new Set([
+  'exe', 'bat', 'cmd', 'com', 'msi', 'scr', 'ps1', 'vbs', 'vbe',
+  'jar', 'app', 'dmg', 'sh', 'apk', 'dll', 'pif', 'jse', 'wsf', 'wsh', 'msc', 'cpl',
+])
+
+function getExtension(filename: string): string {
+  return filename.split('.').pop()?.toLowerCase() ?? ''
+}
+
+function formatMb(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(1)
+}
+
+export interface UploadDocumentFileInput {
+  file: File
+  clientId: string
+  projectId?: string | null
+  folder?: string | null
+  uploadedBy: string
+}
+
+export async function uploadDocumentFile(input: UploadDocumentFileInput): Promise<Document> {
+  const { file } = input
+
+  if (!file || file.size === 0) throw new DomainError('Bitte eine Datei auswählen.')
+
+  const originalExtension = getExtension(file.name)
+  if (DANGEROUS_EXTENSIONS.has(originalExtension)) {
+    throw new DomainError('Dieser Dateityp ist aus Sicherheitsgründen nicht erlaubt.')
+  }
+
+  let bytes: Buffer = Buffer.from(await file.arrayBuffer())
+  let contentType = file.type || 'application/octet-stream'
+  let finalName = file.name
+
+  if (bytes.length > MAX_UPLOAD_SIZE_BYTES) {
+    const imageResult = await compressImageIfPossible(bytes, contentType)
+    if (imageResult) {
+      bytes = imageResult.buffer
+      contentType = imageResult.mimeType
+      finalName = file.name.replace(/\.[^./]+$/, `.${imageResult.extension}`)
+    } else if (contentType === 'application/pdf') {
+      const pdfResult = await compressPdfIfPossible(bytes)
+      if (pdfResult) bytes = pdfResult
+    }
+  }
+
+  if (bytes.length > MAX_UPLOAD_SIZE_BYTES) {
+    throw new DomainError(
+      `Datei zu groß (${formatMb(bytes.length)} MB) — auch nach Komprimierung über dem Limit von ${MAX_UPLOAD_SIZE_MB} MB.`
+    )
+  }
+
+  const adminClient = createAdminClient()
+  const safeName = finalName.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const storagePath = `${input.clientId}/${Date.now()}_${safeName}`
+
+  const { error: uploadError } = await adminClient.storage
+    .from('documents')
+    .upload(storagePath, bytes, { contentType, upsert: false })
+  if (uploadError) throw new DomainError(`Upload fehlgeschlagen: ${uploadError.message}`)
+
+  const { data: doc, error: dbError } = await adminClient
+    .from('documents')
+    .insert({
+      client_id: input.clientId,
+      project_id: input.projectId ?? null,
+      folder: input.folder ?? null,
+      name: finalName,
+      file_url: storagePath,
+      category: 'other',
+      uploaded_by: input.uploadedBy,
+    })
+    .select('*')
+    .single()
+
+  if (dbError) {
+    await adminClient.storage.from('documents').remove([storagePath])
+    throw new DomainError(`Datenbankfehler: ${dbError.message}`)
+  }
+
+  return doc
 }

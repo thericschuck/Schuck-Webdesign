@@ -3,6 +3,7 @@
 import { useActionState, useState, useRef, useEffect } from 'react'
 import { uploadFile } from '../upload/actions'
 import { getDownloadUrl } from './actions'
+import { DocumentPreviewPanel } from '@/components/admin/DocumentPreviewPanel'
 
 const STATUS_LABEL: Record<string, string> = {
   briefing: 'Briefing',
@@ -333,7 +334,7 @@ function UploadForm({
             </svg>
             <div className="flex-1">
               <p className="text-sm text-gray-600">Datei wählen oder hierher ziehen</p>
-              <p className="text-xs text-gray-400 mt-0.5">PDF, Bilder, ZIP, Word · max. 10 MB</p>
+              <p className="text-xs text-gray-400 mt-0.5">Alle gängigen Dateitypen · max. 50 MB — größere Bilder/PDFs werden automatisch komprimiert</p>
             </div>
           </>
         )}
@@ -342,7 +343,6 @@ function UploadForm({
           name="file"
           type="file"
           className="hidden"
-          accept=".pdf,.jpg,.jpeg,.png,.webp,.svg,.zip,.txt,.doc,.docx"
           onChange={(e) => setSelectedFile(e.target.files?.[0]?.name ?? null)}
         />
       </label>
@@ -389,16 +389,21 @@ function UploadForm({
 
 // ── File List ─────────────────────────────────────────────────────────────────
 
-function FileList({ files }: { files: DocRow[] }) {
+function FileList({ files, onPreview }: { files: DocRow[]; onPreview: (doc: DocRow) => void }) {
   return (
     <div className="divide-y divide-gray-50 pb-2">
       {files.map((doc) => (
         <div key={doc.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors">
-          <FileTypeIcon name={doc.name} />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{doc.name}</p>
-            <p className="text-xs text-gray-400">{formatDate(doc.created_at)}</p>
-          </div>
+          <button
+            onClick={() => onPreview(doc)}
+            className="flex-1 min-w-0 flex items-center gap-3 text-left"
+          >
+            <FileTypeIcon name={doc.name} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{doc.name}</p>
+              <p className="text-xs text-gray-400">{formatDate(doc.created_at)}</p>
+            </div>
+          </button>
           <DownloadButton fileUrl={doc.file_url} fileName={doc.name} />
         </div>
       ))}
@@ -414,6 +419,7 @@ export function FileExplorer({ projects }: { projects: ProjectData[] }) {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [droppedFile, setDroppedFile] = useState<File | null>(null)
   const [globalDragOver, setGlobalDragOver] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<DocRow | null>(null)
   const dragCounter = useRef(0)
 
   const currentProject =
@@ -719,7 +725,7 @@ export function FileExplorer({ projects }: { projects: ProjectData[] }) {
                     </p>
                   </div>
                 )}
-                <FileList files={viewFiles} />
+                <FileList files={viewFiles} onPreview={setPreviewDoc} />
               </>
             )}
 
@@ -735,6 +741,15 @@ export function FileExplorer({ projects }: { projects: ProjectData[] }) {
           </div>
         )}
       </div>
+
+      {previewDoc && (
+        <DocumentPreviewPanel
+          fileName={previewDoc.name}
+          fileUrl={previewDoc.file_url}
+          getSignedUrl={getDownloadUrl}
+          onClose={() => setPreviewDoc(null)}
+        />
+      )}
     </>
   )
 }
