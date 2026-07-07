@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { FilterPanel, type TypeCount } from './FilterPanel'
 import { NodePanel } from './NodePanel'
-import { colorForType, type GraphEdge, type GraphNode, type GraphPayload } from './types'
+import { colorForType, hexToRgba, type GraphEdge, type GraphNode, type GraphPayload } from './types'
 
 // react-force-graph-2d greift auf window/canvas zu — muss client-only geladen werden.
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false })
@@ -17,6 +17,8 @@ interface SimEdge {
   type: string
   weight?: number
 }
+
+type SimNode = GraphNode & { x?: number; y?: number }
 
 function useElementSize<T extends HTMLElement>() {
   const ref = useRef<T | null>(null)
@@ -62,6 +64,13 @@ function neighborhoodIds(startId: string, edges: GraphEdge[], depth: number): Se
     if (frontier.length === 0) break
   }
   return visited
+}
+
+/** Stabiler Zahlen-Hash aus der Node-ID — gibt jedem Knoten eine eigene, aber deterministische Puls-Phase. */
+function phaseFromId(id: string): number {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) % 1000
+  return hash
 }
 
 export function GraphExplorer() {
@@ -149,21 +158,22 @@ export function GraphExplorer() {
     return ids
   }, [hoveredId, filteredEdges])
 
+  /** Grad (Anzahl Kanten) je Knoten — größere/wichtigere Knoten (Hubs) wirken dadurch "näher". */
+  const degreeById = useMemo(() => {
+    const degrees = new Map<string, number>()
+    for (const e of filteredEdges) {
+      degrees.set(e.source, (degrees.get(e.source) ?? 0) + 1)
+      degrees.set(e.target, (degrees.get(e.target) ?? 0) + 1)
+    }
+    return degrees
+  }, [filteredEdges])
+
   const graphData = useMemo(
     () => ({
       nodes: filteredNodes.map((n) => ({ ...n })),
-      links: filteredEdges.map((e) => ({ ...e } as SimEdge)),
+      links: filteredEdges.map((e) => ({ ...e }) as SimEdge),
     }),
     [filteredNodes, filteredEdges]
-  )
-
-  const nodeColor = useCallback(
-    (node: unknown) => {
-      const n = node as GraphNode
-      if (connectedToHover && !connectedToHover.has(n.id)) return '#e5e7eb'
-      return colorForType(n.type)
-    },
-    [connectedToHover]
   )
 
   const linkColor = useCallback(
@@ -172,12 +182,72 @@ export function GraphExplorer() {
       const sourceId = typeof l.source === 'string' ? l.source : (l.source as GraphNode).id
       const targetId = typeof l.target === 'string' ? l.target : (l.target as GraphNode).id
       if (connectedToHover && !(connectedToHover.has(sourceId) && connectedToHover.has(targetId))) {
-        return 'rgba(203,213,225,0.4)'
+        return 'rgba(255,255,255,0.04)'
       }
-      return 'rgba(148,163,184,0.6)'
+      return 'rgba(127,119,221,0.35)'
     },
     [connectedToHover]
   )
+
+  const particleColor = useCallback(
+    (link: unknown) => {
+      const l = link as SimEdge
+      const sourceId = typeof l.source === 'string' ? l.source : (l.source as GraphNode).id
+      const targetId = typeof l.target === 'string' ? l.target : (l.target as GraphNode).id
+      if (connectedToHover && !(connectedToHover.has(sourceId) && connectedToHover.has(targetId))) return 'rgba(0,0,0,0)'
+      return '#b0a8f0'
+    },
+    [connectedToHover]
+  )
+
+  /** Eigenes Rendering statt nodeColor/nodeCanvasObject-Default: pulsierender Glow + heller Kern,
+   * damit die Knoten wirken, als würden sie leuchten/kommunizieren — nicht nur als statische Punkte. */
+  const nodeCanvasObject = useCallback(
+    (node: unknown, ctx: CanvasRenderingContext2D) => {
+      const n = node as SimNode
+      if (n.x == null || n.y == null) return
+
+      const isDimmed = connectedToHover != null && !connectedToHover.has(n.id)
+      const color = colorForType(n.type)
+      const degree = degreeById.get(n.id) ?? 0
+      const baseR = Math.min(4 + degree * 0.6, 11)
+
+      if (!isDimmed) {
+        const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 850 + phaseFromId(n.id))
+        const glowR = baseR * 3.2 * pulse
+        const grd = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glowR)
+        grd.addColorStop(0, hexToRgba(color, 0.45 * pulse))
+        grd.addColorStop(0.5, hexToRgba(color, 0.12 * pulse))
+        grd.addColorStop(1, hexToRgba(color, 0))
+        ctx.fillStyle = grd
+        ctx.beginPath()
+        ctx.arc(n.x, n.y, glowR, 0, 2 * Math.PI)
+        ctx.fill()
+      }
+
+      ctx.beginPath()
+      ctx.arc(n.x, n.y, baseR, 0, 2 * Math.PI)
+      ctx.fillStyle = isDimmed ? 'rgba(255,255,255,0.12)' : color
+      ctx.fill()
+
+      if (!isDimmed) {
+        ctx.beginPath()
+        ctx.arc(n.x - baseR * 0.28, n.y - baseR * 0.28, baseR * 0.35, 0, 2 * Math.PI)
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'
+        ctx.fill()
+      }
+    },
+    [connectedToHover, degreeById]
+  )
+
+  const nodePointerAreaPaint = useCallback((node: unknown, color: string, ctx: CanvasRenderingContext2D) => {
+    const n = node as SimNode
+    if (n.x == null || n.y == null) return
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.arc(n.x, n.y, 8, 0, 2 * Math.PI)
+    ctx.fill()
+  }, [])
 
   function toggleType(type: string) {
     setVisibleTypes((prev) => {
@@ -194,7 +264,7 @@ export function GraphExplorer() {
     const match = filteredNodes.find((n) => n.label.toLowerCase().includes(query))
     if (!match) return
     setSelectedNode(match)
-    const simNodes: (GraphNode & { x?: number; y?: number })[] = graphRef.current?.graphData().nodes ?? []
+    const simNodes: SimNode[] = graphRef.current?.graphData().nodes ?? []
     const simNode = simNodes.find((n) => n.id === match.id)
     if (simNode && simNode.x != null && simNode.y != null) {
       graphRef.current?.centerAt(simNode.x, simNode.y, 800)
@@ -233,10 +303,12 @@ export function GraphExplorer() {
     }
   }
 
+  const shellClass = 'fixed inset-x-0 bottom-0 top-14 md:top-0 md:left-60 overflow-hidden bg-[#080808]'
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[75vh] bg-white rounded-2xl border border-gray-100 shadow-sm">
-        <p className="text-sm text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+      <div className={`${shellClass} flex items-center justify-center`}>
+        <p className="text-sm text-white/40" style={{ fontFamily: 'var(--font-dm-sans)' }}>
           Graph wird geladen…
         </p>
       </div>
@@ -245,8 +317,8 @@ export function GraphExplorer() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-[75vh] bg-white rounded-2xl border border-gray-100 shadow-sm">
-        <p className="text-sm text-red-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+      <div className={`${shellClass} flex items-center justify-center`}>
+        <p className="text-sm text-red-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
           {error}
         </p>
       </div>
@@ -254,37 +326,62 @@ export function GraphExplorer() {
   }
 
   return (
-    <div className="flex gap-4 h-[75vh]">
-      <FilterPanel
-        typeCounts={typeCounts}
-        visibleTypes={visibleTypes}
-        onToggleType={toggleType}
-        search={search}
-        onSearchChange={setSearch}
-        onSearchSubmit={handleSearchSubmit}
-        clientOptions={clientOptions}
-        focusClientId={focusClientId}
-        onFocusChange={setFocusClientId}
-        totalCount={totalCount}
-        truncated={truncated}
+    <div className={shellClass}>
+      {/* Ambient-Glow-Hintergrund, angelehnt an die Hero-Section der Landingpage (#080808 + #7F77DD-Radialverlauf) */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 45%, rgba(127,119,221,0.08) 0%, transparent 70%)' }}
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.6) 100%)' }}
       />
 
-      <div ref={containerRef} className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden relative">
+      <div ref={containerRef} className="absolute inset-0">
         <ForceGraph2D
           ref={graphRef}
           graphData={graphData}
           width={size.width}
           height={size.height}
+          backgroundColor="rgba(0,0,0,0)"
           nodeId="id"
           nodeLabel="label"
-          nodeColor={nodeColor}
-          nodeRelSize={4.5}
+          nodeCanvasObject={nodeCanvasObject}
+          nodePointerAreaPaint={nodePointerAreaPaint}
           linkColor={linkColor}
+          linkWidth={1}
           linkDirectionalArrowLength={3}
           linkDirectionalArrowRelPos={1}
+          linkDirectionalParticles={2}
+          linkDirectionalParticleWidth={2}
+          linkDirectionalParticleSpeed={0.004}
+          linkDirectionalParticleColor={particleColor}
+          cooldownTime={Infinity}
+          d3AlphaDecay={0.004}
+          d3VelocityDecay={0.35}
           onNodeClick={(node: unknown) => setSelectedNode(node as GraphNode)}
           onNodeHover={(node: unknown) => setHoveredId((node as GraphNode | null)?.id ?? null)}
         />
+      </div>
+
+      <div className="absolute top-5 left-5 bottom-5 z-20 pointer-events-none">
+        <div className="pointer-events-auto h-full">
+          <FilterPanel
+            typeCounts={typeCounts}
+            visibleTypes={visibleTypes}
+            onToggleType={toggleType}
+            search={search}
+            onSearchChange={setSearch}
+            onSearchSubmit={handleSearchSubmit}
+            clientOptions={clientOptions}
+            focusClientId={focusClientId}
+            onFocusChange={setFocusClientId}
+            totalCount={totalCount}
+            truncated={truncated}
+          />
+        </div>
       </div>
 
       {selectedNode && (
