@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import * as THREE from 'three'
-import { FilterPanel, type TypeCount } from './FilterPanel'
+import { FilterPanel, type RenderMode, type TypeCount } from './FilterPanel'
 import { NodePanel } from './NodePanel'
-import { colorForType, type GraphEdge, type GraphNode, type GraphPayload } from './types'
+import { colorForType, hexToRgba, type GraphEdge, type GraphNode, type GraphPayload } from './types'
 
-// react-force-graph-3d greift auf window/WebGL zu — muss client-only geladen werden.
+// Beide greifen auf window/Canvas bzw. WebGL zu — müssen client-only geladen werden.
+// Nur die gerade aktive Variante wird tatsächlich als Chunk nachgeladen (siehe renderMode unten).
+const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false })
 const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), { ssr: false })
 
 const FOCUS_DEPTH = 2
@@ -99,17 +101,22 @@ export function GraphExplorer() {
   const [loadingNeighborhood, setLoadingNeighborhood] = useState(false)
   const [loadedNeighborhoods, setLoadedNeighborhoods] = useState<Set<string>>(new Set())
 
-  // react-force-graph-3d wird per next/dynamic geladen — die generischen Prop-Typen des
-  // Moduls gehen dabei verloren, daher hier bewusst `any` statt gegen ForceGraphMethods<> zu kämpfen.
+  // react-force-graph-2d/3d werden per next/dynamic geladen — die generischen Prop-Typen der
+  // Module gehen dabei verloren, daher hier bewusst `any` statt gegen ForceGraphMethods<> zu kämpfen.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null)
   const [graphReady, setGraphReady] = useState(false)
+  const [renderMode, setRenderMode] = useState<RenderMode>('3d')
   const { ref: containerRef, size } = useElementSize<HTMLDivElement>()
 
-  // ForceGraph3D wird per next/dynamic client-only nachgeladen — sein Ref ist erst gesetzt,
-  // sobald der Code-Split-Chunk geladen UND gemountet ist. Ein Callback-Ref passt nicht zum
-  // getypten MutableRefObject der Bibliothek, daher hier kurz pollen statt darauf zu warten.
+  // Beim Wechsel 2D<->3D wird die jeweils andere Komponente neu gemountet (eigene Simulation,
+  // eigenes Koordinatensystem) — ihr Ref ist erst gesetzt, sobald der Code-Split-Chunk geladen
+  // UND gemountet ist. Ein Callback-Ref passt nicht zum getypten MutableRefObject der Bibliothek,
+  // daher hier kurz pollen statt darauf zu warten.
   useEffect(() => {
+    setGraphReady(false)
+    graphRef.current = null
+    nodeVisualsRef.current.clear()
     let raf: number
     const check = () => {
       if (graphRef.current) setGraphReady(true)
@@ -117,7 +124,7 @@ export function GraphExplorer() {
     }
     check()
     return () => cancelAnimationFrame(raf)
-  }, [])
+  }, [renderMode])
 
   // Von onEngineTick gelesene "Live"-Werte — als Refs statt State, damit der Tick-Handler nicht
   // bei jedem Hover/Klick neu erzeugt werden muss (er läuft potenziell 60x/Sekunde).
@@ -228,9 +235,10 @@ export function GraphExplorer() {
   }, [connectedToHover])
 
   /** Physik lockerer als die Bibliotheks-Defaults: mehr Abstoßung, schwächere Zentrierung, kaum
-   * Dämpfung — der Graph soll sich fortlaufend leicht bewegen statt nach dem Einpendeln einzufrieren. */
+   * Dämpfung — der Graph soll sich fortlaufend leicht bewegen statt nach dem Einpendeln einzufrieren.
+   * Nur im 3D-Modus, die 2D-Ansicht bleibt bei ihrer ursprünglichen (bereits als gut befundenen) Physik. */
   useEffect(() => {
-    if (!graphReady) return
+    if (!graphReady || renderMode !== '3d') return
     const fg = graphRef.current
     if (!fg) return
     const charge = fg.d3Force('charge')
@@ -239,12 +247,12 @@ export function GraphExplorer() {
     if (link) link.distance(90)
     const center = fg.d3Force('center')
     if (center) center.strength(0.02)
-  }, [graphReady, filteredNodes, filteredEdges])
+  }, [graphReady, renderMode, filteredNodes, filteredEdges])
 
-  /** Sanfte Kamera-Rotation im Leerlauf — pausiert sofort bei Drag/Zoom, setzt nach kurzer
-   * Pause wieder ein, damit der Graph nicht bei jeder Berührung stur weiterdreht. */
+  /** Sanfte Kamera-Rotation im Leerlauf — nur im 3D-Modus (OrbitControls), pausiert sofort bei
+   * Drag/Zoom, setzt nach kurzer Pause wieder ein. */
   useEffect(() => {
-    if (!graphReady) return
+    if (!graphReady || renderMode !== '3d') return
     const fg = graphRef.current
     const controls = fg?.controls?.()
     if (!controls) return
@@ -268,7 +276,7 @@ export function GraphExplorer() {
       controls.removeEventListener('end', resume)
       if (idleTimer) clearTimeout(idleTimer)
     }
-  }, [graphReady])
+  }, [graphReady, renderMode])
 
   /** Grad (Anzahl Kanten) je Knoten — größere/wichtigere Knoten (Hubs) wirken dadurch "näher". */
   const degreeById = useMemo(() => {
@@ -288,20 +296,20 @@ export function GraphExplorer() {
     [filteredNodes, filteredEdges]
   )
 
-  // THREE.Color parst kein `rgba(...)` mit Alpha-Kanal (anders als der 2D-Canvas-Context) —
-  // die "gedimmt"-Fälle brauchen deshalb einen dunklen Vollton statt echter Transparenz;
-  // die Basis-Deckkraft kommt über die globale `linkOpacity`-Prop.
+  // THREE.Color parst kein `rgba(...)` mit Alpha-Kanal (anders als der 2D-Canvas-Context) — im
+  // 3D-Modus brauchen die "gedimmt"-Fälle deshalb einen dunklen Vollton statt echter Transparenz
+  // (die Basis-Deckkraft kommt dort über die globale `linkOpacity`-Prop); im 2D-Modus funktioniert
+  // die ursprüngliche rgba-Transparenz wie gehabt direkt im Canvas-Context.
   const linkColor = useCallback(
     (link: unknown) => {
       const l = link as SimEdge
       const sourceId = typeof l.source === 'string' ? l.source : (l.source as GraphNode).id
       const targetId = typeof l.target === 'string' ? l.target : (l.target as GraphNode).id
-      if (connectedToHover && !(connectedToHover.has(sourceId) && connectedToHover.has(targetId))) {
-        return '#202020'
-      }
-      return '#7f77dd'
+      const isDimmed = connectedToHover != null && !(connectedToHover.has(sourceId) && connectedToHover.has(targetId))
+      if (renderMode === '3d') return isDimmed ? '#202020' : '#7f77dd'
+      return isDimmed ? 'rgba(255,255,255,0.04)' : 'rgba(127,119,221,0.35)'
     },
-    [connectedToHover]
+    [connectedToHover, renderMode]
   )
 
   const particleColor = useCallback(
@@ -309,11 +317,61 @@ export function GraphExplorer() {
       const l = link as SimEdge
       const sourceId = typeof l.source === 'string' ? l.source : (l.source as GraphNode).id
       const targetId = typeof l.target === 'string' ? l.target : (l.target as GraphNode).id
-      if (connectedToHover && !(connectedToHover.has(sourceId) && connectedToHover.has(targetId))) return '#0a0a0a'
-      return '#b0a8f0'
+      const isDimmed = connectedToHover != null && !(connectedToHover.has(sourceId) && connectedToHover.has(targetId))
+      if (!isDimmed) return '#b0a8f0'
+      return renderMode === '3d' ? '#0a0a0a' : 'rgba(0,0,0,0)'
     },
-    [connectedToHover]
+    [connectedToHover, renderMode]
   )
+
+  /** Eigenes Rendering statt nodeColor/nodeCanvasObject-Default (nur 2D-Modus): pulsierender
+   * Glow + heller Kern, damit die Knoten wirken, als würden sie leuchten/kommunizieren. */
+  const nodeCanvasObject = useCallback(
+    (node: unknown, ctx: CanvasRenderingContext2D) => {
+      const n = node as SimNode
+      if (n.x == null || n.y == null) return
+
+      const isDimmed = connectedToHover != null && !connectedToHover.has(n.id)
+      const color = colorForType(n.type)
+      const degree = degreeById.get(n.id) ?? 0
+      const baseR = Math.min(4 + degree * 0.6, 11)
+
+      if (!isDimmed) {
+        const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 850 + phaseFromId(n.id))
+        const glowR = baseR * 3.2 * pulse
+        const grd = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glowR)
+        grd.addColorStop(0, hexToRgba(color, 0.45 * pulse))
+        grd.addColorStop(0.5, hexToRgba(color, 0.12 * pulse))
+        grd.addColorStop(1, hexToRgba(color, 0))
+        ctx.fillStyle = grd
+        ctx.beginPath()
+        ctx.arc(n.x, n.y, glowR, 0, 2 * Math.PI)
+        ctx.fill()
+      }
+
+      ctx.beginPath()
+      ctx.arc(n.x, n.y, baseR, 0, 2 * Math.PI)
+      ctx.fillStyle = isDimmed ? 'rgba(255,255,255,0.12)' : color
+      ctx.fill()
+
+      if (!isDimmed) {
+        ctx.beginPath()
+        ctx.arc(n.x - baseR * 0.28, n.y - baseR * 0.28, baseR * 0.35, 0, 2 * Math.PI)
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'
+        ctx.fill()
+      }
+    },
+    [connectedToHover, degreeById]
+  )
+
+  const nodePointerAreaPaint = useCallback((node: unknown, color: string, ctx: CanvasRenderingContext2D) => {
+    const n = node as SimNode
+    if (n.x == null || n.y == null) return
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.arc(n.x, n.y, 8, 0, 2 * Math.PI)
+    ctx.fill()
+  }, [])
 
   /** Baut pro Knoten eine Kern-Kugel + eine additive Glow-Hülle. Die Größe ist bewusst deutlich
    * größer als im 2D-Rendering (dort 4-11px) — im 3D-Raum mit Kamera-Perspektive wirken kleine
@@ -394,18 +452,23 @@ export function GraphExplorer() {
     if (simNode) focusOnNode(simNode)
   }
 
-  /** Fliegt die Kamera zu einem simulierten Knoten — Standard-"Fokus"-Rezept für
-   * react-force-graph-3d: entlang der Blickrichtung Knoten↔Ursprung zurückweichen, statt die
-   * Kamera exakt in den Knoten hinein zu setzen. */
+  /** Fokussiert einen simulierten Knoten — im 3D-Modus per Kameraflug (Standard-"Fokus"-Rezept
+   * für react-force-graph-3d: entlang der Blickrichtung Knoten↔Ursprung zurückweichen), im
+   * 2D-Modus per centerAt()/zoom() wie ursprünglich. */
   function focusOnNode(simNode: SimNode) {
     const fg = graphRef.current
     if (!fg || simNode.x == null || simNode.y == null) return
-    const nx = simNode.x
-    const ny = simNode.y
-    const nz = simNode.z ?? 0
-    const dist = Math.hypot(nx, ny, nz)
-    const distRatio = dist > 0 ? 1 + 120 / dist : 1
-    fg.cameraPosition({ x: nx * distRatio, y: ny * distRatio, z: nz * distRatio }, { x: nx, y: ny, z: nz }, 1000)
+    if (renderMode === '3d') {
+      const nx = simNode.x
+      const ny = simNode.y
+      const nz = simNode.z ?? 0
+      const dist = Math.hypot(nx, ny, nz)
+      const distRatio = dist > 0 ? 1 + 120 / dist : 1
+      fg.cameraPosition({ x: nx * distRatio, y: ny * distRatio, z: nz * distRatio }, { x: nx, y: ny, z: nz }, 1000)
+    } else {
+      fg.centerAt(simNode.x, simNode.y, 800)
+      fg.zoom(4, 800)
+    }
   }
 
   /** Springt von einer Referenz im NodePanel direkt zum verlinkten Knoten — schaltet dessen Typ
@@ -490,33 +553,60 @@ export function GraphExplorer() {
       />
 
       <div ref={containerRef} className="absolute inset-0">
-        <ForceGraph3D
-          ref={graphRef}
-          graphData={graphData}
-          width={size.width}
-          height={size.height}
-          backgroundColor="rgba(0,0,0,0)"
-          showNavInfo={false}
-          nodeId="id"
-          nodeLabel="label"
-          nodeThreeObject={nodeThreeObject}
-          nodeThreeObjectExtend={false}
-          linkColor={linkColor}
-          linkOpacity={0.6}
-          linkWidth={0.6}
-          linkDirectionalArrowLength={4}
-          linkDirectionalArrowRelPos={1}
-          linkDirectionalParticles={2}
-          linkDirectionalParticleWidth={2}
-          linkDirectionalParticleSpeed={0.004}
-          linkDirectionalParticleColor={particleColor}
-          cooldownTime={Infinity}
-          d3AlphaDecay={0.006}
-          d3VelocityDecay={0.25}
-          onEngineTick={handleEngineTick}
-          onNodeClick={(node: unknown) => setSelectedNode(node as GraphNode)}
-          onNodeHover={(node: unknown) => setHoveredId((node as GraphNode | null)?.id ?? null)}
-        />
+        {renderMode === '3d' ? (
+          <ForceGraph3D
+            ref={graphRef}
+            graphData={graphData}
+            width={size.width}
+            height={size.height}
+            backgroundColor="rgba(0,0,0,0)"
+            showNavInfo={false}
+            nodeId="id"
+            nodeLabel="label"
+            nodeThreeObject={nodeThreeObject}
+            nodeThreeObjectExtend={false}
+            linkColor={linkColor}
+            linkOpacity={0.6}
+            linkWidth={0.6}
+            linkDirectionalArrowLength={4}
+            linkDirectionalArrowRelPos={1}
+            linkDirectionalParticles={2}
+            linkDirectionalParticleWidth={2}
+            linkDirectionalParticleSpeed={0.004}
+            linkDirectionalParticleColor={particleColor}
+            cooldownTime={Infinity}
+            d3AlphaDecay={0.006}
+            d3VelocityDecay={0.25}
+            onEngineTick={handleEngineTick}
+            onNodeClick={(node: unknown) => setSelectedNode(node as GraphNode)}
+            onNodeHover={(node: unknown) => setHoveredId((node as GraphNode | null)?.id ?? null)}
+          />
+        ) : (
+          <ForceGraph2D
+            ref={graphRef}
+            graphData={graphData}
+            width={size.width}
+            height={size.height}
+            backgroundColor="rgba(0,0,0,0)"
+            nodeId="id"
+            nodeLabel="label"
+            nodeCanvasObject={nodeCanvasObject}
+            nodePointerAreaPaint={nodePointerAreaPaint}
+            linkColor={linkColor}
+            linkWidth={1}
+            linkDirectionalArrowLength={3}
+            linkDirectionalArrowRelPos={1}
+            linkDirectionalParticles={2}
+            linkDirectionalParticleWidth={2}
+            linkDirectionalParticleSpeed={0.004}
+            linkDirectionalParticleColor={particleColor}
+            cooldownTime={Infinity}
+            d3AlphaDecay={0.004}
+            d3VelocityDecay={0.35}
+            onNodeClick={(node: unknown) => setSelectedNode(node as GraphNode)}
+            onNodeHover={(node: unknown) => setHoveredId((node as GraphNode | null)?.id ?? null)}
+          />
+        )}
       </div>
 
       <div className="absolute top-5 left-5 bottom-5 z-20 pointer-events-none">
@@ -533,6 +623,8 @@ export function GraphExplorer() {
             onFocusChange={setFocusClientId}
             totalCount={totalCount}
             truncated={truncated}
+            renderMode={renderMode}
+            onRenderModeChange={setRenderMode}
           />
         </div>
       </div>

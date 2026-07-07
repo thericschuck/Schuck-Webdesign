@@ -15,6 +15,8 @@ export interface ClientOption {
 const inputClass =
   'w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#7F77DD]/60 focus:ring-2 focus:ring-[#7F77DD]/20 transition-colors'
 
+export type RenderMode = '2d' | '3d'
+
 export function FilterPanel({
   typeCounts,
   visibleTypes,
@@ -27,6 +29,8 @@ export function FilterPanel({
   onFocusChange,
   totalCount,
   truncated,
+  renderMode,
+  onRenderModeChange,
 }: {
   typeCounts: TypeCount[]
   visibleTypes: Set<string>
@@ -39,6 +43,8 @@ export function FilterPanel({
   onFocusChange: (clientId: string | null) => void
   totalCount: number
   truncated: boolean
+  renderMode: RenderMode
+  onRenderModeChange: (mode: RenderMode) => void
 }) {
   return (
     <div className="w-72 shrink-0 flex flex-col gap-5 bg-white/3 backdrop-blur-xl border border-white/8 border-t-white/12 rounded-2xl shadow-2xl shadow-black/60 p-5 max-h-full overflow-y-auto">
@@ -124,6 +130,32 @@ export function FilterPanel({
               <span className="text-xs text-white/30">{count}</span>
             </label>
           ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-2" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+          Ansicht
+        </h2>
+        <div className="flex gap-1 p-1 bg-white/5 rounded-lg">
+          <button
+            onClick={() => onRenderModeChange('3d')}
+            className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              renderMode === '3d' ? 'bg-[#7F77DD] text-white' : 'text-white/50 hover:text-white'
+            }`}
+            style={{ fontFamily: 'var(--font-dm-sans)' }}
+          >
+            3D
+          </button>
+          <button
+            onClick={() => onRenderModeChange('2d')}
+            className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              renderMode === '2d' ? 'bg-[#7F77DD] text-white' : 'text-white/50 hover:text-white'
+            }`}
+            style={{ fontFamily: 'var(--font-dm-sans)' }}
+          >
+            2D
+          </button>
         </div>
       </div>
 
