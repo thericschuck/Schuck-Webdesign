@@ -41,7 +41,7 @@ export function FilterPanel({
   truncated: boolean
 }) {
   return (
-    <div className="w-72 shrink-0 flex flex-col gap-5 bg-[#0d0d0d]/70 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 p-5 max-h-full overflow-y-auto">
+    <div className="w-72 shrink-0 flex flex-col gap-5 bg-white/7 backdrop-blur-2xl border border-white/15 border-t-white/25 rounded-2xl shadow-2xl shadow-black/60 p-5 max-h-full overflow-y-auto">
       <div>
         <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-playfair)' }}>
           System-Graph

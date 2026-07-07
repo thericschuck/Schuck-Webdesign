@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { FilterPanel, type TypeCount } from './FilterPanel'
 import { NodePanel } from './NodePanel'
 import { colorForType, hexToRgba, type GraphEdge, type GraphNode, type GraphPayload } from './types'
@@ -303,7 +304,9 @@ export function GraphExplorer() {
     }
   }
 
-  const shellClass = 'fixed inset-x-0 bottom-0 top-14 md:top-0 md:left-60 overflow-hidden bg-[#080808]'
+  // z-60 liegt bewusst über der Admin-Sidebar/-Topbar (z-40/z-50) — die Ansicht nimmt den
+  // kompletten Bildschirm ein, deshalb der eigene "Zurück"-Button weiter unten statt der Sidebar.
+  const shellClass = 'fixed inset-0 z-60 overflow-hidden bg-[#080808]'
 
   if (loading) {
     return (
@@ -365,6 +368,18 @@ export function GraphExplorer() {
           onNodeHover={(node: unknown) => setHoveredId((node as GraphNode | null)?.id ?? null)}
         />
       </div>
+
+      <Link
+        href="/admin/dashboard"
+        aria-label="Zurück zum Dashboard"
+        className="absolute top-5 right-5 z-20 flex items-center gap-2 px-3 py-2 bg-white/7 backdrop-blur-2xl border border-white/15 rounded-xl text-white/70 hover:text-white hover:bg-white/12 transition-colors text-sm"
+        style={{ fontFamily: 'var(--font-dm-sans)' }}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        Verlassen
+      </Link>
 
       <div className="absolute top-5 left-5 bottom-5 z-20 pointer-events-none">
         <div className="pointer-events-auto h-full">
