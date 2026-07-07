@@ -27,9 +27,16 @@ export async function updateSession(request: NextRequest) {
   )
 
   // Refresh the session from the server-validated user, not just the raw cookie.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Läuft bei JEDER Anfrage (auch öffentliche Seiten) — ein Netzwerk-Hänger/-Fehler beim
+  // Supabase-Call darf die Anfrage nicht mit einem unbehandelten Fehler blockieren, sondern
+  // degradiert auf "nicht angemeldet" (geschützte Routen greifen unten ohnehin ihren eigenen Redirect).
+  let user = null
+  try {
+    const result = await supabase.auth.getUser()
+    user = result.data.user
+  } catch (error) {
+    console.error('[middleware] supabase.auth.getUser() fehlgeschlagen:', error instanceof Error ? error.message : error)
+  }
 
   const { pathname } = request.nextUrl
 

@@ -738,7 +738,7 @@ function ServicesSection() {
   }
 
   return (
-    <section ref={sectionRef} data-cursor="dark" className="bg-[#F7F5F0] px-6 md:px-12 py-24">
+    <section ref={sectionRef} data-cursor="dark" className="relative bg-[#F7F5F0] px-6 md:px-12 py-24">
       <div className="max-w-6xl mx-auto">
         <FadeIn>
           <SectionLabel>Leistungen</SectionLabel>

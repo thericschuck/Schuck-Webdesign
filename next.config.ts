@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
     // damit Tailwind CSS v4 aus dem richtigen node_modules aufgelöst wird.
     root: path.resolve(__dirname),
   },
+  images: {
+    // 75 ist der Next.js-Default; 95 wird für die Projekt-Vorschaubilder auf der
+    // Startseite explizit angefordert (app/(public)/page.tsx) und muss deshalb hier freigegeben sein.
+    qualities: [75, 95],
+  },
   async redirects() {
     return [
       {
