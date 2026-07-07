@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { ProjectStatus } from '@/types/database'
 import { clientDisplayName } from '@/lib/client-name'
+import { ProjectsTable, type ProjectRow } from './ProjectsTable'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   briefing: 'Briefing',
@@ -59,6 +60,23 @@ export default async function ProjectsPage({
     unreadByProject.set(m.project_id, (unreadByProject.get(m.project_id) ?? 0) + 1)
   })
 
+  const rows: ProjectRow[] = (projects ?? []).map((project) => {
+    const client = Array.isArray(project.client) ? project.client[0] : project.client
+    const clientProfile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
+    const clientName = client ? clientDisplayName(clientProfile?.full_name, client.contact_name, client.company_name) : null
+    return {
+      id: project.id,
+      number: project.project_number,
+      title: project.title,
+      status: project.status,
+      startDate: project.start_date,
+      launchDate: project.launch_date,
+      clientId: client?.id ?? null,
+      clientName,
+      unreadCount: unreadByProject.get(project.id) ?? 0,
+    }
+  })
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -68,7 +86,7 @@ export default async function ProjectsPage({
             Projekte
           </h1>
           <p className="text-gray-500 text-sm mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            {projects?.length ?? 0} Projekte{status ? ` (${STATUS_LABEL[status as ProjectStatus]})` : ''}
+            {rows.length} Projekte{status ? ` (${STATUS_LABEL[status as ProjectStatus]})` : ''}
           </p>
         </div>
         <Link
@@ -110,121 +128,8 @@ export default async function ProjectsPage({
 
       {/* List / Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {projects && projects.length > 0 ? (
-          <>
-            {/* Mobile cards */}
-            <div className="md:hidden divide-y divide-gray-50">
-              {projects.map((project) => {
-                const client = Array.isArray(project.client) ? project.client[0] : project.client
-                const clientProfile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
-                const clientName = client ? clientDisplayName(clientProfile?.full_name, client.contact_name, client.company_name) : null
-                const unread = unreadByProject.get(project.id) ?? 0
-                return (
-                  <Link
-                    key={project.id}
-                    href={`/admin/projects/${project.id}`}
-                    className="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        {project.project_number && (
-                          <span className="text-xs text-gray-400 font-mono shrink-0" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                            {project.project_number}
-                          </span>
-                        )}
-                        <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                          {project.title}
-                        </p>
-                        {unread > 0 && (
-                          <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full leading-none font-medium shrink-0">
-                            {unread}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {clientName ?? '—'}{project.launch_date ? ` · Launch: ${new Date(project.launch_date).toLocaleDateString('de-DE')}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLOR[project.status]}`} style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {STATUS_LABEL[project.status]}
-                      </span>
-                      <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-
-            {/* Desktop table */}
-            <table className="hidden md:table w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Nr.</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Projekt</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Kunde</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Launch</th>
-                  <th className="px-6 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {projects.map((project) => {
-                  const client = Array.isArray(project.client) ? project.client[0] : project.client
-                  const clientProfile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
-                  const clientName = client ? clientDisplayName(clientProfile?.full_name, client.contact_name, client.company_name) : null
-                  return (
-                    <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="text-xs text-gray-400 font-mono" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                          {project.project_number ?? '—'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>{project.title}</p>
-                          {(unreadByProject.get(project.id) ?? 0) > 0 && (
-                            <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full leading-none font-medium">
-                              {unreadByProject.get(project.id)}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                          {project.start_date ? `Start: ${new Date(project.start_date).toLocaleDateString('de-DE')}` : 'Kein Startdatum'}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        {client ? (
-                          <Link href={`/admin/clients/${client.id}`} className="text-sm text-gray-700 hover:text-gray-900 hover:underline" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                            {clientName}
-                          </Link>
-                        ) : (
-                          <span className="text-sm text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLOR[project.status]}`} style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                          {STATUS_LABEL[project.status]}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                          {project.launch_date ? new Date(project.launch_date).toLocaleDateString('de-DE') : '—'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Link href={`/admin/projects/${project.id}`} className="text-sm text-gray-500 hover:text-gray-900 font-medium transition-colors" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                          Details →
-                        </Link>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </>
+        {rows.length > 0 ? (
+          <ProjectsTable rows={rows} />
         ) : (
           <div className="px-6 py-16 text-center">
             <p className="text-gray-400 text-sm mb-3" style={{ fontFamily: 'var(--font-dm-sans)' }}>Keine Projekte gefunden.</p>

@@ -128,7 +128,7 @@ export default async function ClientDetailPage({
                 {CLIENT_STATUS_LABEL[client.status]}
               </span>
               {!profile && (
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium border border-gray-200 text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                   Kein Portal-Zugang
                 </span>
               )}
