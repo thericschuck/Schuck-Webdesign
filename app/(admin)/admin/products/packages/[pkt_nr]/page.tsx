@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import * as productsDomain from '@/lib/domain/products'
 import { PackageEditForm } from './PackageEditForm'
+import { PackageItemsEditor } from './PackageItemsEditor'
 
 function fmtEuro(value: number | null) {
   return value == null ? '—' : `${value.toLocaleString('de-DE')} €`
@@ -19,12 +20,24 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
   const pkg = await productsDomain.getPackage(pktNr).catch(() => null)
   if (!pkg) notFound()
 
-  const einzelpreiseSumme = pkg.items.reduce(
-    (sum, item) => sum + (item.gesamt ?? (item.ep ?? 0) * (item.menge ?? 1)),
-    0
-  )
-  const hasPriceData = pkg.items.some((i) => i.gesamt != null || i.ep != null)
-  const ersparnis = hasPriceData && pkg.paketpreis != null ? einzelpreiseSumme - pkg.paketpreis : null
+  const allArticles = await productsDomain.listArticles({ includeInactive: true })
+  const usedArtNrs = new Set(pkg.items.map((i) => i.art_nr))
+  const availableArticles = allArticles
+    .filter((a) => !usedArtNrs.has(a.art_nr))
+    .map((a) => ({ art_nr: a.art_nr, bezeichnung: a.bezeichnung }))
+
+  const itemRows = pkg.items.map((item) => {
+    const articleInfo = Array.isArray(item.articles) ? item.articles[0] : item.articles
+    return {
+      art_nr: item.art_nr,
+      pos: item.pos,
+      menge: item.menge,
+      ep: item.ep,
+      gesamt: item.gesamt,
+      bezeichnung: articleInfo?.bezeichnung ?? '—',
+      einheit: articleInfo?.einheit ?? null,
+    }
+  })
 
   const folgeproduktCodes = pkg.folgeprodukt ? extractArtNrCodes(pkg.folgeprodukt) : []
 
@@ -77,87 +90,7 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {/* Positionsliste */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/60">
-          <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            Positionen
-          </h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Pos.</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Art-Nr.</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Bezeichnung</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Menge</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>EP</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Gesamt</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {pkg.items.map((item) => {
-                const articleInfo = Array.isArray(item.articles) ? item.articles[0] : item.articles
-                return (
-                  <tr key={item.art_nr}>
-                    <td className="px-6 py-3 text-sm text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>{item.pos}</td>
-                    <td className="px-6 py-3">
-                      <Link href={`/admin/products/${item.art_nr}`} className="text-sm text-violet-600 hover:underline font-mono">
-                        {item.art_nr}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                      {articleInfo?.bezeichnung ?? '—'}
-                      {articleInfo?.einheit && (
-                        <span className="text-gray-400 font-normal"> · {articleInfo.einheit}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-700 text-right" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                      {item.menge ?? '—'}
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-700 text-right" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                      {fmtEuro(item.ep)}
-                    </td>
-                    <td className="px-6 py-3 text-sm text-gray-900 font-medium text-right" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                      {fmtEuro(item.gesamt)}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-            {hasPriceData && (
-              <tfoot>
-                <tr className="border-t border-gray-100 bg-gray-50/60">
-                  <td colSpan={5} className="px-6 py-3 text-sm text-gray-600 text-right font-medium" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                    Summe Einzelpreise
-                  </td>
-                  <td className="px-6 py-3 text-sm text-gray-900 font-semibold text-right" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                    {fmtEuro(einzelpreiseSumme)}
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan={5} className="px-6 py-3 text-sm text-gray-600 text-right font-medium" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                    Paketpreis
-                  </td>
-                  <td className="px-6 py-3 text-sm text-gray-900 font-semibold text-right" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                    {fmtEuro(pkg.paketpreis)}
-                  </td>
-                </tr>
-                {ersparnis != null && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-3 text-sm text-green-700 text-right font-medium" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                      Ersparnis
-                    </td>
-                    <td className="px-6 py-3 text-sm text-green-700 font-semibold text-right" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                      {fmtEuro(ersparnis)}
-                    </td>
-                  </tr>
-                )}
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </div>
+      <PackageItemsEditor pktNr={pkg.pkt_nr} items={itemRows} availableArticles={availableArticles} paketpreis={pkg.paketpreis} />
 
       {/* Empfohlenes Folgeprodukt */}
       {pkg.folgeprodukt && (
@@ -173,7 +106,7 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
               {folgeproduktCodes.map((code) => (
                 <Link
                   key={code}
-                  href={`/admin/products/${code}`}
+                  href={code.startsWith('PKT-') ? `/admin/products/packages/${code}` : `/admin/products/${code}`}
                   className="text-xs px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 font-mono hover:bg-violet-100 transition-colors"
                 >
                   {code}

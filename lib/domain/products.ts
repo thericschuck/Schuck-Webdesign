@@ -239,3 +239,122 @@ export async function updatePackage(pktNr: string, patch: UpdatePackageInput): P
   if (error) throw new DomainError(error.message)
   return data
 }
+
+// ── Artikel/Paket neu anlegen ─────────────────────────────────────────────
+
+export interface CreateArticleInput {
+  artNr: string
+  bezeichnung: string
+  beschreibung?: string | null
+  preisMin?: number | null
+  preisMax?: number | null
+  einheit?: string | null
+  typ?: string | null
+  kategorie?: string | null
+}
+
+export async function createArticle(input: CreateArticleInput): Promise<Article> {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('articles')
+    .insert({
+      art_nr: input.artNr,
+      bezeichnung: input.bezeichnung,
+      beschreibung: input.beschreibung ?? null,
+      preis_min: input.preisMin ?? null,
+      preis_max: input.preisMax ?? null,
+      einheit: input.einheit ?? null,
+      typ: input.typ ?? null,
+      kategorie: input.kategorie ?? null,
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    if (error.code === '23505') throw new DomainError(`Art-Nr. "${input.artNr}" ist bereits vergeben.`)
+    throw new DomainError(error.message)
+  }
+  return data
+}
+
+export interface CreatePackageInput {
+  pktNr: string
+  paketname: string
+  paketpreis?: number | null
+  zielgruppe?: string | null
+  laufzeit?: string | null
+}
+
+export async function createPackage(input: CreatePackageInput): Promise<Package> {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('packages')
+    .insert({
+      pkt_nr: input.pktNr,
+      paketname: input.paketname,
+      paketpreis: input.paketpreis ?? null,
+      zielgruppe: input.zielgruppe ?? null,
+      laufzeit: input.laufzeit ?? null,
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    if (error.code === '23505') throw new DomainError(`Pakt-Nr. "${input.pktNr}" ist bereits vergeben.`)
+    throw new DomainError(error.message)
+  }
+  return data
+}
+
+// ── Paket-Positionen ───────────────────────────────────────────────────────
+
+function computeGesamt(menge: number, ep: number | null): number | null {
+  return ep == null ? null : Math.round(menge * ep * 100) / 100
+}
+
+export interface PackageItemInput {
+  menge: number
+  ep: number | null
+}
+
+export async function addPackageItem(pktNr: string, artNr: string, input: PackageItemInput): Promise<void> {
+  const adminClient = createAdminClient()
+
+  const { data: existing, error: posError } = await adminClient
+    .from('package_items')
+    .select('pos')
+    .eq('pkt_nr', pktNr)
+    .order('pos', { ascending: false })
+    .limit(1)
+  if (posError) throw new DomainError(posError.message)
+  const nextPos = (existing?.[0]?.pos ?? 0) + 1
+
+  const { error } = await adminClient.from('package_items').insert({
+    pkt_nr: pktNr,
+    art_nr: artNr,
+    pos: nextPos,
+    menge: input.menge,
+    ep: input.ep,
+    gesamt: computeGesamt(input.menge, input.ep),
+  })
+  if (error) {
+    if (error.code === '23505') throw new DomainError('Dieser Artikel ist bereits eine Position in diesem Paket.')
+    throw new DomainError(error.message)
+  }
+}
+
+export async function updatePackageItem(pktNr: string, artNr: string, input: PackageItemInput): Promise<void> {
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('package_items')
+    .update({ menge: input.menge, ep: input.ep, gesamt: computeGesamt(input.menge, input.ep) })
+    .eq('pkt_nr', pktNr)
+    .eq('art_nr', artNr)
+  if (error) throw new DomainError(error.message)
+}
+
+export async function removePackageItem(pktNr: string, artNr: string): Promise<void> {
+  const adminClient = createAdminClient()
+  const { error } = await adminClient.from('package_items').delete().eq('pkt_nr', pktNr).eq('art_nr', artNr)
+  if (error) throw new DomainError(error.message)
+}

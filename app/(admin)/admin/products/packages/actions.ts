@@ -41,3 +41,90 @@ export async function updatePackageAction(
   revalidatePath(`/admin/products/packages/${pktNr}`)
   return { status: 'success' }
 }
+
+// ── Neues Paket anlegen ───────────────────────────────────────────────────
+
+type CreatePackageResult = { status: 'error'; message: string } | { status: 'success'; pktNr: string }
+
+export async function createPackageAction(
+  _prev: CreatePackageResult | null,
+  formData: FormData
+): Promise<CreatePackageResult> {
+  await assertAdmin()
+
+  const pktNr = str(formData, 'pkt_nr')
+  const paketname = str(formData, 'paketname')
+  if (!pktNr) return { status: 'error', message: 'Pkt-Nr. ist erforderlich.' }
+  if (!paketname) return { status: 'error', message: 'Paketname ist erforderlich.' }
+
+  try {
+    const pkg = await productsDomain.createPackage({
+      pktNr,
+      paketname,
+      paketpreis: num(formData, 'paketpreis'),
+      zielgruppe: str(formData, 'zielgruppe'),
+      laufzeit: str(formData, 'laufzeit'),
+    })
+    revalidatePath('/admin/products/packages')
+    return { status: 'success', pktNr: pkg.pkt_nr }
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Fehler beim Anlegen.' }
+  }
+}
+
+// ── Positionen (package_items) ────────────────────────────────────────────
+
+export async function addPackageItemAction(
+  pktNr: string,
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  await assertAdmin()
+
+  const artNr = str(formData, 'art_nr')
+  if (!artNr) return { status: 'error', message: 'Artikel ist erforderlich.' }
+  const menge = num(formData, 'menge') ?? 1
+
+  try {
+    await productsDomain.addPackageItem(pktNr, artNr, { menge, ep: num(formData, 'ep') })
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Fehler beim Hinzufügen.' }
+  }
+
+  revalidatePath(`/admin/products/packages/${pktNr}`)
+  revalidatePath('/admin/products/packages')
+  return { status: 'success' }
+}
+
+export async function updatePackageItemAction(
+  pktNr: string,
+  artNr: string,
+  menge: number,
+  ep: number | null
+): Promise<ActionResult> {
+  await assertAdmin()
+
+  try {
+    await productsDomain.updatePackageItem(pktNr, artNr, { menge, ep })
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Fehler beim Speichern.' }
+  }
+
+  revalidatePath(`/admin/products/packages/${pktNr}`)
+  revalidatePath('/admin/products/packages')
+  return { status: 'success' }
+}
+
+export async function removePackageItemAction(pktNr: string, artNr: string): Promise<ActionResult> {
+  await assertAdmin()
+
+  try {
+    await productsDomain.removePackageItem(pktNr, artNr)
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Fehler beim Entfernen.' }
+  }
+
+  revalidatePath(`/admin/products/packages/${pktNr}`)
+  revalidatePath('/admin/products/packages')
+  return { status: 'success' }
+}

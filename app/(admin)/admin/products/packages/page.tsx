@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import * as productsDomain from '@/lib/domain/products'
 import { ProductsViewToggle } from '../ProductsViewToggle'
+import { NewPackageButton } from './NewPackageButton'
 
 function fmtEuro(value: number | null) {
   return value == null ? '—' : `${value.toLocaleString('de-DE')} €`
@@ -21,7 +22,10 @@ export default async function PackagesPage() {
             {packages.length} {packages.length === 1 ? 'Paket' : 'Pakete'}
           </p>
         </div>
-        <ProductsViewToggle active="packages" />
+        <div className="flex items-center gap-3">
+          <ProductsViewToggle active="packages" />
+          <NewPackageButton />
+        </div>
       </div>
 
       {packages.length === 0 ? (

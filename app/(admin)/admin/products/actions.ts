@@ -81,3 +81,35 @@ export async function updateArticleAction(
   revalidateArticle(artNr)
   return { status: 'success' }
 }
+
+// ── Neuen Artikel anlegen ─────────────────────────────────────────────────
+
+type CreateArticleResult = { status: 'error'; message: string } | { status: 'success'; artNr: string }
+
+export async function createArticleAction(
+  _prev: CreateArticleResult | null,
+  formData: FormData
+): Promise<CreateArticleResult> {
+  await assertAdmin()
+
+  const artNr = str(formData, 'art_nr')
+  const bezeichnung = str(formData, 'bezeichnung')
+  if (!artNr) return { status: 'error', message: 'Art-Nr. ist erforderlich.' }
+  if (!bezeichnung) return { status: 'error', message: 'Bezeichnung ist erforderlich.' }
+
+  try {
+    const article = await productsDomain.createArticle({
+      artNr,
+      bezeichnung,
+      preisMin: num(formData, 'preis_min'),
+      preisMax: num(formData, 'preis_max'),
+      einheit: str(formData, 'einheit'),
+      typ: str(formData, 'typ'),
+      kategorie: str(formData, 'kategorie'),
+    })
+    revalidatePath('/admin/products')
+    return { status: 'success', artNr: article.art_nr }
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Fehler beim Anlegen.' }
+  }
+}

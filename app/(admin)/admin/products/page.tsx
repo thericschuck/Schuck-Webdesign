@@ -4,6 +4,7 @@ import * as countersDomain from '@/lib/domain/counters'
 import { PriceInlineEdit } from './PriceInlineEdit'
 import { ActiveToggle } from './ActiveToggle'
 import { ProductsViewToggle } from './ProductsViewToggle'
+import { NewArticleButton } from './NewArticleButton'
 import { KATEGORIE_ORDER, kategorieChip } from './category-constants'
 import { InfoTooltip } from '@/components/admin/InfoTooltip'
 import type { Article } from '@/types/database'
@@ -72,7 +73,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
             {hasFilters ? ' (gefiltert)' : ' insgesamt'}
           </p>
         </div>
-        <ProductsViewToggle active="products" />
+        <div className="flex items-center gap-3">
+          <ProductsViewToggle active="products" />
+          <NewArticleButton />
+        </div>
       </div>
 
       {/* Stats */}
@@ -157,7 +161,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                   {kategorie} <span className="text-gray-400 font-normal">({groupArticles.length})</span>
                 </h2>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-100">
