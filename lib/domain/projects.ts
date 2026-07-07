@@ -116,7 +116,11 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
     p_scope: client.client_number,
   })
   if (seqError) throw new DomainError(seqError.message)
-  const projectNumber = `${client.client_number}-${String(seq).padStart(3, '0')}`
+  // Eigener PRJ-Nummernkreis statt der KD-Nummer des Kunden — der Kunden-Bezug bleibt über die
+  // fortlaufende Ziffer je Kunde erhalten (Scope der Sequenz ist client_number), aber das Präfix
+  // ist "PRJ", nicht "KD" (Projekte sind kein Kunden-Datensatz).
+  const clientNumberSuffix = client.client_number.replace(/^KD-/, '')
+  const projectNumber = `PRJ-${clientNumberSuffix}-${String(seq).padStart(3, '0')}`
 
   const { data: project, error } = await adminClient
     .from('projects')
