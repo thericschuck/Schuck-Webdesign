@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import * as productsDomain from '@/lib/domain/products'
+import * as countersDomain from '@/lib/domain/counters'
 import { PriceInlineEdit } from './PriceInlineEdit'
 import { ActiveToggle } from './ActiveToggle'
-import { KATEGORIE_ORDER } from './category-constants'
+import { KATEGORIE_ORDER, kategorieChip } from './category-constants'
 import type { Article } from '@/types/database'
 
 type ArticleRow = Pick<
@@ -16,14 +17,28 @@ interface SearchParams {
   inaktive?: string
 }
 
+function StatTile({ label, value, dotColor }: { label: string; value: number; dotColor: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+      <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
+      <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+        {value} {label}
+      </span>
+    </div>
+  )
+}
+
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams
 
-  const articles = (await productsDomain.listArticles({
-    search: sp.q || undefined,
-    kategorie: sp.kategorie || undefined,
-    includeInactive: sp.inaktive === '1',
-  })) as ArticleRow[]
+  const [articles, counters] = await Promise.all([
+    productsDomain.listArticles({
+      search: sp.q || undefined,
+      kategorie: sp.kategorie || undefined,
+      includeInactive: sp.inaktive === '1',
+    }) as Promise<ArticleRow[]>,
+    countersDomain.listCounters(),
+  ])
 
   const bezeichnungByArtNr = new Map(articles.map((a) => [a.art_nr, a.bezeichnung]))
 
@@ -39,6 +54,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
     : [...KATEGORIE_ORDER, ...[...byKategorie.keys()].filter((k) => !KATEGORIE_ORDER.includes(k))]
 
   const hasFilters = !!(sp.q || sp.kategorie || sp.inaktive)
+  const activeCount = articles.filter((a) => a.aktiv).length
+  const inactiveCount = articles.length - activeCount
 
   return (
     <div className="flex flex-col gap-6">
@@ -62,6 +79,14 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         </Link>
       </div>
 
+      {/* Stats */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <StatTile label="Artikel" value={articles.length} dotColor="bg-gray-900" />
+        <StatTile label="Aktiv" value={activeCount} dotColor="bg-green-500" />
+        {inactiveCount > 0 && <StatTile label="Inaktiv" value={inactiveCount} dotColor="bg-gray-300" />}
+        <StatTile label="Kategorien" value={byKategorie.size} dotColor="bg-violet-500" />
+      </div>
+
       {/* Filterleiste */}
       <form
         method="GET"
@@ -72,7 +97,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           name="q"
           defaultValue={sp.q ?? ''}
           placeholder="Art-Nr. oder Bezeichnung suchen…"
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 bg-white flex-1 min-w-[200px]"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 bg-white flex-1 min-w-50"
           style={{ fontFamily: 'var(--font-dm-sans)' }}
         />
         <select
@@ -121,10 +146,17 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         groupOrder.map((kategorie) => {
           const groupArticles = byKategorie.get(kategorie)
           if (!groupArticles || groupArticles.length === 0) return null
+          const chip = kategorieChip(kategorie)
 
           return (
             <div key={kategorie} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/60">
+              <div className="px-6 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
+                <span
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${chip.bg} ${chip.text}`}
+                  style={{ fontFamily: 'var(--font-dm-sans)' }}
+                >
+                  {chip.code}
+                </span>
                 <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                   {kategorie} <span className="text-gray-400 font-normal">({groupArticles.length})</span>
                 </h2>
@@ -133,8 +165,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-100">
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Art-Nr.</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Bezeichnung</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Artikel</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Preisspanne</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Einheit</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Typ</th>
@@ -147,18 +178,26 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                     {groupArticles.map((article) => (
                       <tr key={article.art_nr} className={`hover:bg-gray-50 transition-colors ${!article.aktiv ? 'opacity-50' : ''}`}>
                         <td className="px-6 py-3">
-                          <span className="text-xs text-gray-500 font-mono" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                            {article.art_nr}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3">
-                          <Link
-                            href={`/admin/products/${article.art_nr}`}
-                            className="text-sm font-medium text-gray-900 hover:text-violet-700 transition-colors"
-                            style={{ fontFamily: 'var(--font-dm-sans)' }}
-                          >
-                            {article.bezeichnung}
-                          </Link>
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center text-[9px] font-bold shrink-0 ${chip.bg} ${chip.text}`}
+                              style={{ fontFamily: 'var(--font-dm-sans)' }}
+                            >
+                              {chip.code}
+                            </span>
+                            <div className="min-w-0">
+                              <Link
+                                href={`/admin/products/${article.art_nr}`}
+                                className="text-sm font-medium text-gray-900 hover:text-violet-700 transition-colors block truncate"
+                                style={{ fontFamily: 'var(--font-dm-sans)' }}
+                              >
+                                {article.bezeichnung}
+                              </Link>
+                              <span className="text-xs text-gray-400 font-mono" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                                {article.art_nr}
+                              </span>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-3">
                           <PriceInlineEdit
@@ -220,6 +259,37 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           )
         })
       )}
+
+      {/* Nummernkreise */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h2 className="text-sm font-semibold text-gray-900 mb-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+          Nummernkreise
+        </h2>
+        <p className="text-xs text-gray-400 mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+          Zuletzt vergebene und nächste Nummer je Zähler.
+        </p>
+        {counters.length === 0 ? (
+          <p className="text-sm text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            Noch keine Nummern vergeben.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {counters.map((counter) => (
+              <div key={`${counter.typ}-${counter.scopeKey}`} className="rounded-xl border border-gray-100 p-3">
+                <p className="text-xs text-gray-400 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }} title={counter.label}>
+                  {counter.label}
+                </p>
+                <p className="text-sm font-mono font-semibold text-gray-900 mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                  {counter.lastIssued ?? '—'}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                  Nächste: {counter.nextValue}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
