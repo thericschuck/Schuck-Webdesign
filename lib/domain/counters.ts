@@ -1,13 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { clientDisplayName } from '@/lib/client-name'
 import { DomainError } from './errors'
 
 export interface CounterEntry {
-  typ: string
-  scopeKey: string
+  key: string
   label: string
-  lastIssued: string | null
-  nextValue: string
+  primary: string
+  secondary: string | null
+  /** Kurzer Erklärtext fürs (i)-Tooltip — was für ein Format/welche Logik steckt dahinter. */
+  info: string
 }
 
 const TYP_LABEL: Record<string, string> = {
@@ -22,6 +22,15 @@ const TYP_LABEL: Record<string, string> = {
 /** Reihenfolge entlang des Geschäftsablaufs (Lead → Kunde → Projekt → Angebot → Rechnung →
  * Gutschrift) statt alphabetisch — unbekannte typ-Werte landen ans Ende. */
 const TYP_ORDER = ['L', 'KD', 'PRJ', 'AN', 'RE', 'GS']
+
+const TYP_INFO: Record<string, string> = {
+  L: 'Fortlaufend über alle Leads hinweg, Format L-Nummer.',
+  KD: 'Fortlaufend über alle Kunden hinweg, Format KD-Nummer.',
+  PRJ: 'Jeder Kunde hat seine eigene Zählung: PRJ-Kundennummer-Nummer, z.B. PRJ-004-002 für den zweiten Projekt des Kunden KD-004.',
+  AN: 'Beginnt jedes Jahr neu bei 1, Format AN-Jahr-Nummer.',
+  RE: 'Beginnt jedes Jahr neu bei 1, Format RE-Jahr-Nummer.',
+  GS: 'Beginnt jedes Jahr neu bei 1, Format GS-Jahr-Nummer.',
+}
 
 /** Muss exakt spiegeln, wie die jeweilige Domain-Funktion die Nummer aus `get_next_number`
  * zusammensetzt (lib/domain/{clients,projects,akquise}.ts, issue_invoice/create_credit_note
@@ -38,38 +47,50 @@ export async function listCounters(): Promise<CounterEntry[]> {
   const { data: counters, error } = await adminClient.from('counters').select('typ, scope_key, last_value')
   if (error) throw new DomainError(error.message)
 
-  const prjScopes = [...new Set((counters ?? []).filter((c) => c.typ === 'PRJ').map((c) => c.scope_key))]
-  const clientNameByNumber = new Map<string, string>()
-  if (prjScopes.length > 0) {
-    const { data: clients } = await adminClient
-      .from('clients')
-      .select('client_number, company_name, contact_name, profiles(full_name)')
-      .in('client_number', prjScopes)
-    for (const c of clients ?? []) {
-      if (!c.client_number) continue
-      const profile = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
-      clientNameByNumber.set(c.client_number, clientDisplayName(profile?.full_name, c.contact_name, c.company_name))
+  const byTyp = new Map<string, { scopeKey: string; lastValue: number }[]>()
+  for (const c of counters ?? []) {
+    if (!byTyp.has(c.typ)) byTyp.set(c.typ, [])
+    byTyp.get(c.typ)!.push({ scopeKey: c.scope_key, lastValue: c.last_value })
+  }
+
+  const entries: CounterEntry[] = []
+  for (const [typ, rows] of byTyp) {
+    const label = TYP_LABEL[typ] ?? typ
+    const info = TYP_INFO[typ] ?? 'Fortlaufender Nummernkreis.'
+
+    if (typ === 'PRJ') {
+      // Projekte laufen pro Kunde getrennt — statt einer Kachel je Kunde eine einzige
+      // aggregierte Kachel, die Details erklärt das (i)-Tooltip.
+      const total = rows.reduce((sum, r) => sum + r.lastValue, 0)
+      const clientCount = rows.filter((r) => r.lastValue > 0).length
+      entries.push({
+        key: typ,
+        label,
+        primary: `${total} vergeben`,
+        secondary: clientCount > 0 ? `über ${clientCount} ${clientCount === 1 ? 'Kunde' : 'Kunden'}` : null,
+        info,
+      })
+      continue
+    }
+
+    for (const row of rows) {
+      entries.push({
+        key: `${typ}:${row.scopeKey}`,
+        label: row.scopeKey ? `${label} ${row.scopeKey}` : label,
+        primary: row.lastValue > 0 ? formatNumber(typ, row.scopeKey, row.lastValue) : '—',
+        secondary: `Nächste: ${formatNumber(typ, row.scopeKey, row.lastValue + 1)}`,
+        info,
+      })
     }
   }
 
-  return (counters ?? [])
-    .map((c): CounterEntry => {
-      const base = TYP_LABEL[c.typ] ?? c.typ
-      const label = c.typ === 'PRJ' ? `${base} – ${clientNameByNumber.get(c.scope_key) ?? c.scope_key}` : c.scope_key ? `${base} ${c.scope_key}` : base
-      return {
-        typ: c.typ,
-        scopeKey: c.scope_key,
-        label,
-        lastIssued: c.last_value > 0 ? formatNumber(c.typ, c.scope_key, c.last_value) : null,
-        nextValue: formatNumber(c.typ, c.scope_key, c.last_value + 1),
-      }
-    })
-    .sort((a, b) => {
-      const orderIndex = (typ: string) => {
-        const i = TYP_ORDER.indexOf(typ)
-        return i === -1 ? TYP_ORDER.length : i
-      }
-      const orderDiff = orderIndex(a.typ) - orderIndex(b.typ)
-      return orderDiff !== 0 ? orderDiff : a.scopeKey.localeCompare(b.scopeKey)
-    })
+  return entries.sort((a, b) => {
+    const orderIndex = (key: string) => {
+      const typ = key.split(':')[0]
+      const i = TYP_ORDER.indexOf(typ)
+      return i === -1 ? TYP_ORDER.length : i
+    }
+    const diff = orderIndex(a.key) - orderIndex(b.key)
+    return diff !== 0 ? diff : a.label.localeCompare(b.label)
+  })
 }

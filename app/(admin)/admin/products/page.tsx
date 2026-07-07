@@ -275,16 +275,25 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {counters.map((counter) => (
-              <div key={`${counter.typ}-${counter.scopeKey}`} className="rounded-xl border border-gray-100 p-3">
-                <p className="text-xs text-gray-400 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }} title={counter.label}>
+              <div key={counter.key} className="relative rounded-xl border border-gray-100 p-3">
+                <span
+                  className="absolute top-2 right-2 w-4 h-4 rounded-full bg-gray-100 text-gray-400 text-[10px] font-semibold flex items-center justify-center cursor-help"
+                  style={{ fontFamily: 'var(--font-dm-sans)' }}
+                  title={counter.info}
+                >
+                  i
+                </span>
+                <p className="text-xs text-gray-400 truncate pr-5" style={{ fontFamily: 'var(--font-dm-sans)' }} title={counter.label}>
                   {counter.label}
                 </p>
                 <p className="text-sm font-mono font-semibold text-gray-900 mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                  {counter.lastIssued ?? '—'}
+                  {counter.primary}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                  Nächste: {counter.nextValue}
-                </p>
+                {counter.secondary && (
+                  <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                    {counter.secondary}
+                  </p>
+                )}
               </div>
             ))}
           </div>
