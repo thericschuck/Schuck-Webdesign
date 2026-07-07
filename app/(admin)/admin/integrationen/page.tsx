@@ -1,8 +1,12 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { INTEGRATIONS } from '@/lib/integrations/registry'
+import { INTEGRATIONS, getExpiryStatus } from '@/lib/integrations/registry'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function fmtDay(date: Date) {
+  return date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export default async function IntegrationenPage() {
@@ -35,6 +39,7 @@ export default async function IntegrationenPage() {
             <tr className="border-b border-gray-100 text-left text-xs text-gray-400 uppercase tracking-wider">
               <th className="px-5 py-3 font-medium">Dienst</th>
               <th className="px-5 py-3 font-medium">Konfiguriert</th>
+              <th className="px-5 py-3 font-medium">Ablauf</th>
               <th className="px-5 py-3 font-medium">Letzter Call</th>
               <th className="px-5 py-3 font-medium">Status</th>
             </tr>
@@ -43,6 +48,7 @@ export default async function IntegrationenPage() {
             {INTEGRATIONS.map((integration) => {
               const configured = integration.isConfigured()
               const lastCall = latestByService.get(integration.service)
+              const expiry = getExpiryStatus(integration)
 
               return (
                 <tr key={integration.service}>
@@ -58,6 +64,30 @@ export default async function IntegrationenPage() {
                     >
                       {configured ? 'Ja' : 'Nicht konfiguriert'}
                     </span>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    {!expiry ? (
+                      <span className="text-xs text-gray-300">—</span>
+                    ) : expiry.status === 'unknown' ? (
+                      <span className="text-xs text-gray-400">Ausstellungsdatum fehlt</span>
+                    ) : (
+                      <div>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            expiry.status === 'expired'
+                              ? 'bg-red-50 text-red-700'
+                              : expiry.status === 'warning'
+                                ? 'bg-amber-50 text-amber-700'
+                                : 'bg-green-50 text-green-700'
+                          }`}
+                        >
+                          {expiry.status === 'expired'
+                            ? `Abgelaufen (${fmtDay(expiry.expiresAt)})`
+                            : `${expiry.daysRemaining} Tage`}
+                        </span>
+                        {expiry.status !== 'expired' && <p className="text-xs text-gray-400 mt-1">bis {fmtDay(expiry.expiresAt)}</p>}
+                      </div>
+                    )}
                   </td>
                   <td className="px-5 py-3.5 text-gray-600">{lastCall ? fmtDate(lastCall.called_at) : '—'}</td>
                   <td className="px-5 py-3.5">
