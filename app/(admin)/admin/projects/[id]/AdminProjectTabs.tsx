@@ -431,7 +431,7 @@ export function AdminProjectTabs({
   return (
     <div>
       {/* Tab bar */}
-      <div className="flex border-b border-gray-100 mb-5 overflow-x-auto">
+      <div className="flex border-b border-gray-100 mb-5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((tab) => (
           <button
             key={tab.id}
