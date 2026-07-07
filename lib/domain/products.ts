@@ -52,7 +52,7 @@ export async function getPackage(pktNr: string) {
     adminClient.from('packages').select('*').eq('pkt_nr', pktNr).single(),
     adminClient
       .from('package_items')
-      .select('art_nr, pos, menge, ep, gesamt, articles(bezeichnung)')
+      .select('art_nr, pos, menge, ep, gesamt, articles(bezeichnung, einheit)')
       .eq('pkt_nr', pktNr)
       .order('pos', { ascending: true }),
   ])

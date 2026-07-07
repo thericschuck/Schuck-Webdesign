@@ -99,6 +99,9 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
                     </td>
                     <td className="px-6 py-3 text-sm text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                       {articleInfo?.bezeichnung ?? '—'}
+                      {articleInfo?.einheit && (
+                        <span className="text-gray-400 font-normal"> · {articleInfo.einheit}</span>
+                      )}
                     </td>
                     <td className="px-6 py-3 text-sm text-gray-700 text-right" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                       {item.menge ?? '—'}
