@@ -13,6 +13,7 @@ export interface AngebotPdfItem {
 
 export interface AngebotPdfClient {
   full_name: string | null
+  contact_name: string | null
   company_name: string | null
   client_number: string | null
   address_street: string | null
@@ -58,9 +59,9 @@ export async function generateAngebotPdf(input: AngebotPdfInput): Promise<Uint8A
   draw(senderLine, MARGIN_X, y, { size: 8, gray: true })
   y -= 30
 
-  draw(clientDisplayName(input.client.full_name, input.client.company_name), MARGIN_X, y, { useBold: true, size: 11 })
+  draw(clientDisplayName(input.client.full_name, input.client.contact_name, input.client.company_name), MARGIN_X, y, { useBold: true, size: 11 })
   y -= 14
-  const angebotClientSubtitle = clientDisplaySubtitle(input.client.full_name, input.client.company_name)
+  const angebotClientSubtitle = clientDisplaySubtitle(input.client.full_name, input.client.contact_name, input.client.company_name)
   if (angebotClientSubtitle) {
     draw(angebotClientSubtitle, MARGIN_X, y, { size: 9, gray: true })
     y -= 14

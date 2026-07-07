@@ -126,11 +126,13 @@ export async function convertLeadToClientAction(
   await assertAdmin()
 
   const email = str(formData, 'email')
-  if (!email) return { status: 'error', message: 'E-Mail-Adresse ist erforderlich.' }
+  const sendInvite = formData.get('send_invite') === 'on'
+  if (sendInvite && !email) return { status: 'error', message: 'E-Mail-Adresse ist für die Einladung erforderlich.' }
 
   try {
     const result = await akquiseDomain.convertLeadToClient(leadId, {
-      email,
+      email: email ?? undefined,
+      sendInvite,
       status: (str(formData, 'status') as ClientStatus | null) ?? undefined,
     })
     revalidatePath(`/admin/akquise/${leadId}`)

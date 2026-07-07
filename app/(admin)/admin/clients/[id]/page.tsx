@@ -6,6 +6,7 @@ import { clientDisplayName, clientDisplaySubtitle } from '@/lib/client-name'
 import { DeleteClientButton } from './DeleteClientButton'
 import { ResendInviteButton } from './ResendInviteButton'
 import { ClientDocuments } from './ClientDocuments'
+import { inviteExistingClient } from './actions'
 
 const INVITE_EXPIRY_HOURS = 24
 
@@ -57,6 +58,8 @@ export default async function ClientDetailPage({
       id,
       client_number,
       company_name,
+      contact_name,
+      contact_email,
       website,
       phone,
       status,
@@ -77,8 +80,9 @@ export default async function ClientDetailPage({
 
   const profile = Array.isArray(client.profile) ? client.profile[0] : client.profile
   const projects = client.projects ?? []
-  const displayName = clientDisplayName(profile?.full_name, client.company_name)
-  const displaySubtitle = clientDisplaySubtitle(profile?.full_name, client.company_name)
+  const displayName = clientDisplayName(profile?.full_name, client.contact_name, client.company_name)
+  const displaySubtitle = clientDisplaySubtitle(profile?.full_name, client.contact_name, client.company_name)
+  const email = profile?.email ?? client.contact_email
 
   const [{ data: offers }, { data: documents }] = await Promise.all([
     supabase.from('offers').select('id, offer_number').eq('client_id', client.id).order('created_at', { ascending: false }),
@@ -123,6 +127,11 @@ export default async function ClientDetailPage({
               >
                 {CLIENT_STATUS_LABEL[client.status]}
               </span>
+              {!profile && (
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                  Kein Portal-Zugang
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -158,13 +167,13 @@ export default async function ClientDetailPage({
               <div>
                 <dt className="text-xs text-gray-400 mb-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>Name</dt>
                 <dd className="text-sm text-gray-800" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                  {profile?.full_name ?? '—'}
+                  {profile?.full_name ?? client.contact_name ?? '—'}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-400 mb-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>E-Mail</dt>
                 <dd className="text-sm text-gray-800 break-all" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                  {profile?.email ?? '—'}
+                  {email ?? '—'}
                 </dd>
               </div>
               {client.phone && (
@@ -225,11 +234,58 @@ export default async function ClientDetailPage({
             <h2 className="text-sm font-semibold text-gray-900 mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
               Dokumente
             </h2>
-            <ClientDocuments clientId={client.id} clientEmail={profile?.email ?? null} offers={offers ?? []} documents={documents ?? []} />
+            <ClientDocuments clientId={client.id} clientEmail={email ?? null} offers={offers ?? []} documents={documents ?? []} />
           </div>
 
-          {/* Invite status — nur für ausstehende Kunden */}
-          {client.status === 'pending' && (() => {
+          {/* Portal-Zugang: noch kein Profil verknüpft — nachträglich einladen */}
+          {!profile && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h2 className="text-sm font-semibold text-gray-900 mb-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Portal-Zugang
+              </h2>
+              <p className="text-xs text-gray-400 mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Dieser Kunde wurde ohne Einladung angelegt. Hier kannst du den Portal-Zugang jederzeit nachholen.
+              </p>
+              <form
+                action={async (formData: FormData) => {
+                  'use server'
+                  await inviteExistingClient(client.id, formData)
+                }}
+                className="flex flex-col gap-3"
+              >
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block" style={{ fontFamily: 'var(--font-dm-sans)' }}>Name</label>
+                  <input
+                    type="text"
+                    name="full_name"
+                    defaultValue={client.contact_name ?? ''}
+                    required
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block" style={{ fontFamily: 'var(--font-dm-sans)' }}>E-Mail</label>
+                  <input
+                    type="email"
+                    name="email"
+                    defaultValue={client.contact_email ?? ''}
+                    required
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-gray-900 text-white text-sm font-medium rounded-xl py-2.5 hover:bg-gray-700 transition-colors"
+                  style={{ fontFamily: 'var(--font-dm-sans)' }}
+                >
+                  Einladen
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Invite status — nur für ausstehende Kunden mit bereits verknüpftem Profil */}
+          {profile && client.status === 'pending' && (() => {
             const sentAt = client.invite_sent_at ?? client.created_at
             const sentDate = new Date(sentAt)
             const expiresDate = new Date(sentDate.getTime() + INVITE_EXPIRY_HOURS * 60 * 60 * 1000)

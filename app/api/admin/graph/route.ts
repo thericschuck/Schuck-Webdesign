@@ -37,6 +37,7 @@ type SupabaseAdminClient = ReturnType<typeof createAdminClient>
 function clientNode(row: {
   id: string
   company_name: string | null
+  contact_name: string | null
   client_number: string | null
   status: string
   profiles: { full_name: string | null } | { full_name: string | null }[] | null
@@ -45,7 +46,7 @@ function clientNode(row: {
   return {
     id: `client:${row.id}`,
     type: 'client',
-    label: clientDisplayName(profile?.full_name, row.company_name),
+    label: clientDisplayName(profile?.full_name, row.contact_name, row.company_name),
     status: row.status,
     number: row.client_number,
     url: `/admin/clients/${row.id}`,
@@ -167,7 +168,7 @@ async function fetchFullGraph(admin: SupabaseAdminClient): Promise<{ nodes: Grap
     { data: kgNodes },
     { data: kgEdges },
   ] = await Promise.all([
-    admin.from('clients').select('id, company_name, client_number, status, profiles(full_name)'),
+    admin.from('clients').select('id, company_name, contact_name, client_number, status, profiles(full_name)'),
     admin.from('projects').select('id, title, project_number, status, client_id'),
     admin.from('documents').select('id, name, category, project_id, client_id'),
     admin.from('leads').select('id, firmenname, lead_number, current_stage, client_id'),
@@ -243,7 +244,7 @@ async function fetchFullGraph(admin: SupabaseAdminClient): Promise<{ nodes: Grap
 
 async function fetchCoreGraph(admin: SupabaseAdminClient): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
   const [{ data: clients }, { data: projects }] = await Promise.all([
-    admin.from('clients').select('id, company_name, client_number, status, profiles(full_name)'),
+    admin.from('clients').select('id, company_name, contact_name, client_number, status, profiles(full_name)'),
     admin.from('projects').select('id, title, project_number, status, client_id'),
   ])
 
@@ -358,7 +359,7 @@ async function fetchNeighborhood(admin: SupabaseAdminClient, graphId: string): P
   }
 
   if (type === 'client') {
-    const { data: client } = await admin.from('clients').select('id, company_name, client_number, status, profiles(full_name)').eq('id', id).maybeSingle()
+    const { data: client } = await admin.from('clients').select('id, company_name, contact_name, client_number, status, profiles(full_name)').eq('id', id).maybeSingle()
     if (!client) return { nodes, edges }
     addNode(clientNode(client))
 
@@ -395,7 +396,7 @@ async function fetchNeighborhood(admin: SupabaseAdminClient, graphId: string): P
     if (!project) return { nodes, edges }
     addNode(projectNode(project))
 
-    const { data: client } = await admin.from('clients').select('id, company_name, client_number, status, profiles(full_name)').eq('id', project.client_id).maybeSingle()
+    const { data: client } = await admin.from('clients').select('id, company_name, contact_name, client_number, status, profiles(full_name)').eq('id', project.client_id).maybeSingle()
     if (client) {
       addNode(clientNode(client))
       edges.push(edge(`client:${project.client_id}`, `project:${id}`, 'has_project'))
@@ -444,7 +445,7 @@ async function fetchNeighborhood(admin: SupabaseAdminClient, graphId: string): P
         if (gid.startsWith('kg:')) {
           addNode(kgNode(n))
         } else if (gid.startsWith('client:')) {
-          const { data: c } = await admin.from('clients').select('id, company_name, client_number, status, profiles(full_name)').eq('id', n.ref_id!).maybeSingle()
+          const { data: c } = await admin.from('clients').select('id, company_name, contact_name, client_number, status, profiles(full_name)').eq('id', n.ref_id!).maybeSingle()
           if (c) addNode(clientNode(c))
         } else if (gid.startsWith('project:')) {
           const { data: p } = await admin.from('projects').select('id, title, project_number, status, client_id').eq('id', n.ref_id!).maybeSingle()

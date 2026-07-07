@@ -50,7 +50,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       : invoice.client.profiles
     : null
   const invoiceClientName = invoice.client
-    ? clientDisplayName(invoiceClientProfile?.full_name, invoice.client.company_name)
+    ? clientDisplayName(invoiceClientProfile?.full_name, invoice.client.contact_name, invoice.client.company_name)
     : 'Unbekannter Kunde'
 
   return (

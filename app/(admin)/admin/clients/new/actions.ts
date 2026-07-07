@@ -4,38 +4,54 @@ import { assertAdmin } from '@/lib/auth/assert-admin'
 import { inviteClientUser } from '@/lib/auth/invite-client'
 import { createClient as createClientRecord } from '@/lib/domain/clients'
 
-type InviteResult =
-  | { status: 'success'; email: string; clientId: string }
+type CreateResult =
+  | { status: 'success'; clientId: string; invited: boolean; email: string | null }
   | { status: 'error'; message: string }
 
-export async function inviteClient(
-  _prev: InviteResult | null,
-  formData: FormData
-): Promise<InviteResult> {
+export async function createClientAction(_prev: CreateResult | null, formData: FormData): Promise<CreateResult> {
   await assertAdmin()
 
-  const email = formData.get('email')
   const name = formData.get('name')
+  const email = formData.get('email')
   const companyName = formData.get('company_name')
+  const phone = formData.get('phone')
+  const website = formData.get('website')
+  const sendInvite = formData.get('send_invite') === 'on'
 
-  if (!email || typeof email !== 'string' || !email.includes('@')) {
-    return { status: 'error', message: 'Bitte eine gültige E-Mail eingeben.' }
-  }
   if (!name || typeof name !== 'string' || name.trim().length < 2) {
     return { status: 'error', message: 'Bitte einen Namen eingeben.' }
   }
 
-  const cleanEmail = email.trim().toLowerCase()
   const cleanName = name.trim()
+  const cleanEmail = typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : null
   const cleanCompany = typeof companyName === 'string' && companyName.trim() ? companyName.trim() : null
+  const cleanPhone = typeof phone === 'string' && phone.trim() ? phone.trim() : null
+  const cleanWebsite = typeof website === 'string' && website.trim() ? website.trim() : null
+
+  if (sendInvite && !cleanEmail) {
+    return { status: 'error', message: 'Für die Portal-Einladung ist eine E-Mail-Adresse erforderlich.' }
+  }
 
   try {
-    const { profileId } = await inviteClientUser({ email: cleanEmail, fullName: cleanName })
-    const client = await createClientRecord({ profileId, companyName: cleanCompany, status: 'pending' })
-    return { status: 'success', email: cleanEmail, clientId: client.id }
+    let profileId: string | null = null
+    if (sendInvite && cleanEmail) {
+      ;({ profileId } = await inviteClientUser({ email: cleanEmail, fullName: cleanName }))
+    }
+
+    const client = await createClientRecord({
+      profileId,
+      contactName: cleanName,
+      contactEmail: cleanEmail,
+      companyName: cleanCompany,
+      phone: cleanPhone,
+      website: cleanWebsite,
+      status: 'pending',
+    })
+
+    return { status: 'success', clientId: client.id, invited: sendInvite, email: cleanEmail }
   } catch (error) {
-    console.error('[inviteClient] error:', error instanceof Error ? error.message : error)
-    const message = error instanceof Error ? error.message : 'Einladung fehlgeschlagen. Bitte versuche es erneut.'
+    console.error('[createClientAction] error:', error instanceof Error ? error.message : error)
+    const message = error instanceof Error ? error.message : 'Kunde konnte nicht angelegt werden.'
     return { status: 'error', message }
   }
 }

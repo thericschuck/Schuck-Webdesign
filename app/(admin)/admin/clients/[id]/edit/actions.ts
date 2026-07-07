@@ -19,6 +19,7 @@ export async function updateClient(
   const website        = formData.get('website')
   const status         = formData.get('status')
   const fullName       = formData.get('full_name')
+  const email          = formData.get('email')
   const addressStreet  = formData.get('address_street')
   const addressCity    = formData.get('address_city')
   const addressZip     = formData.get('address_zip')
@@ -39,9 +40,15 @@ export async function updateClient(
     .eq('id', clientId)
     .single()
 
+  const hasProfile = Boolean(clientRow?.profile_id)
+
   try {
     await updateClientRecord(clientId, {
       company_name: str(companyName),
+      // Ohne Portal-Profil ist "Name"/E-Mail hier die Quelle (contact_name/contact_email).
+      // Mit Profil bleibt profiles.full_name die einzige Namensquelle (siehe unten).
+      contact_name: hasProfile ? undefined : fullName.trim(),
+      contact_email: hasProfile ? undefined : str(email),
       phone: str(phone),
       website: str(website),
       status: CLIENT_STATUS_VALUES.includes(status as ClientStatus) ? (status as ClientStatus) : 'active',
@@ -56,7 +63,7 @@ export async function updateClient(
   }
 
   // Profile-Name synchronisieren (eigene Tabelle, kein Teil der clients-Domain)
-  if (clientRow?.profile_id && typeof fullName === 'string') {
+  if (hasProfile && clientRow?.profile_id && typeof fullName === 'string') {
     await supabase
       .from('profiles')
       .update({ full_name: fullName.trim() || null })

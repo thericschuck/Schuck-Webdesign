@@ -30,6 +30,8 @@ export default async function ClientsPage() {
       id,
       client_number,
       company_name,
+      contact_name,
+      contact_email,
       website,
       phone,
       status,
@@ -72,7 +74,8 @@ export default async function ClientsPage() {
               {clients.map((client) => {
                 const profile = Array.isArray(client.profile) ? client.profile[0] : client.profile
                 const projectCount = Array.isArray(client.projects) ? client.projects.length : 0
-                const displayName = clientDisplayName(profile?.full_name, client.company_name)
+                const displayName = clientDisplayName(profile?.full_name, client.contact_name, client.company_name)
+                const email = profile?.email ?? client.contact_email
                 return (
                   <Link
                     key={client.id}
@@ -92,9 +95,14 @@ export default async function ClientsPage() {
                         <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                           {displayName}
                         </p>
+                        {!profile && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500 shrink-0" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                            Kein Portal-Zugang
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-gray-400 truncate mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                        {profile?.email ?? '—'} · {projectCount} {projectCount === 1 ? 'Projekt' : 'Projekte'}
+                        {email ?? '—'} · {projectCount} {projectCount === 1 ? 'Projekt' : 'Projekte'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -126,7 +134,8 @@ export default async function ClientsPage() {
                 {clients.map((client) => {
                   const profile = Array.isArray(client.profile) ? client.profile[0] : client.profile
                   const projectCount = Array.isArray(client.projects) ? client.projects.length : 0
-                  const displayName = clientDisplayName(profile?.full_name, client.company_name)
+                  const displayName = clientDisplayName(profile?.full_name, client.contact_name, client.company_name)
+                  const email = profile?.email ?? client.contact_email
                   return (
                     <tr key={client.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
@@ -140,15 +149,22 @@ export default async function ClientsPage() {
                             {displayName.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>{displayName}</p>
-                            {client.company_name && profile?.full_name && (
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>{displayName}</p>
+                              {!profile && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                                  Kein Portal-Zugang
+                                </span>
+                              )}
+                            </div>
+                            {client.company_name && (profile?.full_name || client.contact_name) && (
                               <p className="text-xs text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>{client.company_name}</p>
                             )}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>{profile?.email ?? '—'}</p>
+                        <p className="text-sm text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>{email ?? '—'}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>{projectCount} {projectCount === 1 ? 'Projekt' : 'Projekte'}</span>
@@ -176,7 +192,7 @@ export default async function ClientsPage() {
           <div className="px-6 py-16 text-center">
             <p className="text-gray-400 text-sm mb-3" style={{ fontFamily: 'var(--font-dm-sans)' }}>Noch keine Kunden angelegt.</p>
             <Link href="/admin/clients/new" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-900 hover:underline" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              Ersten Kunden einladen →
+              Ersten Kunden anlegen →
             </Link>
           </div>
         )}

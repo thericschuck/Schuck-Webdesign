@@ -6,7 +6,7 @@ import { clientDisplayName } from '@/lib/client-name'
 const CONTENT_WIDTH = 539 - MARGIN_X
 
 export interface BriefingPdfInput {
-  client: { full_name: string | null; company_name: string | null; client_number: string | null }
+  client: { full_name: string | null; contact_name: string | null; company_name: string | null; client_number: string | null }
   createdAt: string
   projectTitle?: string | null
   projectDescription?: string | null
@@ -84,7 +84,7 @@ export async function generateBriefingPdf(input: BriefingPdfInput): Promise<Uint
     y -= 16
   }
 
-  const briefingClientName = clientDisplayName(input.client.full_name, input.client.company_name)
+  const briefingClientName = clientDisplayName(input.client.full_name, input.client.contact_name, input.client.company_name)
   metaLine('Datum', fmtDate(input.createdAt))
   metaLine('Kunde', briefingClientName)
   if (input.projectTitle) metaLine('Projekt', input.projectTitle)

@@ -43,8 +43,10 @@ export type Database = {
       clients: {
         Row: {
           id: string
-          profile_id: string
+          profile_id: string | null
           company_name: string | null
+          contact_name: string | null
+          contact_email: string | null
           client_number: string | null
           website: string | null
           phone: string | null
@@ -59,8 +61,10 @@ export type Database = {
         }
         Insert: {
           id?: string
-          profile_id: string
+          profile_id?: string | null
           company_name?: string | null
+          contact_name?: string | null
+          contact_email?: string | null
           client_number?: string | null
           website?: string | null
           phone?: string | null
@@ -75,8 +79,10 @@ export type Database = {
         }
         Update: {
           id?: string
-          profile_id?: string
+          profile_id?: string | null
           company_name?: string | null
+          contact_name?: string | null
+          contact_email?: string | null
           client_number?: string | null
           website?: string | null
           phone?: string | null

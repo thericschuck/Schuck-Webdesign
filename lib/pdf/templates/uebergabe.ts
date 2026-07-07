@@ -6,7 +6,7 @@ import { clientDisplayName } from '@/lib/client-name'
 const CONTENT_WIDTH = 539 - MARGIN_X
 
 export interface UebergabePdfInput {
-  client: { full_name: string | null; company_name: string | null; client_number: string | null }
+  client: { full_name: string | null; contact_name: string | null; company_name: string | null; client_number: string | null }
   createdAt: string
   projectTitle?: string | null
   deliverables?: string[]
@@ -79,7 +79,7 @@ export async function generateUebergabePdf(input: UebergabePdfInput): Promise<Ui
     draw(value, MARGIN_X + 100, y, { size: 9 })
     y -= 16
   }
-  const uebergabeClientName = clientDisplayName(input.client.full_name, input.client.company_name)
+  const uebergabeClientName = clientDisplayName(input.client.full_name, input.client.contact_name, input.client.company_name)
   metaLine('Datum', fmtDate(input.createdAt))
   metaLine('Kunde', uebergabeClientName)
   if (input.projectTitle) metaLine('Projekt', input.projectTitle)

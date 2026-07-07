@@ -9,7 +9,7 @@ export default async function NewInvoicePage() {
   const supabase = await createClient()
 
   const [{ data: clientsRaw }, projects, articles] = await Promise.all([
-    supabase.from('clients').select('id, company_name, client_number, profiles(full_name)'),
+    supabase.from('clients').select('id, company_name, contact_name, client_number, profiles(full_name)'),
     projectsDomain.listProjects(),
     productsDomain.listArticles().catch(() => []),
   ])
@@ -17,7 +17,7 @@ export default async function NewInvoicePage() {
   const sortedClients = (clientsRaw ?? [])
     .map((c) => {
       const profile = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
-      return { id: c.id, client_number: c.client_number, display_name: clientDisplayName(profile?.full_name, c.company_name) }
+      return { id: c.id, client_number: c.client_number, display_name: clientDisplayName(profile?.full_name, c.contact_name, c.company_name) }
     })
     .sort((a, b) => a.display_name.localeCompare(b.display_name))
 

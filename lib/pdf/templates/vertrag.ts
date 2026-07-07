@@ -7,6 +7,7 @@ const CONTENT_WIDTH = 539 - MARGIN_X
 
 export interface VertragPdfClient {
   full_name: string | null
+  contact_name: string | null
   company_name: string | null
   client_number: string | null
   address_street: string | null
@@ -114,10 +115,10 @@ export async function generateVertragPdf(input: VertragPdfInput): Promise<Uint8A
 
   draw('und', MARGIN_X, y, { size: 9, gray: true })
   y -= 16
-  const vertragClientName = clientDisplayName(input.client.full_name, input.client.company_name)
+  const vertragClientName = clientDisplayName(input.client.full_name, input.client.contact_name, input.client.company_name)
   draw(vertragClientName, MARGIN_X, y, { useBold: true, size: 11 })
   y -= 14
-  const vertragClientSubtitle = clientDisplaySubtitle(input.client.full_name, input.client.company_name)
+  const vertragClientSubtitle = clientDisplaySubtitle(input.client.full_name, input.client.contact_name, input.client.company_name)
   if (vertragClientSubtitle) {
     draw(vertragClientSubtitle, MARGIN_X, y, { size: 9, gray: true })
     y -= 14

@@ -7,7 +7,7 @@ import type { CareReportData } from '@/lib/domain/care'
 const CONTENT_WIDTH = 539 - MARGIN_X
 
 export interface CareReportPdfInput {
-  client: { full_name: string | null; company_name: string | null; client_number: string | null }
+  client: { full_name: string | null; contact_name: string | null; company_name: string | null; client_number: string | null }
   createdAt: string
   data: CareReportData
   companySettings: CompanySettings
@@ -68,7 +68,7 @@ export async function generateCareReportPdf(input: CareReportPdfInput): Promise<
     paragraph(`Keine Daten verfügbar${reason ? ` (${reason})` : ''}.`, 9, true)
   }
 
-  const clientName = clientDisplayName(input.client.full_name, input.client.company_name)
+  const clientName = clientDisplayName(input.client.full_name, input.client.contact_name, input.client.company_name)
 
   // ── Kopf ──
   draw('CARE-REPORT', MARGIN_X, y, { useBold: true, size: 18 })

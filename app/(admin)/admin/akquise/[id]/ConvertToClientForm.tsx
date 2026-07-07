@@ -22,6 +22,7 @@ export function ConvertToClientForm({
   const boundAction = convertLeadToClientAction.bind(null, leadId)
   const [state, action, pending] = useActionState<State, FormData>(boundAction, null)
   const [email, setEmail] = useState(suggestedEmail ?? '')
+  const [sendInvite, setSendInvite] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export function ConvertToClientForm({
     return (
       <div className="flex flex-col gap-2">
         <label className="text-xs font-medium text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          E-Mail für Portal-Zugang
+          E-Mail {sendInvite ? '(für Portal-Zugang)' : '(optional)'}
         </label>
         <input
           value={email}
@@ -43,9 +44,15 @@ export function ConvertToClientForm({
           placeholder="kunde@beispiel.de"
           className={inputClass}
         />
+        <label className="flex items-start gap-2 cursor-pointer select-none mt-1">
+          <input type="checkbox" checked={sendInvite} onChange={(e) => setSendInvite(e.target.checked)} className="mt-0.5 rounded" />
+          <span className="text-xs text-gray-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            Sofort zum Portal einladen
+          </span>
+        </label>
         <button
           type="button"
-          disabled={!email}
+          disabled={sendInvite && !email}
           onClick={() => setShowConfirm(true)}
           className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           style={{ fontFamily: 'var(--font-dm-sans)' }}
@@ -59,12 +66,22 @@ export function ConvertToClientForm({
   return (
     <form action={action} className="flex flex-col gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
       <input type="hidden" name="email" value={email} />
+      <input type="hidden" name="send_invite" value={sendInvite ? 'on' : ''} />
       <p className="text-sm text-gray-800 font-medium" style={{ fontFamily: 'var(--font-dm-sans)' }}>
         <strong>{firmenname}</strong> wirklich zu Kunde umwandeln?
       </p>
       <p className="text-xs text-gray-500 leading-relaxed" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-        Es wird sofort eine Portal-Einladungs-E-Mail an <strong>{email}</strong> versendet, eine neue KD-Nummer vergeben und der
-        Lead auf „Gewonnen&rdquo; gesetzt.
+        {sendInvite ? (
+          <>
+            Es wird sofort eine Portal-Einladungs-E-Mail an <strong>{email}</strong> versendet, eine neue KD-Nummer vergeben und der
+            Lead auf „Gewonnen&rdquo; gesetzt.
+          </>
+        ) : (
+          <>
+            Der Kunde wird ohne Portal-Zugang angelegt (Einladen kannst du jederzeit später nachholen), eine neue KD-Nummer wird
+            vergeben und der Lead auf „Gewonnen&rdquo; gesetzt.
+          </>
+        )}
       </p>
       {state?.status === 'error' && (
         <p className="text-xs text-red-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
@@ -78,7 +95,7 @@ export function ConvertToClientForm({
           className="flex-1 py-2 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 disabled:opacity-50 transition-colors"
           style={{ fontFamily: 'var(--font-dm-sans)' }}
         >
-          {pending ? 'Wird umgewandelt…' : 'Ja, umwandeln + Einladung senden'}
+          {pending ? 'Wird umgewandelt…' : sendInvite ? 'Ja, umwandeln + Einladung senden' : 'Ja, umwandeln'}
         </button>
         <button
           type="button"

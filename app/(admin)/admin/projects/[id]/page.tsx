@@ -47,7 +47,7 @@ export default async function ProjectDetailPage({
       start_date,
       launch_date,
       created_at,
-      client:clients(id, company_name, profiles(email, full_name)),
+      client:clients(id, company_name, contact_name, contact_email, profiles(email, full_name)),
       documents(id, name, file_url, folder, created_at)
     `)
     .eq('id', id)
@@ -135,7 +135,7 @@ export default async function ProjectDetailPage({
               className="text-sm text-gray-500 hover:text-gray-700 mt-1 inline-block"
               style={{ fontFamily: 'var(--font-dm-sans)' }}
             >
-              {clientDisplayName(clientProfile?.full_name, client.company_name)}
+              {clientDisplayName(clientProfile?.full_name, client.contact_name, client.company_name)}
             </Link>
           )}
         </div>

@@ -28,8 +28,16 @@ type RawTodo = {
     id: string
     title: string
     clients:
-      | { company_name: string | null; profiles: { full_name: string | null } | { full_name: string | null }[] | null }
-      | { company_name: string | null; profiles: { full_name: string | null } | { full_name: string | null }[] | null }[]
+      | {
+          company_name: string | null
+          contact_name: string | null
+          profiles: { full_name: string | null } | { full_name: string | null }[] | null
+        }
+      | {
+          company_name: string | null
+          contact_name: string | null
+          profiles: { full_name: string | null } | { full_name: string | null }[] | null
+        }[]
       | null
   } | null
 }
@@ -208,7 +216,7 @@ export default async function TodosPage() {
       .from('todos')
       .select(`
         id, title, done, priority, due_date, created_at, project_id,
-        projects(id, title, clients(company_name, profiles(full_name)))
+        projects(id, title, clients(company_name, contact_name, profiles(full_name)))
       `)
       .order('created_at', { ascending: true }),
     supabase
@@ -231,7 +239,7 @@ export default async function TodosPage() {
     if (!projectMap.has(todo.project_id!)) {
       const c = Array.isArray(todo.projects.clients) ? todo.projects.clients[0] : todo.projects.clients
       const cProfile = c ? (Array.isArray(c.profiles) ? c.profiles[0] : c.profiles) : null
-      const company = c ? clientDisplayName(cProfile?.full_name, c.company_name) : ''
+      const company = c ? clientDisplayName(cProfile?.full_name, c.contact_name, c.company_name) : ''
       projectMap.set(todo.project_id!, {
         id: todo.projects.id,
         title: todo.projects.title,

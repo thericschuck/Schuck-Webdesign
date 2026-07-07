@@ -37,7 +37,7 @@ export default async function ProjectsPage({
       start_date,
       launch_date,
       created_at,
-      client:clients(id, company_name, profiles(full_name))
+      client:clients(id, company_name, contact_name, profiles(full_name))
     `)
     .order('created_at', { ascending: false })
 
@@ -117,7 +117,7 @@ export default async function ProjectsPage({
               {projects.map((project) => {
                 const client = Array.isArray(project.client) ? project.client[0] : project.client
                 const clientProfile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
-                const clientName = client ? clientDisplayName(clientProfile?.full_name, client.company_name) : null
+                const clientName = client ? clientDisplayName(clientProfile?.full_name, client.contact_name, client.company_name) : null
                 const unread = unreadByProject.get(project.id) ?? 0
                 return (
                   <Link
@@ -174,7 +174,7 @@ export default async function ProjectsPage({
                 {projects.map((project) => {
                   const client = Array.isArray(project.client) ? project.client[0] : project.client
                   const clientProfile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
-                  const clientName = client ? clientDisplayName(clientProfile?.full_name, client.company_name) : null
+                  const clientName = client ? clientDisplayName(clientProfile?.full_name, client.contact_name, client.company_name) : null
                   return (
                     <tr key={project.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">

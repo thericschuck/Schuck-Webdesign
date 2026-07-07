@@ -1,16 +1,17 @@
 'use client'
 
-import { useActionState } from 'react'
-import { inviteClient } from './actions'
+import { useActionState, useState } from 'react'
+import { createClientAction } from './actions'
 import Link from 'next/link'
 
 type State =
-  | { status: 'success'; email: string; clientId: string }
+  | { status: 'success'; clientId: string; invited: boolean; email: string | null }
   | { status: 'error'; message: string }
   | null
 
 export default function NewClientPage() {
-  const [state, action, pending] = useActionState<State, FormData>(inviteClient, null)
+  const [state, action, pending] = useActionState<State, FormData>(createClientAction, null)
+  const [sendInvite, setSendInvite] = useState(false)
 
   if (state?.status === 'success') {
     return (
@@ -22,10 +23,16 @@ export default function NewClientPage() {
             </svg>
           </div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            Einladung gesendet!
+            {state.invited ? 'Kunde angelegt & eingeladen!' : 'Kunde angelegt!'}
           </h2>
           <p className="text-gray-500 text-sm mb-6" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            <strong className="text-gray-700">{state.email}</strong> erhält einen Link zum Einrichten des Accounts.
+            {state.invited ? (
+              <>
+                <strong className="text-gray-700">{state.email}</strong> erhält einen Link zum Einrichten des Accounts.
+              </>
+            ) : (
+              'Der Kunde hat noch keinen Portal-Zugang — du kannst ihn jederzeit über das Kundenprofil nachträglich einladen.'
+            )}
           </p>
           <div className="flex gap-3 justify-center">
             <Link
@@ -40,7 +47,7 @@ export default function NewClientPage() {
               className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
               style={{ fontFamily: 'var(--font-dm-sans)' }}
             >
-              Weiteren einladen
+              Weiteren anlegen
             </Link>
           </div>
         </div>
@@ -52,16 +59,15 @@ export default function NewClientPage() {
     <div className="max-w-lg">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
-          Neuen Kunden einladen
+          Neuen Kunden anlegen
         </h1>
         <p className="text-gray-500 text-sm mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          Der Kunde erhält eine E-Mail zum Einrichten seines Passworts.
+          Ohne Portal-Einladung — Adresse, Notizen und weitere Details lassen sich danach auf dem Kundenprofil ergänzen.
         </p>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <form action={action} className="flex flex-col gap-5">
-          {/* Name */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="name" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
               Name <span className="text-red-500">*</span>
@@ -77,7 +83,6 @@ export default function NewClientPage() {
             />
           </div>
 
-          {/* Firmenname */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="company_name" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
               Firmenname <span className="text-gray-400 font-normal">(optional)</span>
@@ -92,21 +97,67 @@ export default function NewClientPage() {
             />
           </div>
 
-          {/* E-Mail */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="phone" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Telefon <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                disabled={pending}
+                className="rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50 transition-colors"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="website" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Website <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                id="website"
+                name="website"
+                type="url"
+                placeholder="https://beispiel.de"
+                disabled={pending}
+                className="rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50 transition-colors"
+              />
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <label htmlFor="email" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              E-Mail <span className="text-red-500">*</span>
+              E-Mail {sendInvite ? <span className="text-red-500">*</span> : <span className="text-gray-400 font-normal">(optional)</span>}
             </label>
             <input
               id="email"
               name="email"
               type="email"
-              required
+              required={sendInvite}
               placeholder="kunde@beispiel.de"
               disabled={pending}
               className="rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50 transition-colors"
             />
           </div>
+
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name="send_invite"
+              checked={sendInvite}
+              onChange={(e) => setSendInvite(e.target.checked)}
+              disabled={pending}
+              className="mt-0.5 rounded"
+            />
+            <span className="text-sm text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Sofort zum Portal einladen
+              <span className="block text-xs text-gray-400 mt-0.5">
+                {sendInvite
+                  ? 'Der Kunde erhält sofort eine echte E-Mail zum Einrichten seines Accounts.'
+                  : 'Der Kunde wird ohne Portal-Zugang angelegt — Einladen kannst du jederzeit später über das Kundenprofil nachholen.'}
+              </span>
+            </span>
+          </label>
 
           {state?.status === 'error' && (
             <p className="text-sm text-red-600 -mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
@@ -120,7 +171,7 @@ export default function NewClientPage() {
             className="w-full bg-gray-900 text-white text-sm font-semibold rounded-xl py-3 hover:bg-gray-700 disabled:opacity-50 transition-colors"
             style={{ fontFamily: 'var(--font-dm-sans)' }}
           >
-            {pending ? 'Einladung wird gesendet…' : 'Einladung senden'}
+            {pending ? 'Wird angelegt…' : sendInvite ? 'Anlegen & einladen' : 'Kunde anlegen'}
           </button>
         </form>
       </div>

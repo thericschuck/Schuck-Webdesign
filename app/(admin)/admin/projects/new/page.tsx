@@ -13,13 +13,13 @@ export default async function NewProjectPage({
 
   const { data: clientsRaw } = await supabase
     .from('clients')
-    .select('id, company_name, status, profiles(full_name)')
+    .select('id, company_name, contact_name, status, profiles(full_name)')
     .in('status', ['active', 'pending'])
 
   const clients = (clientsRaw ?? [])
     .map((c) => {
       const profile = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
-      return { id: c.id, status: c.status, display_name: clientDisplayName(profile?.full_name, c.company_name) }
+      return { id: c.id, status: c.status, display_name: clientDisplayName(profile?.full_name, c.contact_name, c.company_name) }
     })
     .sort((a, b) => a.display_name.localeCompare(b.display_name))
 

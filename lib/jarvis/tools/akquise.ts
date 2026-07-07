@@ -269,25 +269,34 @@ const convertLeadToClient: JarvisTool = {
   definition: {
     name: 'convert_lead_to_client',
     description:
-      'Wandelt einen gewonnenen Lead in einen Kunden um: legt den Kunden an (inkl. Portal-Einladungs-E-Mail), ' +
-      'vergibt die KD-Nummer und verknüpft den Lead. Erfordert Bestätigung.',
+      'Wandelt einen gewonnenen Lead in einen Kunden um: legt den Kunden an, vergibt die KD-Nummer und verknüpft ' +
+      'den Lead. Sendet standardmäßig KEINE Portal-Einladung. Nur mit send_invite:true wird sofort eine echte ' +
+      'Einladungs-E-Mail versendet (dafür ist email dann Pflicht). Erfordert Bestätigung.',
     input_schema: {
       type: 'object',
       properties: {
         lead_id: { type: 'string', description: 'UUID des Leads (leads.id).' },
-        email: { type: 'string', description: 'E-Mail-Adresse für den neuen Portal-Zugang.' },
+        email: {
+          type: 'string',
+          description: 'E-Mail-Adresse (optional, Default: die beim Lead hinterlegte E-Mail). Mit send_invite:true Pflicht.',
+        },
+        send_invite: {
+          type: 'boolean',
+          description: 'Ob sofort eine Portal-Einladungs-E-Mail versendet wird. Default: false.',
+        },
         status: {
           type: 'string',
           enum: ['lead', 'pending', 'active', 'paused', 'inactive', 'completed'],
           description: "Kundenstatus des neuen Kunden, Default 'pending'.",
         },
       },
-      required: ['lead_id', 'email'],
+      required: ['lead_id'],
     },
   },
   async execute(args) {
     return akquiseDomain.convertLeadToClient(requireString(args, 'lead_id'), {
-      email: requireString(args, 'email'),
+      email: optionalString(args, 'email') ?? undefined,
+      sendInvite: args.send_invite === true,
       status: (optionalString(args, 'status') as ClientStatus | null) ?? undefined,
     })
   },

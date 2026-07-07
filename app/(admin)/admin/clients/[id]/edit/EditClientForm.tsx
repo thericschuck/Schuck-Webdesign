@@ -9,9 +9,12 @@ type State = { status: 'error'; message: string } | null
 
 type Props = {
   clientId: string
+  /** Ob bereits ein Portal-Profil existiert — steuert, ob "Name" profiles.full_name (Portal-Identität) oder clients.contact_name editiert, und ob eine E-Mail editierbar ist. */
+  hasProfile: boolean
   defaultValues: {
     company_name: string
     full_name: string
+    email: string
     phone: string
     website: string
     status: ClientStatus
@@ -47,7 +50,7 @@ function Field({
 const inputClass =
   'rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50 transition-colors bg-white'
 
-export function EditClientForm({ clientId, defaultValues }: Props) {
+export function EditClientForm({ clientId, hasProfile, defaultValues }: Props) {
   const boundAction = updateClient.bind(null, clientId)
   const [state, action, pending] = useActionState<State, FormData>(boundAction, null)
 
@@ -64,6 +67,17 @@ export function EditClientForm({ clientId, defaultValues }: Props) {
           <input id="full_name" name="full_name" type="text" required
             defaultValue={defaultValues.full_name} disabled={pending} className={inputClass} />
         </Field>
+
+        {!hasProfile && (
+          <Field label="E-Mail" id="email">
+            <input id="email" name="email" type="email"
+              defaultValue={defaultValues.email} disabled={pending}
+              placeholder="kunde@beispiel.de" className={inputClass} />
+            <p className="text-xs text-gray-400 -mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Kein Portal-Zugang — diese Adresse wird als Kontakt-E-Mail genutzt (z.B. für Versand), löst aber keine Einladung aus.
+            </p>
+          </Field>
+        )}
 
         <Field label="Firmenname" id="company_name">
           <input id="company_name" name="company_name" type="text"

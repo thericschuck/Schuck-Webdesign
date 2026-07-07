@@ -83,7 +83,9 @@ export async function generateDocument(input: GenerateDocumentInput): Promise<Do
 
   const { data: clientRow, error: clientError } = await adminClient
     .from('clients')
-    .select('id, company_name, client_number, website, address_street, address_zip, address_city, address_country, profiles(full_name)')
+    .select(
+      'id, company_name, contact_name, client_number, website, address_street, address_zip, address_city, address_country, profiles(full_name)'
+    )
     .eq('id', input.clientId)
     .single()
   if (clientError) throw new DomainError('Kunde nicht gefunden.')
@@ -92,6 +94,7 @@ export async function generateDocument(input: GenerateDocumentInput): Promise<Do
   const client = {
     id: clientRow.id,
     company_name: clientRow.company_name,
+    contact_name: clientRow.contact_name,
     client_number: clientRow.client_number,
     address_street: clientRow.address_street,
     address_zip: clientRow.address_zip,
@@ -99,7 +102,7 @@ export async function generateDocument(input: GenerateDocumentInput): Promise<Do
     address_country: clientRow.address_country,
     full_name: clientProfile?.full_name ?? null,
   }
-  const displayName = clientDisplayName(client.full_name, client.company_name)
+  const displayName = clientDisplayName(client.full_name, client.contact_name, client.company_name)
 
   let project: { id: string; title: string; description: string | null } | null = null
   if (input.projectId) {
@@ -250,7 +253,7 @@ export async function sendDocument(input: SendDocumentInput): Promise<SendDocume
 
   const { data: row, error } = await adminClient
     .from('documents')
-    .select('*, clients(profiles(email))')
+    .select('*, clients(contact_email, profiles(email))')
     .eq('id', input.documentId)
     .single()
   if (error) throw new DomainError('Dokument nicht gefunden.')
@@ -258,7 +261,7 @@ export async function sendDocument(input: SendDocumentInput): Promise<SendDocume
   const { clients: clientRaw, ...document } = row
   const client = Array.isArray(clientRaw) ? clientRaw[0] : clientRaw
   const profile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
-  const to = input.to ?? profile?.email ?? null
+  const to = input.to ?? profile?.email ?? client?.contact_email ?? null
   if (!to) throw new DomainError('Keine Empfänger-E-Mail-Adresse angegeben oder für den Kunden hinterlegt.')
 
   const { data: fileBlob, error: downloadError } = await adminClient.storage.from('documents').download(document.file_url)

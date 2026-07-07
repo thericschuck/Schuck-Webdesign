@@ -15,6 +15,7 @@ export interface InvoicePdfItem {
 
 export interface InvoicePdfClient {
   full_name: string | null
+  contact_name: string | null
   company_name: string | null
   client_number: string | null
   address_street: string | null
@@ -76,9 +77,9 @@ export async function generateInvoicePdf(input: InvoicePdfInput): Promise<Uint8A
   y -= 30
 
   // ── Empfänger ──
-  draw(clientDisplayName(input.client.full_name, input.client.company_name), MARGIN_X, y, { useBold: true, size: 11 })
+  draw(clientDisplayName(input.client.full_name, input.client.contact_name, input.client.company_name), MARGIN_X, y, { useBold: true, size: 11 })
   y -= 14
-  const invoiceClientSubtitle = clientDisplaySubtitle(input.client.full_name, input.client.company_name)
+  const invoiceClientSubtitle = clientDisplaySubtitle(input.client.full_name, input.client.contact_name, input.client.company_name)
   if (invoiceClientSubtitle) {
     draw(invoiceClientSubtitle, MARGIN_X, y, { size: 9, gray: true })
     y -= 14

@@ -313,13 +313,16 @@ export async function addSalesCall(leadId: string, input: AddSalesCallInput) {
 // ── convert_lead_to_client ────────────────────────────────────────────────────
 
 export interface ConvertLeadToClientInput {
-  email: string
+  /** Nur Pflicht, wenn sendInvite=true — sonst als contactEmail übernommen (Fallback: lead.email). */
+  email?: string
+  /** Ob sofort eine Portal-Einladung verschickt wird. Default: false (Kunde ohne Portal-Zugang). */
+  sendInvite?: boolean
   status?: ClientStatus
 }
 
 /**
- * Orchestriert den eigenständigen Invite-Flow (lib/auth/invite-client.ts) +
- * die Domain-Funktion createClient (lib/domain/clients.ts) und verknüpft
+ * Orchestriert optional den eigenständigen Invite-Flow (lib/auth/invite-client.ts) +
+ * immer die Domain-Funktion createClient (lib/domain/clients.ts) und verknüpft
  * anschließend den Lead. Der E-Mail-Versand bleibt dadurch sichtbar als
  * eigener Schritt, nicht in generischer CRUD-Logik versteckt.
  */
@@ -330,10 +333,16 @@ export async function convertLeadToClient(leadId: string, input: ConvertLeadToCl
   if (leadError) throw new DomainError('Lead nicht gefunden.')
   if (lead.client_id) throw new DomainError('Lead wurde bereits in einen Kunden umgewandelt.')
 
-  const { profileId } = await inviteClientUser({ email: input.email, fullName: lead.ansprechpartner })
+  let profileId: string | null = null
+  if (input.sendInvite) {
+    if (!input.email) throw new DomainError('E-Mail ist für die Portal-Einladung erforderlich.')
+    ;({ profileId } = await inviteClientUser({ email: input.email, fullName: lead.ansprechpartner }))
+  }
 
   const client = await createClientRecord({
     profileId,
+    contactName: lead.ansprechpartner,
+    contactEmail: input.email ?? lead.email,
     companyName: lead.firmenname,
     status: input.status,
     website: lead.website,

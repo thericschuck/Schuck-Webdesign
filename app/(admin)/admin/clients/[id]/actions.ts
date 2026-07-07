@@ -2,14 +2,35 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertAdmin } from '@/lib/auth/assert-admin'
-import { resendClientInvite } from '@/lib/auth/invite-client'
-import { deleteClient as deleteClientRecord } from '@/lib/domain/clients'
+import { resendClientInvite, inviteClientUser } from '@/lib/auth/invite-client'
+import { deleteClient as deleteClientRecord, attachClientProfile } from '@/lib/domain/clients'
 import * as documentsDomain from '@/lib/domain/documents'
 import type { DocumentTemplate } from '@/lib/domain/documents'
 import { revalidatePath } from 'next/cache'
 
 type DeleteResult = { status: 'error'; message: string } | { status: 'success' }
 type ResendResult = { status: 'error'; message: string } | { status: 'success' }
+type InviteExistingResult = { status: 'error'; message: string } | { status: 'success' }
+
+/** Lädt einen bereits bestehenden, profillosen Kunden nachträglich zum Portal ein — Gegenstück zu resendInvite (dort existiert das Profil schon). */
+export async function inviteExistingClient(clientId: string, formData: FormData): Promise<InviteExistingResult> {
+  await assertAdmin()
+
+  const email = String(formData.get('email') ?? '').trim()
+  const fullName = String(formData.get('full_name') ?? '').trim()
+  if (!email || !email.includes('@')) return { status: 'error', message: 'Bitte eine gültige E-Mail eingeben.' }
+
+  try {
+    const { profileId } = await inviteClientUser({ email, fullName })
+    await attachClientProfile(clientId, profileId)
+  } catch (error) {
+    console.error('[inviteExistingClient] error:', error instanceof Error ? error.message : error)
+    return { status: 'error', message: error instanceof Error ? error.message : 'Einladung fehlgeschlagen.' }
+  }
+
+  revalidatePath(`/admin/clients/${clientId}`)
+  return { status: 'success' }
+}
 
 export async function resendInvite(clientId: string): Promise<ResendResult> {
   await assertAdmin()

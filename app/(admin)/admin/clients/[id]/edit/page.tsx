@@ -15,7 +15,7 @@ export default async function EditClientPage({
   const { data: client } = await supabase
     .from('clients')
     .select(`
-      id, company_name, website, phone, status,
+      id, company_name, contact_name, contact_email, website, phone, status,
       address_street, address_city, address_zip, address_country,
       notes,
       profile:profiles(full_name, email)
@@ -33,7 +33,7 @@ export default async function EditClientPage({
         <Link href="/admin/clients" className="hover:text-gray-600 transition-colors">Kunden</Link>
         <span>/</span>
         <Link href={`/admin/clients/${client.id}`} className="hover:text-gray-600 transition-colors">
-          {clientDisplayName(profile?.full_name, client.company_name)}
+          {clientDisplayName(profile?.full_name, client.contact_name, client.company_name)}
         </Link>
         <span>/</span>
         <span className="text-gray-700">Bearbeiten</span>
@@ -45,9 +45,11 @@ export default async function EditClientPage({
 
       <EditClientForm
         clientId={id}
+        hasProfile={!!profile}
         defaultValues={{
           company_name:    client.company_name ?? '',
-          full_name:       profile?.full_name ?? '',
+          full_name:       profile?.full_name ?? client.contact_name ?? '',
+          email:           client.contact_email ?? '',
           phone:           client.phone ?? '',
           website:         client.website ?? '',
           status:          client.status,

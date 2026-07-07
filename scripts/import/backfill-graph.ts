@@ -32,7 +32,7 @@ async function embed(text: string): Promise<number[] | null> {
 async function backfillClients(): Promise<{ created: number; updated: number; skipped: number }> {
   const { data: clients, error } = await supabase
     .from('clients')
-    .select('id, company_name, website, phone, address_street, address_zip, address_city, profiles(full_name)')
+    .select('id, company_name, contact_name, website, phone, address_street, address_zip, address_city, profiles(full_name)')
   if (error) throw new Error(`Kunden konnten nicht geladen werden: ${error.message}`)
 
   const { data: existingNodes, error: nodesError } = await supabase
@@ -48,7 +48,7 @@ async function backfillClients(): Promise<{ created: number; updated: number; sk
 
   for (const client of clients ?? []) {
     const profile = Array.isArray(client.profiles) ? client.profiles[0] : client.profiles
-    const displayName = clientDisplayName(profile?.full_name, client.company_name)
+    const displayName = clientDisplayName(profile?.full_name, client.contact_name, client.company_name)
 
     const bodyParts = [
       client.website,

@@ -17,6 +17,8 @@ export const CLIENT_STATUS_VALUES: ClientStatus[] = [
 
 const UPDATABLE_CLIENT_FIELDS = [
   'company_name',
+  'contact_name',
+  'contact_email',
   'website',
   'phone',
   'status',
@@ -77,9 +79,18 @@ export async function getClient(clientId: string): Promise<ClientWithProjects> {
 }
 
 export interface CreateClientInput {
-  /** UUID des zugehörigen auth-Users/Profils — wird vorab über den Invite-Flow (lib/auth/invite-client.ts) erzeugt. */
-  profileId: string
-  /** Firmenname ist optionale Zusatzinfo — der primäre Kundenname liegt auf profiles.full_name. */
+  /**
+   * UUID des zugehörigen auth-Users/Profils — wird vorab über den Invite-Flow
+   * (lib/auth/invite-client.ts) erzeugt. Optional: ohne Einladung wird der Kunde
+   * ohne Portal-Zugang angelegt (profile_id bleibt NULL), Anzeigename/E-Mail
+   * kommen dann aus contactName/contactEmail.
+   */
+  profileId?: string | null
+  /** Ansprechpartner-Name, auch ohne Portal-Zugang gepflegt — Fallback-Anzeigename vor profiles.full_name. */
+  contactName?: string | null
+  /** Fallback-E-Mail für Versand-Flows, solange kein Portal-Zugang (profiles.email) existiert. */
+  contactEmail?: string | null
+  /** Firmenname ist optionale Zusatzinfo — der primäre Kundenname liegt auf profiles.full_name/contactName. */
   companyName?: string | null
   status?: ClientStatus
   website?: string | null
@@ -95,11 +106,15 @@ export interface CreateClientInput {
 
 /**
  * Legt die clients-Zeile an und vergibt die nächste KD-Nummer. Enthält bewusst
- * KEINEN E-Mail-Versand — profileId muss bereits über den eigenständigen
- * Invite-Flow (lib/auth/invite-client.ts) erzeugt worden sein.
+ * KEINEN E-Mail-Versand — eine profileId muss bereits über den eigenständigen
+ * Invite-Flow (lib/auth/invite-client.ts) erzeugt worden sein, falls gewünscht.
+ * Ohne profileId entsteht ein Kunde ohne Portal-Zugang (siehe attachClientProfile()
+ * für das spätere Nachholen der Einladung).
  */
 export async function createClient(input: CreateClientInput): Promise<Client> {
   const companyName = input.companyName?.trim() || null
+  const contactName = input.contactName?.trim() || null
+  const contactEmail = input.contactEmail?.trim() || null
 
   const status = input.status ?? 'pending'
   if (!CLIENT_STATUS_VALUES.includes(status)) {
@@ -118,8 +133,10 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
   const { data: client, error: clientError } = await adminClient
     .from('clients')
     .insert({
-      profile_id: input.profileId,
+      profile_id: input.profileId ?? null,
       company_name: companyName,
+      contact_name: contactName,
+      contact_email: contactEmail,
       client_number: clientNumber,
       status,
       website: input.website ?? null,
@@ -129,7 +146,7 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
       address_zip: input.addressZip ?? null,
       address_country: input.addressCountry ?? 'Deutschland',
       notes: input.notes ?? null,
-      invite_sent_at: input.inviteSentAt ?? new Date().toISOString(),
+      invite_sent_at: input.profileId ? (input.inviteSentAt ?? new Date().toISOString()) : null,
     })
     .select('*')
     .single()
@@ -137,7 +154,11 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
   if (clientError) throw new DomainError(`Kunde konnte nicht gespeichert werden: ${clientError.message}`)
 
   try {
-    const { data: profile } = await adminClient.from('profiles').select('full_name').eq('id', input.profileId).single()
+    let profileFullName: string | null = null
+    if (input.profileId) {
+      const { data: profile } = await adminClient.from('profiles').select('full_name').eq('id', input.profileId).single()
+      profileFullName = profile?.full_name ?? null
+    }
     const bodyParts = [
       client.website,
       client.phone,
@@ -145,7 +166,7 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
     ].filter(Boolean)
     await addKnowledgeNode({
       type: 'client',
-      label: clientDisplayName(profile?.full_name, client.company_name),
+      label: clientDisplayName(profileFullName, client.contact_name, client.company_name),
       body: bodyParts.length > 0 ? bodyParts.join(' · ') : null,
       refId: client.id,
       refTable: 'clients',
@@ -158,8 +179,28 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
   return client
 }
 
+/**
+ * Verknüpft nachträglich ein Portal-Profil mit einem bereits bestehenden, profillosen Kunden —
+ * das Gegenstück zu createClient() ohne profileId. Aufrufer müssen vorher über
+ * lib/auth/invite-client.ts#inviteClientUser() eine profileId erzeugt haben.
+ */
+export async function attachClientProfile(clientId: string, profileId: string): Promise<Client> {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('clients')
+    .update({ profile_id: profileId, invite_sent_at: new Date().toISOString() })
+    .eq('id', clientId)
+    .select('*')
+    .single()
+
+  if (error) throw new DomainError(`Portal-Zugang konnte nicht verknüpft werden: ${error.message}`)
+  return data
+}
+
 export interface UpdateClientInput {
   company_name?: string | null
+  contact_name?: string | null
+  contact_email?: string | null
   website?: string | null
   phone?: string | null
   status?: ClientStatus
@@ -200,23 +241,24 @@ export interface DeleteClientResult {
 }
 
 /**
- * Löscht Kunde + Portal-Zugang unwiderruflich. Das Entfernen des auth-Users
- * gehört hier zur Domain-Logik (nicht zum Invite-Flow) — es ist der einzige
- * Weg, das ON-DELETE-CASCADE profiles → clients auszulösen.
+ * Löscht Kunde + Portal-Zugang (falls vorhanden) unwiderruflich. Das Entfernen
+ * des auth-Users gehört hier zur Domain-Logik (nicht zum Invite-Flow) — es ist
+ * der einzige Weg, das ON-DELETE-CASCADE profiles → clients auszulösen. Bei
+ * einem Kunden ohne Portal-Zugang (profile_id null) entfällt dieser Schritt.
  */
 export async function deleteClient(clientId: string): Promise<DeleteClientResult> {
   const adminClient = createAdminClient()
 
   const { data: client } = await adminClient
     .from('clients')
-    .select('profile_id, company_name, profiles(full_name)')
+    .select('profile_id, company_name, contact_name, profiles(full_name)')
     .eq('id', clientId)
     .single()
 
   if (!client) throw new DomainError('Kunde nicht gefunden.')
 
   const profile = Array.isArray(client.profiles) ? client.profiles[0] : client.profiles
-  const displayName = clientDisplayName(profile?.full_name, client.company_name)
+  const displayName = clientDisplayName(profile?.full_name, client.contact_name, client.company_name)
 
   const { data: projects } = await adminClient.from('projects').select('id').eq('client_id', clientId)
   const projectIds = (projects ?? []).map((p) => p.id)
@@ -226,10 +268,16 @@ export async function deleteClient(clientId: string): Promise<DeleteClientResult
     await adminClient.from('change_requests').delete().in('project_id', projectIds)
     await adminClient.from('reviews').delete().in('project_id', projectIds)
   }
-  await adminClient.from('reviews').delete().eq('client_id', client.profile_id)
 
-  const { error } = await adminClient.auth.admin.deleteUser(client.profile_id)
-  if (error) throw new DomainError(`Fehler beim Löschen: ${error.message}`)
+  if (client.profile_id) {
+    await adminClient.from('reviews').delete().eq('client_id', client.profile_id)
+
+    const { error } = await adminClient.auth.admin.deleteUser(client.profile_id)
+    if (error) throw new DomainError(`Fehler beim Löschen: ${error.message}`)
+  } else {
+    const { error } = await adminClient.from('clients').delete().eq('id', clientId)
+    if (error) throw new DomainError(`Fehler beim Löschen: ${error.message}`)
+  }
 
   return { displayName }
 }

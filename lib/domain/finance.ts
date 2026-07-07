@@ -170,7 +170,7 @@ export async function listInvoices(filter: ListInvoicesFilter = {}) {
   let query = adminClient
     .from('invoices')
     .select(
-      'id, invoice_number, client_id, project_id, status, invoice_date, service_date, total_net, sent_at, paid_at, created_at, clients(company_name, profiles(full_name))'
+      'id, invoice_number, client_id, project_id, status, invoice_date, service_date, total_net, sent_at, paid_at, created_at, clients(company_name, contact_name, profiles(full_name))'
     )
     .order('created_at', { ascending: false })
 
@@ -187,7 +187,7 @@ export async function listInvoices(filter: ListInvoicesFilter = {}) {
     const profile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
     return {
       ...invoice,
-      client_display_name: clientDisplayName(profile?.full_name, client?.company_name),
+      client_display_name: clientDisplayName(profile?.full_name, client?.contact_name, client?.company_name),
     }
   })
 }
@@ -200,7 +200,7 @@ export async function getInvoice(invoiceId: string) {
       adminClient
         .from('invoices')
         .select(
-          '*, clients(company_name, client_number, address_street, address_zip, address_city, address_country, profiles(email, full_name)), projects(project_number, title)'
+          '*, clients(company_name, contact_name, contact_email, client_number, address_street, address_zip, address_city, address_country, profiles(email, full_name)), projects(project_number, title)'
         )
         .eq('id', invoiceId)
         .single(),
@@ -417,7 +417,7 @@ export async function sendInvoice(invoiceId: string, to?: string): Promise<Invoi
   if (invoice.sent_at) throw new DomainError(`Rechnung ${invoice.invoice_number} wurde bereits am ${invoice.sent_at} versendet.`)
 
   const profile = invoice.client ? (Array.isArray(invoice.client.profiles) ? invoice.client.profiles[0] : invoice.client.profiles) : null
-  const recipient = to ?? profile?.email ?? null
+  const recipient = to ?? profile?.email ?? invoice.client?.contact_email ?? null
   if (!recipient) throw new DomainError('Keine Empfänger-E-Mail-Adresse angegeben oder für den Kunden hinterlegt.')
 
   const adminClient = createAdminClient()
@@ -524,7 +524,7 @@ export async function getRevenueOverview(filter: RevenueOverviewFilter = {}): Pr
 
   const { data: invoicesRaw, error } = await adminClient
     .from('invoices')
-    .select('id, client_id, status, invoice_date, total_net, clients(company_name, profiles(full_name))')
+    .select('id, client_id, status, invoice_date, total_net, clients(company_name, contact_name, profiles(full_name))')
     .in('status', ['versendet', 'bezahlt'])
 
   if (error) throw new DomainError(error.message)
@@ -534,7 +534,7 @@ export async function getRevenueOverview(filter: RevenueOverviewFilter = {}): Pr
     const profile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
     return {
       ...inv,
-      display_name: clientDisplayName(profile?.full_name, client?.company_name),
+      display_name: clientDisplayName(profile?.full_name, client?.contact_name, client?.company_name),
     }
   })
 

@@ -36,7 +36,7 @@ export default async function DashboardPage() {
     supabase.from('documents').select('id', { count: 'exact', head: true }),
     supabase
       .from('clients')
-      .select('id, company_name, status, created_at, profile:profiles(full_name, email)')
+      .select('id, company_name, contact_name, status, created_at, profile:profiles(full_name, email)')
       .order('created_at', { ascending: false })
       .limit(6),
     supabase
@@ -152,7 +152,7 @@ export default async function DashboardPage() {
           <div className="divide-y divide-gray-50">
             {recentClients.map((client) => {
               const profile = Array.isArray(client.profile) ? client.profile[0] : client.profile
-              const displayName = clientDisplayName(profile?.full_name, client.company_name)
+              const displayName = clientDisplayName(profile?.full_name, client.contact_name, client.company_name)
               return (
                 <Link
                   key={client.id}
