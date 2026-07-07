@@ -65,6 +65,164 @@ const figmaGetScreenshot: JarvisTool = {
   },
 }
 
+// ── figma_post_comment (⚠ Bestätigung) ──────────────────────────────────────
+
+const figmaPostComment: JarvisTool = {
+  name: 'figma_post_comment',
+  requiresConfirmation: true,
+  definition: {
+    name: 'figma_post_comment',
+    description:
+      'Postet einen Kommentar auf einer Figma-Datei (z.B. Design-Feedback), sichtbar für alle Bearbeiter der Datei. ' +
+      'Ohne node_id wird der Kommentar am Seitenursprung gepinnt. Nur verfügbar, wenn FIGMA_ACCESS_TOKEN den Scope ' +
+      'file_comments:write hat. Erfordert Bestätigung, da für andere sichtbar.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        file_key: { type: 'string', description: 'Figma-Datei-Key.' },
+        message: { type: 'string', description: 'Kommentartext.' },
+        node_id: { type: 'string', description: 'Node, an den der Kommentar gepinnt wird (optional).' },
+        reply_to_comment_id: { type: 'string', description: 'Antwort auf einen bestehenden Kommentar (optional).' },
+      },
+      required: ['file_key', 'message'],
+    },
+  },
+  async execute(args) {
+    return figma.postComment(requireString(args, 'file_key'), requireString(args, 'message'), {
+      nodeId: optionalString(args, 'node_id') ?? undefined,
+      replyToCommentId: optionalString(args, 'reply_to_comment_id') ?? undefined,
+    })
+  },
+}
+
+// ── figma_delete_comment (⚠ Bestätigung) ────────────────────────────────────
+
+const figmaDeleteComment: JarvisTool = {
+  name: 'figma_delete_comment',
+  requiresConfirmation: true,
+  definition: {
+    name: 'figma_delete_comment',
+    description: 'Löscht einen Kommentar auf einer Figma-Datei unwiderruflich. Erfordert Bestätigung.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        file_key: { type: 'string', description: 'Figma-Datei-Key.' },
+        comment_id: { type: 'string', description: 'UUID des Kommentars.' },
+      },
+      required: ['file_key', 'comment_id'],
+    },
+  },
+  async execute(args) {
+    await figma.deleteComment(requireString(args, 'file_key'), requireString(args, 'comment_id'))
+    return { deleted: true }
+  },
+}
+
+// ── figma_create_dev_resource (⚠ Bestätigung) ───────────────────────────────
+
+const figmaCreateDevResource: JarvisTool = {
+  name: 'figma_create_dev_resource',
+  requiresConfirmation: true,
+  definition: {
+    name: 'figma_create_dev_resource',
+    description:
+      'Hängt im Dev-Mode einen Link (z.B. Jira-Ticket, Doku) an einen Figma-Node an. Nur verfügbar, wenn ' +
+      'FIGMA_ACCESS_TOKEN den Scope file_dev_resources:write hat. Erfordert Bestätigung.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        file_key: { type: 'string', description: 'Figma-Datei-Key.' },
+        node_id: { type: 'string', description: 'Node, an den der Link angehängt wird.' },
+        name: { type: 'string', description: 'Anzeigename des Links.' },
+        url: { type: 'string', description: 'Ziel-URL.' },
+      },
+      required: ['file_key', 'node_id', 'name', 'url'],
+    },
+  },
+  async execute(args) {
+    return figma.createDevResource(
+      requireString(args, 'file_key'),
+      requireString(args, 'node_id'),
+      requireString(args, 'name'),
+      requireString(args, 'url')
+    )
+  },
+}
+
+// ── figma_delete_dev_resource (⚠ Bestätigung) ───────────────────────────────
+
+const figmaDeleteDevResource: JarvisTool = {
+  name: 'figma_delete_dev_resource',
+  requiresConfirmation: true,
+  definition: {
+    name: 'figma_delete_dev_resource',
+    description: 'Entfernt einen Dev-Mode-Link von einem Figma-Node. Erfordert Bestätigung.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        file_key: { type: 'string', description: 'Figma-Datei-Key.' },
+        dev_resource_id: { type: 'string', description: 'ID der Dev-Resource.' },
+      },
+      required: ['file_key', 'dev_resource_id'],
+    },
+  },
+  async execute(args) {
+    await figma.deleteDevResource(requireString(args, 'file_key'), requireString(args, 'dev_resource_id'))
+    return { deleted: true }
+  },
+}
+
+// ── figma_get_variables ──────────────────────────────────────────────────────
+
+const figmaGetVariables: JarvisTool = {
+  name: 'figma_get_variables',
+  requiresConfirmation: false,
+  definition: {
+    name: 'figma_get_variables',
+    description:
+      'Liest lokale Variablen (Farben, Spacing, etc.) einer Figma-Datei. Nur auf Figma-Enterprise-Plänen verfügbar — ' +
+      'auf anderen Plänen meldet Figma einen Fehler.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        file_key: { type: 'string', description: 'Figma-Datei-Key.' },
+      },
+      required: ['file_key'],
+    },
+  },
+  async execute(args) {
+    return figma.getVariables(requireString(args, 'file_key'))
+  },
+}
+
+// ── figma_update_variable_value (⚠ Bestätigung) ─────────────────────────────
+
+const figmaUpdateVariableValue: JarvisTool = {
+  name: 'figma_update_variable_value',
+  requiresConfirmation: true,
+  definition: {
+    name: 'figma_update_variable_value',
+    description:
+      'Setzt den Wert einer Figma-Variable für einen bestimmten Mode (z.B. "Light"). Nur auf Figma-Enterprise-Plänen ' +
+      'verfügbar. Ruf vorher figma_get_variables auf, um variable_id/mode_id/Werttyp zu ermitteln — bei Typ COLOR ' +
+      'ist value ein Objekt {r,g,b,a} mit Werten 0-1, bei FLOAT eine Zahl, sonst der Wert direkt. Erfordert Bestätigung.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        file_key: { type: 'string', description: 'Figma-Datei-Key.' },
+        variable_id: { type: 'string', description: 'ID der Variable (aus figma_get_variables).' },
+        mode_id: { type: 'string', description: 'ID des Modes (aus figma_get_variables, valuesByMode-Keys).' },
+        value: { description: 'Neuer Wert, Form hängt vom Variablentyp ab (siehe Beschreibung).' },
+      },
+      required: ['file_key', 'variable_id', 'mode_id', 'value'],
+    },
+  },
+  async execute(args) {
+    return figma.updateVariableValue(requireString(args, 'file_key'), requireString(args, 'variable_id'), requireString(args, 'mode_id'), args.value)
+      .then(() => ({ updated: true }))
+  },
+}
+
 // ── github_get_repo_status ──────────────────────────────────────────────────
 
 const githubGetRepoStatus: JarvisTool = {
@@ -461,6 +619,12 @@ const domainRenew: JarvisTool = {
 export const integrationTools: JarvisTool[] = [
   figmaGetDesignContext,
   figmaGetScreenshot,
+  figmaPostComment,
+  figmaDeleteComment,
+  figmaCreateDevResource,
+  figmaDeleteDevResource,
+  figmaGetVariables,
+  figmaUpdateVariableValue,
   githubGetRepoStatus,
   githubListIssues,
   githubGetFile,

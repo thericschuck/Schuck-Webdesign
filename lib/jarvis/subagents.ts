@@ -30,7 +30,7 @@ export const SUBAGENTS: SubAgentDefinition[] = [
     name: 'design_agent',
     label: 'Design-Agent',
     systemPrompt: DESIGN_AGENT_PROMPT,
-    toolNames: ['figma_get_design_context', 'figma_get_screenshot'],
+    toolNames: ['figma_get_design_context', 'figma_get_screenshot', 'figma_get_variables'],
   },
   {
     name: 'code_agent',
