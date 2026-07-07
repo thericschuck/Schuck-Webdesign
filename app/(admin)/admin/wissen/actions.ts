@@ -86,13 +86,17 @@ export interface NodeSearchResult {
   type: NodeType
 }
 
-export async function searchNodesAction(query: string): Promise<NodeSearchResult[]> {
+/** Liefert alle Knoten außer dem aktuellen — Grundlage für das Zielknoten-Dropdown in
+ * LinkNodeForm, damit man dort direkt auswählen statt erst suchen muss. */
+export async function listLinkableNodesAction(excludeId: string): Promise<NodeSearchResult[]> {
   await assertAdmin()
-  if (!query.trim()) return []
 
   try {
-    const nodes = await knowledgeDomain.listNodes({ search: query })
-    return nodes.slice(0, 15).map((n) => ({ id: n.id, label: n.label, type: n.type }))
+    const nodes = await knowledgeDomain.listNodes({})
+    return nodes
+      .filter((n) => n.id !== excludeId)
+      .map((n) => ({ id: n.id, label: n.label, type: n.type }))
+      .sort((a, b) => a.type.localeCompare(b.type) || a.label.localeCompare(b.label))
   } catch {
     return []
   }
