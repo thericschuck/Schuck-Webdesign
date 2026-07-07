@@ -1,3 +1,8 @@
+export interface GraphNodeDetail {
+  label: string
+  value: string
+}
+
 export interface GraphNode {
   id: string
   type: string
@@ -5,6 +10,9 @@ export interface GraphNode {
   status?: string | null
   number?: string | null
   url: string
+  /** Zusätzliche Stammdaten je Knotentyp (z.B. E-Mail/Telefon/Adresse bei Kunden) — optional,
+   * nur befüllt wenn der jeweilige Knoten-Builder in app/api/admin/graph/route.ts welche liefert. */
+  details?: GraphNodeDetail[]
 }
 
 export interface GraphEdge {

@@ -7,6 +7,11 @@ import { clientDisplayName } from '@/lib/client-name'
 /** Ab wie vielen Entitäten nur noch der Kern (Kunden+Projekte) initial geladen wird. Testbar via .env.local ohne Code-Änderung. */
 const TRUNCATION_THRESHOLD = Number(process.env.ADMIN_GRAPH_THRESHOLD) || 500
 
+export interface GraphNodeDetail {
+  label: string
+  value: string
+}
+
 export interface GraphNode {
   id: string
   type: string
@@ -14,6 +19,7 @@ export interface GraphNode {
   status?: string | null
   number?: string | null
   url: string
+  details?: GraphNodeDetail[]
 }
 
 export interface GraphEdge {
@@ -34,22 +40,63 @@ type SupabaseAdminClient = ReturnType<typeof createAdminClient>
 
 // ── Knoten-Builder ──────────────────────────────────────────────────────────
 
-function clientNode(row: {
+/** Fasst die vier Adressfelder zu einer Zeile zusammen — liefert `null`, wenn keins gesetzt ist. */
+function formatClientAddress(row: {
+  address_street: string | null
+  address_zip: string | null
+  address_city: string | null
+  address_country: string | null
+}): string | null {
+  const cityLine = [row.address_zip, row.address_city].filter(Boolean).join(' ')
+  const parts = [row.address_street, cityLine || null, row.address_country].filter(
+    (part): part is string => !!part?.trim()
+  )
+  return parts.length > 0 ? parts.join(', ') : null
+}
+
+type ClientRow = {
   id: string
   company_name: string | null
   contact_name: string | null
+  contact_email: string | null
   client_number: string | null
   status: string
-  profiles: { full_name: string | null } | { full_name: string | null }[] | null
-}): GraphNode {
+  website: string | null
+  phone: string | null
+  address_street: string | null
+  address_zip: string | null
+  address_city: string | null
+  address_country: string | null
+  notes: string | null
+  profiles: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null
+}
+
+const CLIENT_SELECT =
+  'id, company_name, contact_name, contact_email, client_number, status, website, phone, address_street, address_zip, address_city, address_country, notes, profiles(full_name, email)'
+
+function clientNode(row: ClientRow): GraphNode {
   const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+  const label = clientDisplayName(profile?.full_name, row.contact_name, row.company_name)
+  const email = profile?.email ?? row.contact_email
+  const address = formatClientAddress(row)
+
+  const details: GraphNodeDetail[] = []
+  // Firma nur zusätzlich zeigen, wenn sie nicht schon der angezeigte Name ist (sonst Dopplung).
+  if (row.company_name && row.company_name !== label) details.push({ label: 'Firma', value: row.company_name })
+  if (email) details.push({ label: 'E-Mail', value: email })
+  if (row.phone) details.push({ label: 'Telefon', value: row.phone })
+  if (row.website) details.push({ label: 'Website', value: row.website })
+  if (address) details.push({ label: 'Adresse', value: address })
+  if (row.notes) details.push({ label: 'Notiz', value: row.notes })
+
   return {
     id: `client:${row.id}`,
     type: 'client',
-    label: clientDisplayName(profile?.full_name, row.contact_name, row.company_name),
+    label,
     status: row.status,
     number: row.client_number,
     url: `/admin/clients/${row.id}`,
+    details: details.length > 0 ? details : undefined,
   }
 }
 
@@ -168,7 +215,7 @@ async function fetchFullGraph(admin: SupabaseAdminClient): Promise<{ nodes: Grap
     { data: kgNodes },
     { data: kgEdges },
   ] = await Promise.all([
-    admin.from('clients').select('id, company_name, contact_name, client_number, status, profiles(full_name)'),
+    admin.from('clients').select(CLIENT_SELECT),
     admin.from('projects').select('id, title, project_number, status, client_id'),
     admin.from('documents').select('id, name, category, project_id, client_id'),
     admin.from('leads').select('id, firmenname, lead_number, current_stage, client_id'),
@@ -244,7 +291,7 @@ async function fetchFullGraph(admin: SupabaseAdminClient): Promise<{ nodes: Grap
 
 async function fetchCoreGraph(admin: SupabaseAdminClient): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
   const [{ data: clients }, { data: projects }] = await Promise.all([
-    admin.from('clients').select('id, company_name, contact_name, client_number, status, profiles(full_name)'),
+    admin.from('clients').select(CLIENT_SELECT),
     admin.from('projects').select('id, title, project_number, status, client_id'),
   ])
 
@@ -359,7 +406,7 @@ async function fetchNeighborhood(admin: SupabaseAdminClient, graphId: string): P
   }
 
   if (type === 'client') {
-    const { data: client } = await admin.from('clients').select('id, company_name, contact_name, client_number, status, profiles(full_name)').eq('id', id).maybeSingle()
+    const { data: client } = await admin.from('clients').select(CLIENT_SELECT).eq('id', id).maybeSingle()
     if (!client) return { nodes, edges }
     addNode(clientNode(client))
 
@@ -396,7 +443,7 @@ async function fetchNeighborhood(admin: SupabaseAdminClient, graphId: string): P
     if (!project) return { nodes, edges }
     addNode(projectNode(project))
 
-    const { data: client } = await admin.from('clients').select('id, company_name, contact_name, client_number, status, profiles(full_name)').eq('id', project.client_id).maybeSingle()
+    const { data: client } = await admin.from('clients').select(CLIENT_SELECT).eq('id', project.client_id).maybeSingle()
     if (client) {
       addNode(clientNode(client))
       edges.push(edge(`client:${project.client_id}`, `project:${id}`, 'has_project'))
@@ -445,7 +492,7 @@ async function fetchNeighborhood(admin: SupabaseAdminClient, graphId: string): P
         if (gid.startsWith('kg:')) {
           addNode(kgNode(n))
         } else if (gid.startsWith('client:')) {
-          const { data: c } = await admin.from('clients').select('id, company_name, contact_name, client_number, status, profiles(full_name)').eq('id', n.ref_id!).maybeSingle()
+          const { data: c } = await admin.from('clients').select(CLIENT_SELECT).eq('id', n.ref_id!).maybeSingle()
           if (c) addNode(clientNode(c))
         } else if (gid.startsWith('project:')) {
           const { data: p } = await admin.from('projects').select('id, title, project_number, status, client_id').eq('id', n.ref_id!).maybeSingle()

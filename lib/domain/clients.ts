@@ -1,3 +1,4 @@
+import { revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DomainError } from './errors'
 import { addNode as addKnowledgeNode } from './knowledge'
@@ -176,6 +177,7 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
     console.error('[clients] Knowledge-Node konnte nicht angelegt werden:', error instanceof Error ? error.message : error)
   }
 
+  revalidateTag('admin-graph', 'max')
   return client
 }
 
@@ -194,6 +196,7 @@ export async function attachClientProfile(clientId: string, profileId: string): 
     .single()
 
   if (error) throw new DomainError(`Portal-Zugang konnte nicht verknüpft werden: ${error.message}`)
+  revalidateTag('admin-graph', 'max')
   return data
 }
 
@@ -233,6 +236,7 @@ export async function updateClient(clientId: string, patch: UpdateClientInput): 
     .single()
 
   if (error) throw new DomainError(error.message)
+  revalidateTag('admin-graph', 'max')
   return data
 }
 
@@ -279,5 +283,6 @@ export async function deleteClient(clientId: string): Promise<DeleteClientResult
     if (error) throw new DomainError(`Fehler beim Löschen: ${error.message}`)
   }
 
+  revalidateTag('admin-graph', 'max')
   return { displayName }
 }

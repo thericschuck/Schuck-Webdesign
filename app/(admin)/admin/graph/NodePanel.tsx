@@ -72,6 +72,31 @@ export function NodePanel({
               </dd>
             </div>
           )}
+          {node.details?.map((detail) => (
+            <div key={detail.label}>
+              <dt className="text-xs text-gray-400 mb-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                {detail.label}
+              </dt>
+              <dd className="text-sm text-gray-800 wrap-break-word" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                {detail.label === 'E-Mail' ? (
+                  <a href={`mailto:${detail.value}`} className="hover:underline">
+                    {detail.value}
+                  </a>
+                ) : detail.label === 'Website' ? (
+                  <a
+                    href={detail.value.startsWith('http') ? detail.value : `https://${detail.value}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {detail.value}
+                  </a>
+                ) : (
+                  detail.value
+                )}
+              </dd>
+            </div>
+          ))}
         </dl>
 
         {connections.length > 0 && (
