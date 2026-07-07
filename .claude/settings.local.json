@@ -110,7 +110,10 @@
       "Bash(npm uninstall *)",
       "Bash(curl -s -o /dev/null -w \"dashboard: %{http_code}\\\\n\" http://localhost:3000/admin/dashboard)",
       "Bash(curl -s -o /dev/null -w \"jarvis: %{http_code}\\\\n\" http://localhost:3000/admin/jarvis)",
-      "Bash(curl -s -o /dev/null -w \"history-api: %{http_code}\\\\n\" http://localhost:3000/api/jarvis/history)"
+      "Bash(curl -s -o /dev/null -w \"history-api: %{http_code}\\\\n\" http://localhost:3000/api/jarvis/history)",
+      "Bash(grep -rln \"auth.getUser\\\\|auth.getSession\" app/\\\\\\(public\\\\\\))",
+      "Bash(grep -n \"getUser\\\\|getSession\" \"app/\\(public\\)/layout.tsx\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\app\\\\\\(admin\\)\\\\admin\\\\products\\\\packages\\\\[pkt_nr]\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign",
@@ -118,7 +121,8 @@
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(public)\\projekte",
       "C:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\05-Arbeit & Business\\Schuck Webdesign",
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(admin)\\admin\\akquise",
-      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(admin)\\admin\\projects\\[id]"
+      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(admin)\\admin\\projects\\[id]",
+      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(admin)\\admin\\products\\packages\\[pkt_nr]"
     ]
   }
 }
