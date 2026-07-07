@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import * as productsDomain from '@/lib/domain/products'
+import { PackageEditForm } from './PackageEditForm'
 
 function fmtEuro(value: number | null) {
   return value == null ? '—' : `${value.toLocaleString('de-DE')} €`
@@ -65,6 +66,14 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
             </p>
           )}
         </div>
+      </div>
+
+      {/* Bearbeiten */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h2 className="text-sm font-semibold text-gray-900 mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+          Bearbeiten
+        </h2>
+        <PackageEditForm pkg={pkg} />
       </div>
 
       {/* Positionsliste */}

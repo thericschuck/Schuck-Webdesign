@@ -3,6 +3,7 @@ import { DomainError } from './errors'
 import type { Article, Database, Package } from '@/types/database'
 
 type ArticleUpdate = Database['public']['Tables']['articles']['Update']
+type PackageUpdate = Database['public']['Tables']['packages']['Update']
 
 export interface ListArticlesFilter {
   kategorie?: string
@@ -202,6 +203,36 @@ export async function updateArticlePrice(artNr: string, patch: UpdateArticlePric
     .from('articles')
     .update(updates as ArticleUpdate)
     .eq('art_nr', artNr)
+    .select('*')
+    .single()
+
+  if (error) throw new DomainError(error.message)
+  return data
+}
+
+export interface UpdatePackageInput {
+  paketname?: string
+  paketpreis?: number | null
+  zielgruppe?: string | null
+  laufzeit?: string | null
+  folgeprodukt?: string | null
+}
+
+export async function updatePackage(pktNr: string, patch: UpdatePackageInput): Promise<Package> {
+  const updates: PackageUpdate = {}
+  if (patch.paketname !== undefined) updates.paketname = patch.paketname
+  if (patch.paketpreis !== undefined) updates.paketpreis = patch.paketpreis
+  if (patch.zielgruppe !== undefined) updates.zielgruppe = patch.zielgruppe
+  if (patch.laufzeit !== undefined) updates.laufzeit = patch.laufzeit
+  if (patch.folgeprodukt !== undefined) updates.folgeprodukt = patch.folgeprodukt
+
+  if (Object.keys(updates).length === 0) throw new DomainError('Keine Änderungen übergeben.')
+
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('packages')
+    .update(updates)
+    .eq('pkt_nr', pktNr)
     .select('*')
     .single()
 
