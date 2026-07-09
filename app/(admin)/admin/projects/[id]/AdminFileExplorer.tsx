@@ -4,6 +4,7 @@ import { useActionState, useState, useRef, useEffect } from 'react'
 import { adminUploadFile, adminDeleteFile, getAdminDownloadUrl, moveDocument } from './actions'
 import { resizeIfNeeded } from '@/lib/resizeImage'
 import { DocumentPreviewPanel } from '@/components/admin/DocumentPreviewPanel'
+import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB, formatMb } from '@/lib/uploadLimits'
 
 type DocRow = {
   id: string
@@ -262,17 +263,31 @@ function UploadForm({
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [resizing, setResizing] = useState(false)
+  const [sizeError, setSizeError] = useState<string | null>(null)
 
   const [uploadState, uploadAction, uploadPending] = useActionState<UploadState, FormData>(
     adminUploadFile,
     null
   )
 
+  // Zu große Dateien nie abschicken — Next.js bricht das Server-Action-Parsing sonst mitten
+  // im Stream ab (Absturz "Unexpected end of form" statt eines handhabbaren Fehlers).
+  function acceptFile(file: File): boolean {
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      setSizeError(`Datei zu groß (${formatMb(file.size)} MB) — maximal ${MAX_UPLOAD_SIZE_MB} MB.`)
+      setSelectedFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return false
+    }
+    setSizeError(null)
+    return true
+  }
+
   useEffect(() => {
     if (!preSelectedFile || !fileInputRef.current) return
     setResizing(true)
     resizeIfNeeded(preSelectedFile).then((resized) => {
-      if (!fileInputRef.current) return
+      if (!fileInputRef.current || !acceptFile(resized)) return
       const dt = new DataTransfer()
       dt.items.add(resized)
       fileInputRef.current.files = dt.files
@@ -297,6 +312,7 @@ function UploadForm({
     setResizing(true)
     try {
       const resized = await resizeIfNeeded(file)
+      if (!acceptFile(resized)) return
       const dt = new DataTransfer()
       dt.items.add(resized)
       fileInputRef.current.files = dt.files
@@ -312,6 +328,7 @@ function UploadForm({
     setResizing(true)
     try {
       const resized = await resizeIfNeeded(file)
+      if (!acceptFile(resized)) return
       if (resized !== file && fileInputRef.current) {
         const dt = new DataTransfer()
         dt.items.add(resized)
@@ -365,7 +382,7 @@ function UploadForm({
             </svg>
             <div className="flex-1">
               <p className="text-sm text-gray-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>Datei wählen oder hierher ziehen</p>
-              <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>Alle gängigen Dateitypen · max. 50 MB — größere Bilder/PDFs werden automatisch komprimiert</p>
+              <p className="text-xs text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>Alle gängigen Dateitypen · max. {MAX_UPLOAD_SIZE_MB} MB — größere Bilder/PDFs werden automatisch komprimiert</p>
             </div>
           </>
         )}
@@ -379,6 +396,9 @@ function UploadForm({
         />
       </label>
 
+      {sizeError && (
+        <p className="text-xs text-red-600">{sizeError}</p>
+      )}
       {uploadState?.status === 'error' && (
         <p className="text-xs text-red-600">{uploadState.message}</p>
       )}

@@ -16,9 +16,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       // Next.js' Default (1 MB) wäre für Datei-Uploads (Server Actions in
       // app/(portal)/portal/upload/actions.ts und app/(admin)/admin/projects/[id]/actions.ts)
-      // längst vor dem eigenen 50-MB-App-Limit dichtgemacht — etwas Puffer über dem
-      // App-Limit für Multipart-Overhead.
-      bodySizeLimit: '60mb',
+      // längst vor dem eigenen App-Limit (lib/uploadLimits.ts) dichtgemacht — etwas Puffer
+      // über dem App-Limit für Multipart-Overhead. Wird dieses Limit überschritten, bricht
+      // Next.js das Parsing der Server Action mitten im Stream ab (kein handhabbarer Fehler,
+      // sondern ein Absturz "Unexpected end of form") — deshalb zusätzlich die Client-seitige
+      // Vorabprüfung in den Upload-Formularen, die eine zu große Datei gar nicht erst abschickt.
+      bodySizeLimit: '90mb',
     },
   },
   async redirects() {

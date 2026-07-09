@@ -11,6 +11,7 @@ import { generateCareReportPdf } from '@/lib/pdf/templates/care-report'
 import { clientDisplayName } from '@/lib/client-name'
 import { gatherCareReportData } from './care'
 import { compressImageIfPossible, compressPdfIfPossible } from '@/lib/uploadCompression'
+import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB, formatMb } from '@/lib/uploadLimits'
 import type { Document, DocumentCategory } from '@/types/database'
 
 export const DOCUMENT_TEMPLATES = ['angebot', 'vertrag', 'briefing', 'uebergabe', 'care_report'] as const
@@ -311,9 +312,6 @@ export async function deleteDocument(documentId: string): Promise<void> {
 // Admin-Upload (app/(admin)/admin/projects/[id]/actions.ts) — beide Server Actions
 // übernehmen nur noch Auth/Ownership-Check und rufen diese Funktion auf.
 
-export const MAX_UPLOAD_SIZE_MB = 50
-export const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
-
 /** Eindeutig gefährliche ausführbare Formate — alles andere ist erlaubt (Schriftarten,
  * Design-Dateien, Archive, Office, Audio/Video, …). Endung statt MIME-Type, weil Browser
  * für exotischere Typen oft nur "application/octet-stream" oder gar nichts liefern. */
@@ -324,10 +322,6 @@ const DANGEROUS_EXTENSIONS = new Set([
 
 function getExtension(filename: string): string {
   return filename.split('.').pop()?.toLowerCase() ?? ''
-}
-
-function formatMb(bytes: number): string {
-  return (bytes / (1024 * 1024)).toFixed(1)
 }
 
 export interface UploadDocumentFileInput {
