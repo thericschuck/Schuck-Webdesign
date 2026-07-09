@@ -126,6 +126,12 @@ function createRadialSpreadForce(degreeById: Map<string, number>) {
   let simNodes: ForceNode[] = []
   let ringIndexById = new Map<string, number>()
   let ringCount = 0
+  // Langsam nachlaufender "Ankerpunkt" pro verbundenem Knoten — folgt der physikbestimmten
+  // Position (Link-/Charge-/Center-Kraft), aber OHNE die eigene Schwebe-Bewegung mit
+  // einzurechnen. Die tatsächliche Position wird danach wie beim Ring direkt gesetzt
+  // (Anker + kleiner, fester Versatz) statt über Geschwindigkeit aufaddiert — kann also nie
+  // dauerhaft wegdriften, unabhängig davon, wie viele Ticks vergehen.
+  let anchorById = new Map<string, { x: number; y: number; z: number }>()
   const ringRadius = 980
   // Röhren-Radius des Querschnitts: Knoten sitzen in einem gefüllten Kreisquerschnitt um den
   // Ring (Torus/Donut-Form) statt in einer flachen Scheibe — macht den Ring spürbar breiter/
@@ -142,16 +148,41 @@ function createRadialSpreadForce(degreeById: Map<string, number>) {
     // Nur für verbundene Knoten weiterhin über Federkraft lösen (skaliert mit alpha, wie gehabt).
     const centerK = alpha * 0.12
     const slice = (Math.PI * 2) / Math.max(ringCount, 1)
+    // Sanftes, dauerhaftes "Schweben" (nicht mit Alpha skaliert, läuft also auch nach dem
+    // Einpendeln der Simulation weiter) — pro Knoten eigene Phase/Frequenz aus dem ID-Hash,
+    // damit sich nicht alle synchron im Gleichtakt bewegen. Innere (verbundene) Knoten
+    // schweben deutlich langsamer als der äußere Ring — sonst wirkt der dichte Cluster hektisch.
+    const floatT = Date.now() / 26000
+    const floatTInner = Date.now() / 70000
 
     for (const n of simNodes) {
       if (n.x == null || n.y == null) continue
       const degree = degreeById.get(n.id) ?? 0
 
       if (degree > 0) {
-        // Verbundene Knoten: zusätzlicher sanfter Zug Richtung Ursprung, oben auf Link-/Center-Kraft.
-        n.vx = (n.vx ?? 0) - n.x * centerK * 0.5
-        n.vy = (n.vy ?? 0) - n.y * centerK * 0.5
-        if (n.z != null) n.vz = (n.vz ?? 0) - n.z * centerK * 0.5
+        // Verbundene ("innere") Knoten: genau wie beim Ring wird die Position direkt gesetzt
+        // (nicht über Geschwindigkeit aufaddiert) — kann also nie dauerhaft wegdriften. Der
+        // Anker läuft der physikbestimmten Position (Link-/Charge-/Center-Kraft) langsam nach:
+        // `n.vx/vy/vz` enthalten an dieser Stelle bereits deren Beitrag für diesen Tick (die
+        // Kräfte laufen vor dieser custom Force), wir integrieren ihn hier selbst in den Anker
+        // statt ihn über die normale Geschwindigkeits-Integration wirken zu lassen. Die eigene
+        // Schwebe-Bewegung bleibt dadurch komplett von dieser physikbestimmten Basis getrennt.
+        let anchor = anchorById.get(n.id)
+        if (!anchor) {
+          anchor = { x: n.x, y: n.y, z: n.z ?? 0 }
+          anchorById.set(n.id, anchor)
+        }
+        anchor.x += (n.vx ?? 0) - n.x * centerK * 0.5
+        anchor.y += (n.vy ?? 0) - n.y * centerK * 0.5
+        anchor.z += (n.vz ?? 0) - (n.z ?? 0) * centerK * 0.5
+
+        const floatStrength = 14
+        n.x = anchor.x + Math.sin(floatTInner + phaseFromId(n.id)) * floatStrength
+        n.y = anchor.y + Math.cos(floatTInner * 0.85 + phaseFromId(`${n.id}fy`)) * floatStrength
+        if (n.z != null) n.z = anchor.z + Math.sin(floatTInner * 0.7 + phaseFromId(`${n.id}fz`)) * floatStrength
+        n.vx = 0
+        n.vy = 0
+        if (n.z != null) n.vz = 0
         continue
       }
 
@@ -180,9 +211,16 @@ function createRadialSpreadForce(degreeById: Map<string, number>) {
       const zJitter = crossR * Math.sin(crossAngle)
       const ryFlat = Math.sin(angle) * radius
 
-      n.x = Math.cos(angle) * radius
-      n.y = ryFlat * Math.cos(tiltRad) - zJitter * Math.sin(tiltRad)
-      if (n.z != null) n.z = ryFlat * Math.sin(tiltRad) + zJitter * Math.cos(tiltRad)
+      // Kleine Schwebe-Auslenkung um die exakte Ring-Position, damit die äußeren Knoten nicht
+      // komplett starr wirken — Amplitude bewusst klein gegenüber Ring-/Röhren-Radius.
+      const floatAmp = 5
+      const floatX = Math.sin(floatT + phaseFromId(`${n.id}fx`)) * floatAmp
+      const floatY = Math.cos(floatT * 0.8 + phaseFromId(`${n.id}fy`)) * floatAmp
+      const floatZ = Math.sin(floatT * 0.65 + phaseFromId(`${n.id}fz`)) * floatAmp
+
+      n.x = Math.cos(angle) * radius + floatX
+      n.y = ryFlat * Math.cos(tiltRad) - zJitter * Math.sin(tiltRad) + floatY
+      if (n.z != null) n.z = ryFlat * Math.sin(tiltRad) + zJitter * Math.cos(tiltRad) + floatZ
       n.vx = 0
       n.vy = 0
       if (n.z != null) n.vz = 0
@@ -198,6 +236,7 @@ function createRadialSpreadForce(degreeById: Map<string, number>) {
       .sort((a, b) => a.id.localeCompare(b.id))
     ringIndexById = new Map(ringNodes.map((n, i) => [n.id, i]))
     ringCount = ringNodes.length
+    anchorById = new Map()
   }
 
   return force

@@ -113,7 +113,33 @@
       "Bash(curl -s -o /dev/null -w \"history-api: %{http_code}\\\\n\" http://localhost:3000/api/jarvis/history)",
       "Bash(grep -rln \"auth.getUser\\\\|auth.getSession\" app/\\\\\\(public\\\\\\))",
       "Bash(grep -n \"getUser\\\\|getSession\" \"app/\\(public\\)/layout.tsx\")",
-      "Bash(mkdir -p \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\app\\\\\\(admin\\)\\\\admin\\\\products\\\\packages\\\\[pkt_nr]\")"
+      "Bash(mkdir -p \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\app\\\\\\(admin\\)\\\\admin\\\\products\\\\packages\\\\[pkt_nr]\")",
+      "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp OK'\\)\")",
+      "Bash(tasklist)",
+      "Bash(node -e \"console.log\\(require.resolve\\('playwright'\\)\\)\")",
+      "Bash(node --env-file=.env.local node_modules/.bin/tsx scratch-test-upload.ts)",
+      "Bash(npx --node-options=--env-file=.env.local tsx scratch-test-upload.ts)",
+      "Bash(tasklist //FI \"PID eq 33228\")",
+      "Bash(cd /tmp)",
+      "Bash(head -c 5000000 /dev/urandom)",
+      "Bash(dd if=/dev/zero of=big.bin bs=1024 count=5000)",
+      "Bash(curl -sS -D - -o /tmp/response.html -X POST http://localhost:3000/portal/documents -H 'Next-Action: 60b80d844e7cf7fcf4e873f8b20ca8bcc7b114b994' -H 'Accept: text/x-component' -F '1_file=@/tmp/big.bin;type=application/pdf;filename=test-document.pdf' -F 1_project_id= -F 1_folder=)",
+      "Bash(curl -sS -D /tmp/headers.txt -o /tmp/response.html -X POST http://localhost:3000/portal/documents -H 'Next-Action: 60b80d844e7cf7fcf4e873f8b20ca8bcc7b114b994' -H 'Accept: text/x-component' -F '1_file=@big.bin;type=application/pdf;filename=test-document.pdf' -F 1_project_id= -F 1_folder=)",
+      "Bash(rm -f /tmp/big.bin /tmp/response.html /tmp/headers.txt)",
+      "Bash(node -e \"console.log\\(new Date\\(1783625782512\\).toString\\(\\)\\)\")",
+      "Bash(node -e \"console.log\\(new Date\\(1783626568017\\).toString\\(\\)\\)\")",
+      "Bash(stat -c '%y %n' next.config.ts)",
+      "Bash(powershell -c \"\\(Get-Item next.config.ts\\).LastWriteTime\")",
+      "Bash(tasklist //FI \"IMAGENAME eq node.exe\")",
+      "PowerShell(Get-NetTCPConnection -State Listen | Where-Object {$_.LocalPort -eq 3000} | Format-Table -AutoSize; Get-Process -Id 22188,33228,33376 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,StartTime)",
+      "Read(//c/Users/eschu/Desktop/Unternehmensstруктур/07-Projekte/Schuck-Webdesign/**)",
+      "Bash(cd \"c:/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/Schuck-Redesign\" && cat .next/dev/lock 2>/dev/null && echo && stat -c '%y %n' next.config.ts lib/uploadLimits.ts 2>/dev/null)",
+      "Read(//c/Users/eschu/Desktop/Unternehmensstruktur/07-Projekte/Schuck-Webdesign/Schuck-Redesign/**)",
+      "PowerShell(Get-NetTCPConnection -State Listen | Where-Object {$_.LocalPort -ge 3000 -and $_.LocalPort -le 3010} | Select-Object LocalPort,OwningProcess | Sort-Object LocalPort -Unique)",
+      "Bash(npx playwright *)",
+      "Bash(ls \"C:/Users/eschu/AppData/Local/ms-playwright\" 2>&1)",
+      "Read(//c/Users/eschu/AppData/Local/ms-playwright/**)",
+      "Bash(rm -f scratch-repro-upload.ts scratch-build-cookie.ts scratch-session.json scratch-cookie.txt scratch-result.png scratch-test.m4a)"
     ],
     "additionalDirectories": [
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign",
@@ -122,7 +148,9 @@
       "C:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\05-Arbeit & Business\\Schuck Webdesign",
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(admin)\\admin\\akquise",
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(admin)\\admin\\projects\\[id]",
-      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(admin)\\admin\\products\\packages\\[pkt_nr]"
+      "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\(admin)\\admin\\products\\packages\\[pkt_nr]",
+      "\\tmp",
+      "C:\\Users\\eschu\\AppData\\Local\\ms-playwright"
     ]
   }
 }
