@@ -278,10 +278,12 @@ function UploadForm({
 
   useEffect(() => {
     if (!preSelectedFile || !fileInputRef.current) return
+    if (!acceptFile(preSelectedFile)) return
     const dt = new DataTransfer()
     dt.items.add(preSelectedFile)
     fileInputRef.current.files = dt.files
     setSelectedFile(preSelectedFile.name)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preSelectedFile])
 
   useEffect(() => {
