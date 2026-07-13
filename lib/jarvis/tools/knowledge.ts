@@ -223,15 +223,24 @@ const writeSessionLog: JarvisTool = {
     input_schema: {
       type: 'object',
       properties: {
+        title: {
+          type: 'string',
+          description:
+            'Kurzer, inhaltlicher Titel wie eine E-Mail-Betreffzeile (3–8 Wörter, z.B. "Rechnung für ' +
+            'Bobby Stöcker klären" oder "Domainumzug Spirit of Soul besprochen") — KEIN generisches ' +
+            '"Gespräch" + Datum, das Datum wird separat angezeigt. Muss das eigentliche Thema erkennen ' +
+            'lassen, damit mehrere Sessions am selben Tag in der Liste unterscheidbar sind.',
+        },
         summary: { type: 'string', description: 'Kurze Zusammenfassung des Gesprächs.' },
         client_ids: { type: 'array', items: { type: 'string' }, description: 'UUIDs betroffener Kunden (optional).' },
         project_ids: { type: 'array', items: { type: 'string' }, description: 'UUIDs betroffener Projekte (optional).' },
       },
-      required: ['summary'],
+      required: ['title', 'summary'],
     },
   },
   async execute(args) {
     return knowledgeDomain.writeSessionLog({
+      title: requireString(args, 'title'),
       summary: requireString(args, 'summary'),
       clientIds: optionalStringArray(args, 'client_ids'),
       projectIds: optionalStringArray(args, 'project_ids'),

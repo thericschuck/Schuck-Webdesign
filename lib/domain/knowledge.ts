@@ -339,6 +339,7 @@ export async function listSessionLogs(filter: ListSessionLogsFilter = {}) {
 }
 
 export interface WriteSessionLogInput {
+  title: string
   summary: string
   clientIds?: string[]
   projectIds?: string[]
@@ -348,15 +349,19 @@ export interface WriteSessionLogInput {
  * Legt einen session-Knoten + conversation_logs-Zeile an und verlinkt (part_of_session)
  * zu den Client-/Projekt-Knoten der übergebenen IDs, sofern vorhanden. `messages` bleibt
  * leer — Tools bekommen keinen Zugriff auf die rohe Conversation (nur `args`), das Modell
- * liefert stattdessen einen selbst verfassten summary-Text.
+ * liefert stattdessen einen selbst verfassten summary-Text. Das Label ist ein inhaltlicher,
+ * von JARVIS verfasster Titel statt nur des Datums — sonst heißen mehrere Sessions am
+ * selben Tag alle identisch ("Gespräch DD.MM.YYYY") und sind in der Liste (die das Datum
+ * ohnehin separat anzeigt) nicht mehr auf einen Blick unterscheidbar.
  */
 export async function writeSessionLog(input: WriteSessionLogInput): Promise<{ nodeId: string }> {
   const summary = input.summary.trim()
   if (!summary) throw new DomainError('summary ist erforderlich.')
+  const title = input.title.trim() || `Gespräch ${new Date().toLocaleDateString('de-DE')}`
 
   const sessionNode = await addNode({
     type: 'session',
-    label: `Gespräch ${new Date().toLocaleDateString('de-DE')}`,
+    label: title,
     body: summary,
     source: 'jarvis_auto',
   })
