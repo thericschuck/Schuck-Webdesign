@@ -547,6 +547,13 @@ export type Database = {
           conversation: Json
           expires_at: string
           created_at: string
+          run_id: string | null
+          step_id: string | null
+          action_type: string | null
+          payload: Json | null
+          status: 'pending' | 'approved' | 'rejected' | 'expired' | null
+          decided_by: string | null
+          decided_at: string | null
         }
         Insert: {
           id?: string
@@ -555,6 +562,13 @@ export type Database = {
           conversation: Json
           expires_at?: string
           created_at?: string
+          run_id?: string | null
+          step_id?: string | null
+          action_type?: string | null
+          payload?: Json | null
+          status?: 'pending' | 'approved' | 'rejected' | 'expired' | null
+          decided_by?: string | null
+          decided_at?: string | null
         }
         Update: {
           id?: string
@@ -563,8 +577,436 @@ export type Database = {
           conversation?: Json
           expires_at?: string
           created_at?: string
+          run_id?: string | null
+          step_id?: string | null
+          action_type?: string | null
+          payload?: Json | null
+          status?: 'pending' | 'approved' | 'rejected' | 'expired' | null
+          decided_by?: string | null
+          decided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'pending_actions_run_id_fkey'
+            columns: ['run_id']
+            isOneToOne: false
+            referencedRelation: 'agent_runs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'pending_actions_step_id_fkey'
+            columns: ['step_id']
+            isOneToOne: false
+            referencedRelation: 'agent_steps'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      agents: {
+        Row: {
+          id: string
+          slug: string
+          name: string
+          role: string | null
+          system_prompt: string
+          model: string
+          parent_agent_id: string | null
+          config: Json | null
+          status: 'active' | 'inactive'
+          position: Json | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          slug: string
+          name: string
+          role?: string | null
+          system_prompt: string
+          model?: string
+          parent_agent_id?: string | null
+          config?: Json | null
+          status?: 'active' | 'inactive'
+          position?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          slug?: string
+          name?: string
+          role?: string | null
+          system_prompt?: string
+          model?: string
+          parent_agent_id?: string | null
+          config?: Json | null
+          status?: 'active' | 'inactive'
+          position?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agents_parent_agent_id_fkey'
+            columns: ['parent_agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      tools: {
+        Row: {
+          id: string
+          slug: string
+          name: string
+          description: string | null
+          input_schema: Json
+          is_irreversible: boolean | null
+          timeout_ms: number | null
+        }
+        Insert: {
+          id?: string
+          slug: string
+          name: string
+          description?: string | null
+          input_schema: Json
+          is_irreversible?: boolean | null
+          timeout_ms?: number | null
+        }
+        Update: {
+          id?: string
+          slug?: string
+          name?: string
+          description?: string | null
+          input_schema?: Json
+          is_irreversible?: boolean | null
+          timeout_ms?: number | null
         }
         Relationships: []
+      }
+      agent_tools: {
+        Row: {
+          agent_id: string
+          tool_id: string
+        }
+        Insert: {
+          agent_id: string
+          tool_id: string
+        }
+        Update: {
+          agent_id?: string
+          tool_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_tools_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_tools_tool_id_fkey'
+            columns: ['tool_id']
+            isOneToOne: false
+            referencedRelation: 'tools'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      agent_runs: {
+        Row: {
+          id: string
+          session_id: string
+          agent_id: string | null
+          parent_run_id: string | null
+          trigger: string | null
+          task: string | null
+          status: 'queued' | 'running' | 'waiting_human' | 'succeeded' | 'failed' | 'cancelled'
+          retry_count: number | null
+          result: Json | null
+          error: Json | null
+          started_at: string | null
+          ended_at: string | null
+          created_at: string | null
+          significance: 'trivial' | 'normal' | 'notable'
+        }
+        Insert: {
+          id?: string
+          session_id?: string
+          agent_id?: string | null
+          parent_run_id?: string | null
+          trigger?: string | null
+          task?: string | null
+          status?: 'queued' | 'running' | 'waiting_human' | 'succeeded' | 'failed' | 'cancelled'
+          retry_count?: number | null
+          result?: Json | null
+          error?: Json | null
+          started_at?: string | null
+          ended_at?: string | null
+          created_at?: string | null
+          significance?: 'trivial' | 'normal' | 'notable'
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          agent_id?: string | null
+          parent_run_id?: string | null
+          trigger?: string | null
+          task?: string | null
+          status?: 'queued' | 'running' | 'waiting_human' | 'succeeded' | 'failed' | 'cancelled'
+          retry_count?: number | null
+          result?: Json | null
+          error?: Json | null
+          started_at?: string | null
+          ended_at?: string | null
+          created_at?: string | null
+          significance?: 'trivial' | 'normal' | 'notable'
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_runs_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_runs_parent_run_id_fkey'
+            columns: ['parent_run_id']
+            isOneToOne: false
+            referencedRelation: 'agent_runs'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      agent_steps: {
+        Row: {
+          id: string
+          run_id: string | null
+          parent_step_id: string | null
+          seq: number
+          type: 'reasoning' | 'llm' | 'tool_call' | 'tool_result' | 'handoff' | 'error'
+          agent_id: string | null
+          tool_slug: string | null
+          input: Json | null
+          output: Json | null
+          status: 'running' | 'done' | 'error' | null
+          duration_ms: number | null
+          tokens_used: number | null
+          retry_count: number | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          run_id?: string | null
+          parent_step_id?: string | null
+          seq: number
+          type: 'reasoning' | 'llm' | 'tool_call' | 'tool_result' | 'handoff' | 'error'
+          agent_id?: string | null
+          tool_slug?: string | null
+          input?: Json | null
+          output?: Json | null
+          status?: 'running' | 'done' | 'error' | null
+          duration_ms?: number | null
+          tokens_used?: number | null
+          retry_count?: number | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          run_id?: string | null
+          parent_step_id?: string | null
+          seq?: number
+          type?: 'reasoning' | 'llm' | 'tool_call' | 'tool_result' | 'handoff' | 'error'
+          agent_id?: string | null
+          tool_slug?: string | null
+          input?: Json | null
+          output?: Json | null
+          status?: 'running' | 'done' | 'error' | null
+          duration_ms?: number | null
+          tokens_used?: number | null
+          retry_count?: number | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_steps_run_id_fkey'
+            columns: ['run_id']
+            isOneToOne: false
+            referencedRelation: 'agent_runs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_steps_parent_step_id_fkey'
+            columns: ['parent_step_id']
+            isOneToOne: false
+            referencedRelation: 'agent_steps'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_steps_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      agent_messages: {
+        Row: {
+          id: string
+          run_id: string | null
+          from_agent_id: string | null
+          to_agent_id: string | null
+          role: string | null
+          content: Json | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          run_id?: string | null
+          from_agent_id?: string | null
+          to_agent_id?: string | null
+          role?: string | null
+          content?: Json | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          run_id?: string | null
+          from_agent_id?: string | null
+          to_agent_id?: string | null
+          role?: string | null
+          content?: Json | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_messages_run_id_fkey'
+            columns: ['run_id']
+            isOneToOne: false
+            referencedRelation: 'agent_runs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_messages_from_agent_id_fkey'
+            columns: ['from_agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_messages_to_agent_id_fkey'
+            columns: ['to_agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      deliverables: {
+        Row: {
+          id: string
+          run_id: string | null
+          client_id: string | null
+          project_id: string | null
+          type: string
+          title: string
+          storage_path: string
+          mime_type: string | null
+          status: 'draft' | 'sent' | 'archived'
+          sent_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          run_id?: string | null
+          client_id?: string | null
+          project_id?: string | null
+          type: string
+          title: string
+          storage_path: string
+          mime_type?: string | null
+          status?: 'draft' | 'sent' | 'archived'
+          sent_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          run_id?: string | null
+          client_id?: string | null
+          project_id?: string | null
+          type?: string
+          title?: string
+          storage_path?: string
+          mime_type?: string | null
+          status?: 'draft' | 'sent' | 'archived'
+          sent_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'deliverables_run_id_fkey'
+            columns: ['run_id']
+            isOneToOne: false
+            referencedRelation: 'agent_runs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'deliverables_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: false
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'deliverables_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      scheduled_tasks: {
+        Row: {
+          id: string
+          agent_id: string | null
+          cron_expr: string
+          task_template: string
+          scope: string | null
+          active: boolean | null
+          last_run_at: string | null
+        }
+        Insert: {
+          id?: string
+          agent_id?: string | null
+          cron_expr: string
+          task_template: string
+          scope?: string | null
+          active?: boolean | null
+          last_run_at?: string | null
+        }
+        Update: {
+          id?: string
+          agent_id?: string | null
+          cron_expr?: string
+          task_template?: string
+          scope?: string | null
+          active?: boolean | null
+          last_run_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'scheduled_tasks_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          }
+        ]
       }
       articles: {
         Row: {

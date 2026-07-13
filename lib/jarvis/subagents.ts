@@ -1,14 +1,23 @@
 export interface SubAgentDefinition {
-  /** Auch der Tool-Name, unter dem der Haupt-Orchestrator diesen Sub-Agenten aufruft. */
+  /** Auch der Tool-Name, unter dem der Haupt-Orchestrator diesen Sub-Agenten aufruft
+   * — UND der agents.slug in der DB (lib/jarvis/tools/subagents.ts löst darüber auf). */
   name: string
   label: string
   systemPrompt: string
   /**
+   * NICHT mehr die Laufzeit-Quelle der zugeordneten Tools — public.agent_tools ist das
+   * jetzt (siehe lib/jarvis/tools/subagents.ts#buildScopedRegistry). Dieses Array dient
+   * nur noch als Referenz/Startdaten für scripts/import/sync-agent-tools.ts, das damit
+   * die initialen agent_tools-Zeilen anlegt. Nachträgliche Änderungen an den Tool-
+   * Zuordnungen passieren in der DB, nicht mehr hier.
+   *
    * MUSS ausschließlich requiresConfirmation:false-Tools referenzieren — ein Sub-Agent
    * läuft als gekapselter Aufruf innerhalb EINES Tool-Executes des Haupt-Orchestrators,
    * der bereits pausierte Bestätigungs-Flow (pending_actions) lässt sich aus dieser
    * Verschachtelung heraus nicht sauber nach außen durchreichen. Schreibaktionen bleiben
-   * deshalb Tools des Haupt-Orchestrators; Sub-Agenten sammeln/analysieren nur.
+   * deshalb Tools des Haupt-Orchestrators; Sub-Agenten sammeln/analysieren nur. Wird zur
+   * Laufzeit trotzdem durchgesetzt: buildScopedRegistry wirft, falls agent_tools ein
+   * bestätigungspflichtiges Tool referenziert.
    */
   toolNames: string[]
 }
