@@ -139,7 +139,10 @@
       "Bash(npx playwright *)",
       "Bash(ls \"C:/Users/eschu/AppData/Local/ms-playwright\" 2>&1)",
       "Read(//c/Users/eschu/AppData/Local/ms-playwright/**)",
-      "Bash(rm -f scratch-repro-upload.ts scratch-build-cookie.ts scratch-session.json scratch-cookie.txt scratch-result.png scratch-test.m4a)"
+      "Bash(rm -f scratch-repro-upload.ts scratch-build-cookie.ts scratch-session.json scratch-cookie.txt scratch-result.png scratch-test.m4a)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "mcp__claude_ai_Supabase__list_migrations"
     ],
     "additionalDirectories": [
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign",

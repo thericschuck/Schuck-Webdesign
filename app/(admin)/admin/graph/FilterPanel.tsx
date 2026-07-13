@@ -31,6 +31,7 @@ export function FilterPanel({
   truncated,
   renderMode,
   onRenderModeChange,
+  onClose,
 }: {
   typeCounts: TypeCount[]
   visibleTypes: Set<string>
@@ -45,16 +46,32 @@ export function FilterPanel({
   truncated: boolean
   renderMode: RenderMode
   onRenderModeChange: (mode: RenderMode) => void
+  /** Nur auf Mobile gesetzt (Bottom-Sheet) — zeigt einen Schließen-Button, den das dauerhaft
+   * offene Desktop-Panel nicht braucht. */
+  onClose?: () => void
 }) {
   return (
-    <div className="w-72 shrink-0 flex flex-col gap-5 bg-white/3 backdrop-blur-xl border border-white/8 border-t-white/12 rounded-2xl shadow-2xl shadow-black/60 p-5 max-h-full overflow-y-auto">
-      <div>
-        <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-playfair)' }}>
-          System-Graph
-        </h1>
-        <p className="text-white/40 text-xs mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          Explorativ — bearbeitet wird auf den Detailseiten.
-        </p>
+    <div className="w-full md:w-72 shrink-0 min-h-0 flex flex-col gap-5 bg-white/3 backdrop-blur-xl border border-white/8 border-t-white/12 rounded-t-2xl md:rounded-2xl shadow-2xl shadow-black/60 p-5 max-h-full overflow-y-auto">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-playfair)' }}>
+            System-Graph
+          </h1>
+          <p className="text-white/40 text-xs mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            Explorativ — bearbeitet wird auf den Detailseiten.
+          </p>
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+            aria-label="Schließen"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div>

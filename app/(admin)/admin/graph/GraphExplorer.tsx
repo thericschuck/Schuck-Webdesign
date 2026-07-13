@@ -112,7 +112,7 @@ function radiusForType(type: string, table: { client: number; project: number; o
   return table.other
 }
 const NODE_RADIUS_3D = { client: 24, project: 16, other: 9 }
-const NODE_RADIUS_2D = { client: 16, project: 11, other: 7 }
+const NODE_RADIUS_2D = { client: 20, project: 13, other: 7 }
 
 type ForceNode = SimNode & { vx?: number; vy?: number; vz?: number }
 
@@ -257,6 +257,9 @@ export function GraphExplorer() {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [loadingNeighborhood, setLoadingNeighborhood] = useState(false)
   const [loadedNeighborhoods, setLoadedNeighborhoods] = useState<Set<string>>(new Set())
+  // Auf Mobile ist kein Platz für das immer offene Filter-Panel (es würde den ganzen Graphen
+  // verdecken) — dort startet es eingeklappt und wird über einen kleinen Toggle-Button geöffnet.
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
   // react-force-graph-2d/3d werden per next/dynamic geladen — die generischen Prop-Typen der
   // Module gehen dabei verloren, daher hier bewusst `any` statt gegen ForceGraphMethods<> zu kämpfen.
@@ -425,17 +428,72 @@ export function GraphExplorer() {
     // alle Richtung Ursprung zusammengehalten zu werden.
     if (center) center.strength(0.006)
     fg.d3Force('radialSpread', createRadialSpreadForce(degreeById))
-
-    // Kamera neu einrahmen: Der Ring ist inzwischen deutlich größer als die Default-Framing-
-    // Distanz der Bibliothek (die beim allerersten Mount berechnet wird, bevor unsere Kraft die
-    // finale Ring-Größe gesetzt hat). Ohne das steckt die Kamera zu nah "im" Ring und man sieht
-    // nur einen flachen Ausschnitt ("Platte") statt der ganzen Kreisform. Kurzer Timeout, damit
-    // die warmupTicks-Positionen sicher angewendet sind, bevor die Bounding-Box berechnet wird.
-    const fitTimer = setTimeout(() => {
-      fg.zoomToFit?.(800, 80)
-    }, 120)
-    return () => clearTimeout(fitTimer)
   }, [graphReady, renderMode, filteredNodes, filteredEdges, degreeById])
+
+  /** 2D-Physik ebenfalls etwas lockerer als die Bibliotheks-Defaults: mehr Link-Distanz und
+   * Abstoßung, damit dicht verlinkte Cluster nicht so eng zusammenklumpen (Bibliotheks-Default
+   * ist sehr eng, dadurch wirkten verbundene Knoten wie übereinander gestapelt). */
+  useEffect(() => {
+    if (!graphReady || renderMode !== '2d') return
+    const fg = graphRef.current
+    if (!fg) return
+    const charge = fg.d3Force('charge')
+    if (charge) charge.strength(-160).distanceMax(600)
+    const link = fg.d3Force('link')
+    if (link) link.distance(70)
+  }, [graphReady, renderMode])
+
+  /** Kamera neu einrahmen — bei jedem echten Re-Fit-Anlass: initial (nach warmupTicks), bei
+   * Größenänderung des Containers und wenn sich die gefilterte Knotenmenge ändert (z.B.
+   * Fokus-Modus). Bewusst NICHT über `fg.zoomToFit()` (dessen interne Formel
+   * `paddedFov = (1 - padding*2/state.height) * camera.fov` verrechnet das Padding gegen die
+   * reine Pixel-Höhe, und `camera.aspect` kann kurz nach einer Größenänderung noch den alten
+   * Wert haben — auf schmalen Mobile-Viewports/direkt nach dem Resize führte das zu einer
+   * falschen Kamera-Distanz und einem leeren/schwarzen Bild). Stattdessen wird die nötige
+   * Distanz selbst aus dem tatsächlichen, aktuellen Abstand aller sichtbaren Knoten zum Ursprung
+   * berechnet (`simNodeRegistryRef`, von den Render-Callbacks laufend aktualisiert) und mit
+   * `size.width/height` (unsere eigenen, garantiert aktuellen Werte) statt `camera.aspect`
+   * verrechnet. Die bisherige Blickrichtung der Kamera bleibt erhalten (nur die Distanz wird
+   * korrigiert), damit Auto-Rotation/manuelles Drehen nicht bei jedem Re-Fit zurückgesetzt wird. */
+  useEffect(() => {
+    if (!graphReady || renderMode !== '3d') return
+    const fg = graphRef.current
+    if (!fg) return
+    const fitTimer = setTimeout(() => {
+      const camera = fg.camera?.()
+      if (!camera) return
+
+      let maxExtent = 0
+      for (const n of filteredNodes) {
+        const sn = simNodeRegistryRef.current.get(n.id)
+        if (!sn || sn.x == null || sn.y == null) continue
+        const d = Math.hypot(sn.x, sn.y, sn.z ?? 0)
+        if (d > maxExtent) maxExtent = d
+      }
+      if (maxExtent === 0) maxExtent = 980 + 300 // Fallback: Ring noch nicht positioniert
+
+      const fov = camera.fov ?? 50
+      const aspect = size.width / Math.max(size.height, 1)
+      const vDist = maxExtent / Math.tan((fov * Math.PI) / 360)
+      const hDist = vDist / Math.max(aspect, 0.35)
+      const distance = Math.max(vDist, hDist) * 1.2
+
+      const dir = new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z)
+      if (dir.lengthSq() < 1) dir.set(0.6, 0.35, 0.7)
+      dir.normalize().multiplyScalar(distance)
+      // TEMP-DEBUG: wieder entfernen, sobald das Mobile-Framing-Problem gefunden ist.
+      console.log('[graph-fit]', {
+        sizeW: size.width, sizeH: size.height, aspect,
+        fov, maxExtent, vDist, hDist, distance,
+        camBefore: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        camAfter: { x: dir.x, y: dir.y, z: dir.z },
+        nodeCount: filteredNodes.length,
+        registrySize: simNodeRegistryRef.current.size,
+      })
+      fg.cameraPosition({ x: dir.x, y: dir.y, z: dir.z }, { x: 0, y: 0, z: 0 }, 500)
+    }, 150)
+    return () => clearTimeout(fitTimer)
+  }, [graphReady, renderMode, filteredNodes, size.width, size.height])
 
   /** Sanfte Kamera-Rotation im Leerlauf — nur im 3D-Modus (OrbitControls), pausiert sofort bei
    * Drag/Zoom, setzt nach kurzer Pause wieder ein. */
@@ -743,6 +801,7 @@ export function GraphExplorer() {
   }
 
   return (
+    <>
     <div className={shellClass}>
       {/* Ambient-Glow-Hintergrund, angelehnt an die Hero-Section der Landingpage (#080808 + #7F77DD-Radialverlauf) */}
       <div
@@ -756,7 +815,10 @@ export function GraphExplorer() {
         style={{ background: 'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.6) 100%)' }}
       />
 
-      <div ref={containerRef} className="absolute inset-0">
+      {/* touchAction: 'none' verhindert, dass der Browser 2-Finger-Gesten (Pinch/Pan) als
+          native Seiten-Zoom/Scroll abfängt statt sie an OrbitControls' Touch-Handling
+          durchzureichen — ohne das funktioniert Pan/Zoom per Touch auf Mobile nicht zuverlässig. */}
+      <div ref={containerRef} className="absolute inset-0" style={{ touchAction: 'none' }}>
         {renderMode === '3d' ? (
           <ForceGraph3D
             ref={graphRef}
@@ -816,7 +878,9 @@ export function GraphExplorer() {
         )}
       </div>
 
-      <div className="absolute top-5 left-5 bottom-5 z-20 pointer-events-none">
+      {/* Desktop: Panel bleibt wie bisher permanent links offen — schmal genug, um den Graphen
+          nicht zu verdecken. Auf Mobile ist dafür kein Platz, siehe Toggle/Bottom-Sheet unten. */}
+      <div className="hidden md:block absolute top-5 left-5 bottom-5 z-20 pointer-events-none">
         <div className="pointer-events-auto h-full">
           <FilterPanel
             typeCounts={typeCounts}
@@ -836,17 +900,71 @@ export function GraphExplorer() {
         </div>
       </div>
 
-      {selectedNode && (
-        <NodePanel
-          node={selectedNode}
-          onClose={() => setSelectedNode(null)}
-          connections={selectedConnections}
-          onSelectConnection={selectNodeById}
-          showLoadNeighborhood={truncated && !loadedNeighborhoods.has(selectedNode.id)}
-          loadingNeighborhood={loadingNeighborhood}
-          onLoadNeighborhood={handleLoadNeighborhood}
-        />
+      {/* Mobile: Panel startet eingeklappt (Graph bleibt voll sichtbar/bedienbar), ein kleiner
+          Toggle-Button öffnet es als Bottom-Sheet statt es dauerhaft über den Bildschirm zu legen.
+          Links platziert (nicht bottom-5 right-5), weil dort schon der JARVIS-Bubble sitzt
+          (components/admin/JarvisWidget.tsx, z-50) — sonst überlappen sich beide Buttons. */}
+      <button
+        onClick={() => setMobileFiltersOpen(true)}
+        className="md:hidden absolute bottom-5 left-5 z-20 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/8 backdrop-blur-xl border border-white/12 text-white text-sm font-medium shadow-2xl shadow-black/60"
+        style={{ fontFamily: 'var(--font-dm-sans)' }}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+        </svg>
+        Filter
+      </button>
+
+      {mobileFiltersOpen && (
+        // z-[60]: höher als JARVIS' Bubble/Chat-Fenster (z-50) — sonst schwebt der Bubble
+        // sichtbar über dem geöffneten Sheet statt dahinter zu verschwinden.
+        <div className="md:hidden fixed inset-0 z-60 flex items-end">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileFiltersOpen(false)} />
+          {/* flex + max-h (statt nur max-height auf einem reinen Block-Element) gibt dem Kind
+              eine tatsächlich nutzbare Höhenbegrenzung — sonst greift `max-h-full` in
+              FilterPanel nicht (Prozent-Höhen brauchen einen Vorfahren mit definierter Höhe).
+              `dvh` statt `vh`: mobile Browser rechnen `vh` gegen die Viewport-Höhe OHNE
+              Adressleiste/Toolbar — das Sheet ragt dadurch unten über den tatsächlich
+              sichtbaren Bereich hinaus. `dvh` (dynamic viewport height) berücksichtigt die
+              wirklich sichtbare Höhe inkl. Browser-Chrome. */}
+          <div className="relative w-full max-h-[80dvh] flex flex-col">
+            <FilterPanel
+              typeCounts={typeCounts}
+              visibleTypes={visibleTypes}
+              onToggleType={toggleType}
+              search={search}
+              onSearchChange={setSearch}
+              onSearchSubmit={handleSearchSubmit}
+              clientOptions={clientOptions}
+              focusClientId={focusClientId}
+              onFocusChange={setFocusClientId}
+              totalCount={totalCount}
+              truncated={truncated}
+              renderMode={renderMode}
+              onRenderModeChange={setRenderMode}
+              onClose={() => setMobileFiltersOpen(false)}
+            />
+          </div>
+        </div>
       )}
+
     </div>
+
+    {/* Außerhalb von shellClass (dessen `overflow-hidden` auf Mobile nur den Bereich UNTER der
+        Topbar abdeckt, siehe shellClass' `top-14`) — NodePanel ist `fixed inset-y-0` (volle
+        Bildschirmhöhe von y=0), würde also sonst am oberen Rand inkl. Schließen-Button
+        abgeschnitten, weil dieser Bereich außerhalb von shellClass' eigener Box liegt. */}
+    {selectedNode && (
+      <NodePanel
+        node={selectedNode}
+        onClose={() => setSelectedNode(null)}
+        connections={selectedConnections}
+        onSelectConnection={selectNodeById}
+        showLoadNeighborhood={truncated && !loadedNeighborhoods.has(selectedNode.id)}
+        loadingNeighborhood={loadingNeighborhood}
+        onLoadNeighborhood={handleLoadNeighborhood}
+      />
+    )}
+    </>
   )
 }
