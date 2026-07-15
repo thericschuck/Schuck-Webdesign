@@ -2,6 +2,8 @@ import { assertAdmin } from '@/lib/auth/assert-admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createJarvisStream, SSE_HEADERS } from '@/lib/jarvis/stream'
 import { toolRegistry } from '@/lib/jarvis/agent'
+import { finishToolCallStep } from '@/lib/jarvis/observability'
+import type { Json } from '@/types/database'
 import type Anthropic from '@anthropic-ai/sdk'
 
 export const runtime = 'nodejs'
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
 
   let toolResultContent: string
   let isError = false
+  const stepStartedAt = Date.now()
 
   if (decision === 'reject') {
     toolResultContent = 'Vom Nutzer abgelehnt.'
@@ -94,6 +97,18 @@ export async function POST(request: Request) {
     }
   }
 
+  // Schließt den agent_steps-Eintrag ab, der beim Pausieren für diesen Tool-Call
+  // angelegt wurde (siehe agent.ts) — sonst bliebe er dauerhaft auf status='running'.
+  if (pending.step_id) {
+    await finishToolCallStep({
+      stepId: pending.step_id,
+      status: isError ? 'error' : 'done',
+      output: { text: toolResultContent } as Json,
+      durationMs: Date.now() - stepStartedAt,
+      retryCount: 0,
+    })
+  }
+
   const resumedConversation: Anthropic.MessageParam[] = [
     ...conversation,
     {
@@ -109,5 +124,8 @@ export async function POST(request: Request) {
     },
   ]
 
-  return new Response(createJarvisStream(resumedConversation, { profileId: user.id }), { headers: SSE_HEADERS })
+  return new Response(
+    createJarvisStream(resumedConversation, { profileId: user.id, existingRunId: pending.run_id ?? undefined }),
+    { headers: SSE_HEADERS }
+  )
 }

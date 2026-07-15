@@ -18,6 +18,10 @@ export interface JarvisStreamOptions {
    * wurde dort bereits beim ursprünglichen /chat-Call persistiert). */
   userMessage?: string
   pageContext?: PageContext | null
+  /** Fortsetzung eines pausierten Laufs nach /api/jarvis/confirm — an
+   * runJarvisAgent()s existingRunId durchgereicht, statt einen neuen
+   * agent_runs-Eintrag anzulegen. */
+  existingRunId?: string
 }
 
 /**
@@ -28,7 +32,7 @@ export interface JarvisStreamOptions {
  */
 export function createJarvisStream(
   conversation: Anthropic.MessageParam[],
-  { profileId, userMessage, pageContext }: JarvisStreamOptions
+  { profileId, userMessage, pageContext, existingRunId }: JarvisStreamOptions
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
 
@@ -46,6 +50,7 @@ export function createJarvisStream(
         const result = await runJarvisAgent({
           messages: conversation,
           pageContext,
+          existingRunId,
           onTextDelta: (text) => send('delta', { text }),
         })
 
@@ -57,6 +62,8 @@ export function createJarvisStream(
               tool_name: result.toolName,
               tool_args: result.toolArgs as Json,
               conversation: result.conversation as unknown as Json,
+              run_id: result.runId,
+              step_id: result.stepId,
             })
             .select('id')
             .single()

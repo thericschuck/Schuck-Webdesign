@@ -101,7 +101,7 @@ function buildSubAgentTool(def: SubAgentDefinition): JarvisTool {
         required: ['task'],
       },
     },
-    async execute(args) {
+    async execute(args, context) {
       const task = typeof args.task === 'string' ? args.task : ''
       if (!task.trim()) throw new Error('Parameter "task" ist erforderlich.')
 
@@ -111,6 +111,8 @@ function buildSubAgentTool(def: SubAgentDefinition): JarvisTool {
         messages: [{ role: 'user', content: task }],
         tools: scopedRegistry,
         systemPrompt: def.systemPrompt,
+        agentSlug: def.name,
+        parentRunId: context?.runId,
       })
 
       if (result.type === 'final') return result.text
