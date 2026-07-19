@@ -11,6 +11,14 @@ const TABS = [
 export default function JarvisLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
+  // Cockpit ist jetzt ein eigenständiger, vollflächiger Canvas (wie /admin/graph) — der
+  // Tab-Umschalter lebt dort als schwebende Pille direkt im Graphen statt hier im normalen
+  // Seitenfluss (sonst müsste der fixed-positionierte Canvas exakt unter dieser Leiste
+  // einrasten, was mit dem padded (admin)-Layout nur über fragile Pixel-Offsets ginge).
+  if (pathname === '/admin/jarvis/cockpit') {
+    return <>{children}</>
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">

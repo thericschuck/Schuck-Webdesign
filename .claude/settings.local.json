@@ -147,7 +147,8 @@
       "Bash(mkdir -p \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\app\\\\\\(admin\\)\\\\admin\\\\jarvis\\\\cockpit\" \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\app\\\\api\\\\admin\\\\jarvis\\\\cockpit\" \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\app\\\\api\\\\admin\\\\jarvis\\\\agent-runs\\\\[id]\")",
       "Bash(rm scripts/import/_verify-cockpit-realtime.ts)",
       "Bash(mkdir -p \"c:\\\\Users\\\\eschu\\\\Desktop\\\\Unternehmensstruktur\\\\07-Projekte\\\\Schuck-Webdesign\\\\Schuck-Redesign\\\\app\\\\api\\\\admin\\\\jarvis\\\\agents\\\\[id]\\\\tools\")",
-      "Bash(rm scripts/import/_verify-tool-removal.ts)"
+      "Bash(rm scripts/import/_verify-tool-removal.ts)",
+      "Bash(grep -E \"^[A-Z_]+=.+$\" .env.local)"
     ],
     "additionalDirectories": [
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign",

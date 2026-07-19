@@ -117,16 +117,39 @@ export interface AgentRunDetail {
   steps: AgentStepRow[]
 }
 
+/**
+ * Eine eigene Farbe je Agenten-Rolle (agents.role) statt eines einheitlichen Blaus für
+ * "alle Sub-Agenten" — Tools im Graphen erben die Farbe des Agenten, unter dem sie hängen
+ * (siehe flow/computeLayout.ts, das diese Funktion beim Platzieren jedes Tool-Knotens für
+ * dessen Eltern-Agenten aufruft). `executor` bekommt bewusst einen neutralen Grauton — laut
+ * JARVIS_ARCHITEKTUR_PRINZIPIEN.md ein bislang unbenutztes Scaffolding-Relikt, kein
+ * "echter" Sub-Agent wie die anderen 6.
+ */
+const AGENT_ROLE_COLOR: Record<string, string> = {
+  design: '#d55181',
+  code: '#4a90a4',
+  seo: '#199e70',
+  care: '#e66767',
+  akquise: '#c98500',
+  finanzen: '#3987e5',
+  executor: '#8a8a85',
+}
+const DEFAULT_AGENT_COLOR = '#3987e5'
+
+export function colorForAgentRole(role: string | null | undefined): string {
+  if (!role) return DEFAULT_AGENT_COLOR
+  return AGENT_ROLE_COLOR[role] ?? DEFAULT_AGENT_COLOR
+}
+
 const KIND_COLOR: Record<CockpitNodeKind, string> = {
   orchestrator: '#7F77DD',
-  agent: '#3987e5',
+  agent: DEFAULT_AGENT_COLOR,
   tool: '#c98500',
 }
 
-export function colorForNode(node: Pick<CockpitNode, 'kind' | 'agentStatus'>): string {
-  const base = KIND_COLOR[node.kind]
-  if (node.kind === 'agent' && node.agentStatus === 'inactive') return '#5a5a58'
-  return base
+export function colorForNode(node: Pick<CockpitNode, 'kind' | 'agentStatus' | 'role'>): string {
+  if (node.kind === 'agent') return colorForAgentRole(node.role)
+  return KIND_COLOR[node.kind]
 }
 
 export const KIND_LABEL: Record<CockpitNodeKind, string> = {

@@ -1,6 +1,7 @@
 import type { JarvisTool, ToolRegistry } from '../tool-types'
 import { runJarvisAgent } from '../agent'
 import { SUBAGENTS, type SubAgentDefinition } from '../subagents'
+import { AgentDisabledError } from '../errors'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { clientTools } from './clients'
 import { projectTools } from './projects'
@@ -41,7 +42,7 @@ async function buildScopedRegistry(def: SubAgentDefinition): Promise<ToolRegistr
 
   const { data: agentRow, error: agentError } = await adminClient
     .from('agents')
-    .select('id')
+    .select('id, status')
     .eq('slug', def.name)
     .maybeSingle()
 
@@ -50,6 +51,11 @@ async function buildScopedRegistry(def: SubAgentDefinition): Promise<ToolRegistr
   }
   if (!agentRow) {
     throw new Error(`Sub-Agent "${def.name}" ist nicht in public.agents angelegt (agents.slug fehlt).`)
+  }
+  // agents.status ist jetzt Laufzeit-scharf, nicht mehr nur Cockpit-Anzeige: ein über den
+  // Bearbeiten-Toggle deaktivierter Sub-Agent darf nicht mehr aufgerufen werden.
+  if (agentRow.status !== 'active') {
+    throw new AgentDisabledError(def.name)
   }
 
   const { data: rows, error } = await adminClient

@@ -5,6 +5,7 @@ import { JARVIS_COLD_START_TRIGGER } from './constants'
 import { toolRegistry as defaultToolRegistry } from './tools'
 import { SUBAGENTS } from './subagents'
 import { IntegrationError } from '@/lib/integrations/errors'
+import { AgentDisabledError } from './errors'
 import {
   startAgentRun,
   resumeAgentRun,
@@ -288,6 +289,10 @@ export async function runJarvisAgent({
             // Ein fehlender/ungültiger Schlüssel behebt sich nicht durch einen erneuten Versuch —
             // sofort eskalieren statt die 3 Retries zu verbrauchen.
             content = `Tool "${tool.name}" ist nicht verfügbar (${message}). Sag Eric ehrlich, dass der Dienst nicht konfiguriert ist, und versuch es nicht erneut.`
+          } else if (error instanceof AgentDisabledError) {
+            // Ebenfalls kein transienter Fehler — der Sub-Agent bleibt deaktiviert, bis Eric
+            // ihn im Cockpit wieder aktiviert. Sofort eskalieren statt zu wiederholen.
+            content = `Tool "${tool.name}" ist nicht verfügbar (${message}). Sag Eric ehrlich, dass dieser Sub-Agent aktuell deaktiviert ist, und versuch es nicht erneut.`
           } else {
             const failures = (toolFailureCounts.get(tool.name) ?? 0) + 1
             toolFailureCounts.set(tool.name, failures)

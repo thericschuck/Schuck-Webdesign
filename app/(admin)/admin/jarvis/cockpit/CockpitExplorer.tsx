@@ -1,76 +1,26 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
+import Link from 'next/link'
+import {
+  applyNodeChanges,
+  Controls,
+  MiniMap,
+  ReactFlow,
+  type Edge,
+  type Node,
+  type NodeChange,
+  type ReactFlowInstance,
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 import { CockpitNodePanel } from './CockpitNodePanel'
-import { colorForNode, hexToRgba, KIND_LABEL, type CockpitEdge, type CockpitNode, type CockpitPayload, type Significance } from './types'
+import { HistoryPanel } from './HistoryPanel'
+import { CONDITION_NODE_ID, DIRECT_NODE_ID, PENDING_NODE_ID, computeLayout, type FlowEdgeData } from './flow/computeLayout'
+import { NetworkBackground } from './flow/NetworkBackground'
+import { nodeTypes, type FlowNodeData } from './flow/nodeTypes'
+import type { RunVisualStatus } from './flow/StatusBadge'
+import { colorForNode, KIND_LABEL, type CockpitEdge, type CockpitNode, type CockpitPayload } from './types'
 import { useAgentRunsRealtime, type AgentRunChangeRow } from './useAgentRunsRealtime'
-
-// Greift auf window/Canvas zu — muss client-only geladen werden (wie bei der
-// Knowledge-Graph-Seite, app/(admin)/admin/graph/GraphExplorer.tsx).
-const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false })
-
-interface SimNode extends CockpitNode {
-  x?: number
-  y?: number
-}
-
-interface ActiveRunVisual {
-  significance: Significance
-  phase: 'active' | 'fading'
-  /** Zeitpunkt, seit dem die aktuelle Phase läuft — bei 'fading' der Moment des
-   * Status-Wechsels weg von 'running', nicht der Run-Start. */
-  since: number
-}
-
-/** Wie auffällig/lang ein Knoten nach Abschluss seines Runs noch nachleuchtet — Vorgabe
- * aus JARVIS_COCKPIT_KONZEPT.md: "ein trivial-Run pulsiert kurz und dezent, ein
- * notable-Run deutlich sichtbarer". Ein hartes Entfernen exakt bei Status-Wechsel würde
- * bei sehr kurzen Runs (oft <1s, siehe agent_steps duration_ms) als Flackern wirken statt
- * als wahrnehmbares Signal — daher ein kurzes Fade-out statt eines Sprungs auf 0.
- */
-const PULSE_CONFIG: Record<Significance, { ringScale: number; ringWidth: number; glowAlpha: number; periodMs: number; fadeMs: number }> = {
-  trivial: { ringScale: 1.3, ringWidth: 1.5, glowAlpha: 0.22, periodMs: 950, fadeMs: 500 },
-  normal: { ringScale: 1.55, ringWidth: 2, glowAlpha: 0.34, periodMs: 800, fadeMs: 1300 },
-  notable: { ringScale: 1.95, ringWidth: 3, glowAlpha: 0.55, periodMs: 650, fadeMs: 3000 },
-}
-
-/** Wie lang die Delegations-Partikel auf der orchestrator->agent-Kante laufen, nachdem ein
- * neuer Sub-Agent-Run angelegt wurde. */
-const DELEGATION_FLASH_MS = 2500
-
-/** Stabiler Zahlen-Hash aus der Node-ID — gleiche Technik wie in GraphExplorer.tsx,
- * bewusst hier lokal statt importiert (dort ebenfalls nur lokal genutzt, kein
- * gemeinsames Utility-Modul für diese eine kleine Funktion). */
-function phaseFromId(id: string): number {
-  let hash = 0
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) % 1000
-  return hash
-}
-
-function useElementSize<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null)
-  const [size, setSize] = useState({ width: 900, height: 560 })
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (entry) setSize({ width: entry.contentRect.width, height: entry.contentRect.height })
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  return { ref, size }
-}
-
-function radiusForNode(node: CockpitNode): number {
-  if (node.kind === 'orchestrator') return 22
-  if (node.kind === 'agent') return 14
-  return 8
-}
 
 const LEGEND: { kind: CockpitNode['kind']; label: string }[] = [
   { kind: 'orchestrator', label: KIND_LABEL.orchestrator },
@@ -78,57 +28,40 @@ const LEGEND: { kind: CockpitNode['kind']; label: string }[] = [
   { kind: 'tool', label: KIND_LABEL.tool },
 ]
 
+// Wie lange ein Knoten nach Abschluss seines Runs noch "done"/"error" zeigt, bevor er auf
+// "idle" zurückfällt — ersetzt das alte, canvas-basierte Fade-out aus der Force-Graph-Ära
+// (siehe git-Historie) durch einen einfachen Timer auf echtem React-State.
+const DONE_FADE_MS = 4000
+const ERROR_FADE_MS = 6000
+
+// Füllt den Content-Bereich randlos, lässt die Admin-Sidebar (links, z-40) und die mobile
+// Topbar (oben, z-50) aber sichtbar/erreichbar — exakt dasselbe Muster wie
+// app/(admin)/admin/graph/GraphExplorer.tsx, für ein konsistentes "Vollbild-Tool"-Gefühl.
+const shellClass = 'fixed inset-x-0 bottom-0 top-14 md:top-0 md:left-60 overflow-hidden bg-[#080808]'
+
 export function CockpitExplorer() {
   const [nodes, setNodes] = useState<CockpitNode[]>([])
   const [edges, setEdges] = useState<CockpitEdge[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedNode, setSelectedNode] = useState<CockpitNode | null>(null)
-  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const graphRef = useRef<any>(null)
-  const [graphReady, setGraphReady] = useState(false)
-  const { ref: containerRef, size } = useElementSize<HTMLDivElement>()
-  const simNodeRegistryRef = useRef<Map<string, SimNode>>(new Map())
+  // Laufstatus je Agenten-Knoten (agent:<id> -> idle/running/error/done) — gespeist 1:1 aus
+  // useAgentRunsRealtime.ts (unverändert). Echtes React-State statt Canvas-Ref, weil jeder
+  // Knoten jetzt eine echte React-Komponente ist, die auf Props reagiert, statt bei jedem
+  // Frame neu auf ein Canvas gezeichnet zu werden.
+  const [statusByNodeId, setStatusByNodeId] = useState<Map<string, RunVisualStatus>>(new Map())
+  // true, solange der aktuellste Orchestrator-Run auf 'waiting_human' steht — speist den
+  // Bestätigungs-Zweig (ConditionNode/PendingNode), siehe flow/computeLayout.ts. Nur der
+  // Orchestrator kann diesen Status je erreichen (Sub-Agenten dürfen laut buildScopedRegistry
+  // keine bestätigungspflichtigen Tools bekommen).
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
 
-  // Live-Zustand aus der Realtime-Subscription — bewusst als Ref statt State: die
-  // nodeCanvasObject/linkDirectionalParticles-Callbacks laufen über den laufenden
-  // Force-Graph-Tick (cooldownTime=Infinity, s.u.) potenziell 60x/Sekunde und lesen diese
-  // Werte bei jedem Frame frisch — ein State-Update pro Realtime-Event würde dafür unnötig
-  // oft re-rendern (gleiches Muster wie nodeVisualsRef in GraphExplorer.tsx).
-  const activeRunsRef = useRef<Map<string, ActiveRunVisual>>(new Map())
-  const flashEdgesRef = useRef<Map<string, number>>(new Map())
-
+  const flowInstanceRef = useRef<ReactFlowInstance<Node<FlowNodeData>, Edge<FlowEdgeData>> | null>(null)
+  const fadeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const nodesByIdForRealtimeRef = useRef<Map<string, CockpitNode>>(new Map())
-  const edgesForRealtimeRef = useRef<CockpitEdge[]>([])
-
-  const handleAgentRunChange = useCallback((row: AgentRunChangeRow, eventType: 'INSERT' | 'UPDATE') => {
-    if (!row.agent_id) return
-    const nodeId = `agent:${row.agent_id}`
-    // Run für einen Agenten, der (noch) nicht Teil des geladenen Graphen ist — z.B. eine
-    // Race Condition kurz nach dem initialen Fetch. Kein Grund zum Absturz, einfach ignorieren.
-    if (!nodesByIdForRealtimeRef.current.has(nodeId)) return
-
-    if (row.status === 'running' || row.status === 'queued') {
-      activeRunsRef.current.set(nodeId, { significance: row.significance, phase: 'active', since: Date.now() })
-    } else {
-      const existing = activeRunsRef.current.get(nodeId)
-      if (existing) activeRunsRef.current.set(nodeId, { ...existing, phase: 'fading', since: Date.now() })
-    }
-
-    // Partikel-Fluss orchestrator->agent nur beim eigentlichen Delegations-Moment (neuer
-    // Run), nicht bei jedem Folge-Update desselben Runs.
-    if (eventType === 'INSERT' && row.trigger === 'sub_agent') {
-      for (const e of edgesForRealtimeRef.current) {
-        if (e.type === 'delegates_to' && e.target === nodeId) {
-          flashEdgesRef.current.set(`${e.source}|${e.target}`, Date.now() + DELEGATION_FLASH_MS)
-        }
-      }
-    }
-  }, [])
-
-  const { connectionStatus } = useAgentRunsRealtime(handleAgentRunChange)
+  const orchestratorAgentIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -153,18 +86,6 @@ export function CockpitExplorer() {
     }
   }, [])
 
-  useEffect(() => {
-    setGraphReady(false)
-    graphRef.current = null
-    let raf: number
-    const check = () => {
-      if (graphRef.current) setGraphReady(true)
-      else raf = requestAnimationFrame(check)
-    }
-    check()
-    return () => cancelAnimationFrame(raf)
-  }, [])
-
   const nodesById = useMemo(() => {
     const map = new Map<string, CockpitNode>()
     for (const n of nodes) map.set(n.id, n)
@@ -175,196 +96,156 @@ export function CockpitExplorer() {
   // vollständige Tool-Liste ist ohnehin schon Teil des geladenen Graphen, kein eigener Fetch nötig.
   const allTools = useMemo(() => nodes.filter((n) => n.kind === 'tool'), [nodes])
 
+  // Realtime-Handler liest diese Refs statt direkt nodesById/nodes aus dem Closure — die
+  // Callback-Referenz von useAgentRunsRealtime bleibt dadurch stabil, während der Inhalt
+  // nach jedem Fetch aktuell ist (gleiches Muster wie vor dem Umbau).
+  useEffect(() => {
+    nodesByIdForRealtimeRef.current = nodesById
+    const orchestrator = nodes.find((n) => n.kind === 'orchestrator')
+    orchestratorAgentIdRef.current = orchestrator ? orchestrator.id.replace(/^agent:/, '') : null
+  }, [nodesById, nodes])
+
   /** Nach einer Bearbeitung im Node-Panel: aktualisiert sowohl den Graph-State (damit ein
    * Re-Öffnen des Panels den neuen Stand zeigt) als auch das aktuell offene Panel selbst —
-   * kein voller Re-Fetch von /api/admin/jarvis/cockpit, der die Force-Graph-Simulation neu
-   * starten und alle Knoten-Positionen zurücksetzen würde. */
+   * kein voller Re-Fetch von /api/admin/jarvis/cockpit, der das Layout neu würfeln und alle
+   * Karten "springen" lassen würde. */
   function handleNodeUpdate(updated: CockpitNode) {
     setNodes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
     setSelectedNode(updated)
   }
 
-  // Realtime-Handler liest diese Refs (siehe handleAgentRunChange oben) statt direkt
-  // nodesById/edges aus dem Closure — die Callback-Referenz von useAgentRunsRealtime bleibt
-  // dadurch stabil (useCallback ohne nodesById/edges als Dependency), während der Inhalt
-  // trotzdem nach jedem Fetch aktuell ist.
-  useEffect(() => {
-    nodesByIdForRealtimeRef.current = nodesById
-  }, [nodesById])
-  useEffect(() => {
-    edgesForRealtimeRef.current = edges
-  }, [edges])
+  const handleAgentRunChange = useCallback((row: AgentRunChangeRow) => {
+    if (!row.agent_id) return
+    const nodeId = `agent:${row.agent_id}`
+    // Run für einen Agenten, der (noch) nicht Teil des geladenen Graphen ist — z.B. eine
+    // Race Condition kurz nach dem initialen Fetch. Kein Grund zum Absturz, einfach ignorieren.
+    if (!nodesByIdForRealtimeRef.current.has(nodeId)) return
 
-  const connectedToHover = useMemo(() => {
-    if (!hoveredId) return null
-    const ids = new Set<string>([hoveredId])
-    for (const e of edges) {
-      if (e.source === hoveredId) ids.add(e.target)
-      if (e.target === hoveredId) ids.add(e.source)
+    const existingTimer = fadeTimersRef.current.get(nodeId)
+    if (existingTimer) {
+      clearTimeout(existingTimer)
+      fadeTimersRef.current.delete(nodeId)
     }
-    return ids
-  }, [hoveredId, edges])
 
-  // 2D-Physik-Tuning wie in GraphExplorer.tsx — etwas größere Link-Distanz, damit die
-  // Tool-Blätter um jeden Sub-Agenten sichtbar Platz zum Fächern haben.
-  useEffect(() => {
-    if (!graphReady) return
-    const fg = graphRef.current
-    if (!fg) return
-    const charge = fg.d3Force('charge')
-    if (charge) charge.strength(-180).distanceMax(500)
-    const link = fg.d3Force('link')
-    if (link) link.distance(90)
-  }, [graphReady])
+    let next: RunVisualStatus
+    if (row.status === 'running' || row.status === 'queued') next = 'running'
+    else if (row.status === 'failed') next = 'error'
+    else if (row.status === 'succeeded') next = 'done'
+    // 'waiting_human'/'cancelled': der Agenten-Knoten selbst gilt wieder als "idle" — das
+    // Warten-auf-Bestätigung-Signal lebt separat im Bestätigungs-Zweig unten, weil nur der
+    // Orchestrator diesen Status je erreicht.
+    else next = 'idle'
 
-  const graphData = useMemo(
-    () => ({
-      nodes: nodes.map((n) => ({ ...n })),
-      links: edges.map((e) => ({ ...e })),
-    }),
-    [nodes, edges]
-  )
+    setStatusByNodeId((prev) => {
+      const copy = new Map(prev)
+      copy.set(nodeId, next)
+      return copy
+    })
 
-  const linkColor = useCallback(
-    (link: unknown) => {
-      const l = link as CockpitEdge
-      const sourceId = typeof l.source === 'string' ? l.source : (l.source as CockpitNode).id
-      const targetId = typeof l.target === 'string' ? l.target : (l.target as CockpitNode).id
-      const isDimmed = connectedToHover != null && !(connectedToHover.has(sourceId) && connectedToHover.has(targetId))
-      return isDimmed ? 'rgba(255,255,255,0.05)' : 'rgba(155,144,245,0.55)'
-    },
-    [connectedToHover]
-  )
+    if (next === 'done' || next === 'error') {
+      const timer = setTimeout(
+        () => {
+          setStatusByNodeId((prev) => {
+            const copy = new Map(prev)
+            if (copy.get(nodeId) === next) copy.set(nodeId, 'idle')
+            return copy
+          })
+          fadeTimersRef.current.delete(nodeId)
+        },
+        next === 'error' ? ERROR_FADE_MS : DONE_FADE_MS
+      )
+      fadeTimersRef.current.set(nodeId, timer)
+    }
 
-  const nodeCanvasObject = useCallback(
-    (node: unknown, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      const n = node as SimNode
-      simNodeRegistryRef.current.set(n.id, n)
-      if (n.x == null || n.y == null) return
-
-      const isDimmed = connectedToHover != null && !connectedToHover.has(n.id)
-      const color = colorForNode(n)
-      const r = radiusForNode(n)
-
-      if (!isDimmed) {
-        const grd = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 2.6)
-        grd.addColorStop(0, hexToRgba(color, 0.35))
-        grd.addColorStop(1, hexToRgba(color, 0))
-        ctx.fillStyle = grd
-        ctx.beginPath()
-        ctx.arc(n.x, n.y, r * 2.6, 0, 2 * Math.PI)
-        ctx.fill()
-      }
-
-      ctx.beginPath()
-      ctx.arc(n.x, n.y, r, 0, 2 * Math.PI)
-      ctx.fillStyle = isDimmed ? 'rgba(255,255,255,0.12)' : color
-      ctx.fill()
-
-      if (n.kind === 'agent' && n.agentStatus === 'inactive') {
-        ctx.lineWidth = 1.5
-        ctx.strokeStyle = 'rgba(255,255,255,0.25)'
-        ctx.stroke()
-      }
-
-      // Live-Aktivität: pulsierender Ring, solange ein Run für diesen Knoten läuft, danach
-      // kurzes Fade-out statt eines abrupten Verschwindens (siehe PULSE_CONFIG-Kommentar).
-      // Läuft unabhängig von isDimmed — ein aktiver Run ist ein wichtigeres Signal als der
-      // Hover-Dimm-Zustand unbeteiligter Knoten.
-      const pulse = activeRunsRef.current.get(n.id)
-      if (pulse) {
-        const cfg = PULSE_CONFIG[pulse.significance]
-        let intensity = 1
-        if (pulse.phase === 'fading') {
-          intensity = Math.max(0, 1 - (Date.now() - pulse.since) / cfg.fadeMs)
-          if (intensity <= 0) activeRunsRef.current.delete(n.id)
-        }
-        if (intensity > 0) {
-          const osc = 0.6 + 0.4 * Math.sin((Date.now() / cfg.periodMs) * Math.PI * 2 + phaseFromId(n.id))
-          const ringR = r * (1.15 + (cfg.ringScale - 1) * osc)
-
-          const glow = ctx.createRadialGradient(n.x, n.y, r, n.x, n.y, ringR * 1.6)
-          glow.addColorStop(0, hexToRgba(color, cfg.glowAlpha * intensity * 0.5))
-          glow.addColorStop(1, hexToRgba(color, 0))
-          ctx.fillStyle = glow
-          ctx.beginPath()
-          ctx.arc(n.x, n.y, ringR * 1.6, 0, 2 * Math.PI)
-          ctx.fill()
-
-          ctx.beginPath()
-          ctx.arc(n.x, n.y, ringR, 0, 2 * Math.PI)
-          ctx.strokeStyle = hexToRgba(color, intensity * (cfg.glowAlpha + osc * 0.3))
-          ctx.lineWidth = cfg.ringWidth
-          ctx.stroke()
-        }
-      }
-
-      // Labels bleiben bei jedem Zoom-Level lesbar (feste Bildschirmgröße statt mit dem
-      // Graphen mitzuskalieren) — bei nur ~30 Knoten sind Labels hier essenziell für die
-      // Lesbarkeit, anders als bei der Business-Graph-Seite mit hunderten Knoten.
-      const fontSize = Math.max(10 / globalScale, 3)
-      ctx.font = `${fontSize}px var(--font-dm-sans, sans-serif)`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'top'
-      ctx.fillStyle = isDimmed ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.85)'
-      ctx.fillText(n.label, n.x, n.y + r + 3)
-    },
-    [connectedToHover]
-  )
-
-  const nodePointerAreaPaint = useCallback((node: unknown, color: string, ctx: CanvasRenderingContext2D) => {
-    const n = node as SimNode
-    if (n.x == null || n.y == null) return
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.arc(n.x, n.y, radiusForNode(n) + 3, 0, 2 * Math.PI)
-    ctx.fill()
+    if (row.agent_id === orchestratorAgentIdRef.current) {
+      setAwaitingConfirmation(row.status === 'waiting_human')
+    }
   }, [])
 
-  function edgeKey(link: unknown): string {
-    const l = link as CockpitEdge
-    const sourceId = typeof l.source === 'string' ? l.source : (l.source as CockpitNode).id
-    const targetId = typeof l.target === 'string' ? l.target : (l.target as CockpitNode).id
-    return `${sourceId}|${targetId}`
+  const { connectionStatus } = useAgentRunsRealtime(handleAgentRunChange)
+
+  useEffect(() => {
+    const timers = fadeTimersRef.current
+    return () => {
+      for (const timer of timers.values()) clearTimeout(timer)
+    }
+  }, [])
+
+  // Reines Layout (Positionen) — wird nur neu berechnet, wenn sich Knoten/Kanten selbst
+  // ändern (initialer Fetch, Bearbeitung im Panel), NICHT bei jedem Realtime-Status-Tick.
+  const layout = useMemo(() => computeLayout(nodes, edges), [nodes, edges])
+
+  // Positionen als eigenes State statt direkt aus `layout` gerendert — dadurch lassen sich
+  // Knoten frei verschieben (interaktiver Graph statt starrem Diagramm). Ein echter
+  // Daten-Refresh (neues `layout`-Objekt) setzt die Positionen zurück, ein Realtime-
+  // Status-Tick tut es nicht (der ändert nur `data.runStatus`, nicht `layout` selbst).
+  const [flowNodeState, setFlowNodeState] = useState<Node<FlowNodeData>[]>([])
+  useEffect(() => {
+    setFlowNodeState(layout.nodes)
+  }, [layout])
+
+  const onNodesChange = useCallback((changes: NodeChange<Node<FlowNodeData>>[]) => {
+    setFlowNodeState((nds) => applyNodeChanges(changes, nds))
+  }, [])
+
+  const flowNodes = useMemo(
+    () =>
+      flowNodeState.map((n) => {
+        if (n.id === CONDITION_NODE_ID || n.id === PENDING_NODE_ID) {
+          return { ...n, data: { ...n.data, runStatus: (awaitingConfirmation ? 'running' : 'idle') as RunVisualStatus } }
+        }
+        if (n.id === DIRECT_NODE_ID) return n
+        return { ...n, data: { ...n.data, runStatus: statusByNodeId.get(n.id) ?? 'idle' } }
+      }),
+    [flowNodeState, statusByNodeId, awaitingConfirmation]
+  )
+
+  const flowEdges = useMemo(
+    () =>
+      layout.edges.map((e) => {
+        if (e.id === `${CONDITION_NODE_ID}->${PENDING_NODE_ID}`) return { ...e, animated: awaitingConfirmation }
+        if (e.data?.kind === 'delegates_to') return { ...e, animated: statusByNodeId.get(e.target) === 'running' }
+        if (e.data?.kind === 'uses_tool') return { ...e, animated: statusByNodeId.get(e.source) === 'running' }
+        return e
+      }),
+    [layout.edges, statusByNodeId, awaitingConfirmation]
+  )
+
+  /** Node-Panel und Historie sind gegenseitig exklusiv — beide sind rechte Overlays; ohne
+   * das würde ein offenes Node-Panel die Historie optisch komplett verdecken (Bug-Report:
+   * "sobald man auf einen Knoten gedrückt hat, kann man die Historie nicht mehr einsehen"). */
+  function openNodePanel(node: CockpitNode) {
+    setHistoryOpen(false)
+    setSelectedNode(node)
   }
 
-  // Kurzer Partikel-Fluss entlang orchestrator->agent, wenn gerade eine Delegation
-  // passiert ist (siehe handleAgentRunChange) — normalerweise 0 Partikel, d.h. unsichtbar.
-  const linkDirectionalParticles = useCallback((link: unknown) => {
-    const key = edgeKey(link)
-    const expiry = flashEdgesRef.current.get(key)
-    if (expiry == null) return 0
-    if (Date.now() > expiry) {
-      flashEdgesRef.current.delete(key)
-      return 0
-    }
-    return 4
-  }, [])
+  function openHistory() {
+    setSelectedNode(null)
+    setHistoryOpen(true)
+  }
 
-  const linkDirectionalParticleColor = useCallback(
-    (link: unknown) => {
-      const l = link as CockpitEdge
-      const targetId = typeof l.target === 'string' ? l.target : (l.target as CockpitNode).id
-      const targetNode = nodesById.get(targetId)
-      return targetNode ? colorForNode(targetNode) : '#7F77DD'
-    },
-    [nodesById]
-  )
-
+  /** Springt von einer Referenz im Node-Panel (z.B. "Zugeordnete Tools") zum Knoten im
+   * Diagramm — analog zur alten selectNodeById(), nur jetzt über die React-Flow-Instanz
+   * statt fg.centerAt(). */
   function selectNodeById(id: string) {
     const match = nodesById.get(id)
     if (!match) return
-    setSelectedNode(match)
-    const fg = graphRef.current
-    const simNode = simNodeRegistryRef.current.get(id)
-    if (fg && simNode?.x != null && simNode?.y != null) {
-      fg.centerAt(simNode.x, simNode.y, 600)
+    openNodePanel(match)
+    // Tool-Knoten sind jetzt pro nutzendem Agenten dupliziert (eigene Flow-Node-ID
+    // `toolId@agentId`, siehe flow/computeLayout.ts) — deshalb zusätzlich über
+    // data.cockpitNode.id matchen, nicht nur über die (bei Tools nicht mehr eindeutige) id.
+    const flowNode = flowNodes.find((n) => n.id === id || n.data.cockpitNode?.id === id)
+    const instance = flowInstanceRef.current
+    if (instance && flowNode) {
+      const width = flowNode.measured?.width ?? 200
+      const height = flowNode.measured?.height ?? 60
+      instance.setCenter(flowNode.position.x + width / 2, flowNode.position.y + height / 2, { zoom: 1, duration: 500 })
     }
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-140 rounded-2xl bg-[#0c0c0c] border border-white/8">
+      <div className={`${shellClass} flex items-center justify-center`}>
         <p className="text-sm text-red-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
           {error}
         </p>
@@ -374,79 +255,156 @@ export function CockpitExplorer() {
 
   return (
     <>
-      <div className="relative h-140 rounded-2xl overflow-hidden bg-[#0c0c0c] border border-white/8 shadow-xl shadow-black/30">
+      {/* Überschreibt React Flows Standard-Kontrollleiste (hell) auf das dunkle Cockpit-Theme
+          — @xyflow/react liefert keine Theme-Variante, nur CSS-Variablen/Klassen zum Anpassen. */}
+      <style>{`
+        .jarvis-cockpit-controls.react-flow__controls button {
+          background: #1a1a1a;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          fill: rgba(255,255,255,0.6);
+        }
+        .jarvis-cockpit-controls.react-flow__controls button:hover {
+          background: #242424;
+        }
+        .jarvis-cockpit-minimap.react-flow__minimap {
+          background: #111111;
+          border-radius: 12px;
+          overflow: hidden;
+        }
+        .react-flow__edge-text { fill: rgba(255,255,255,0.7); font-size: 10px; }
+        .react-flow__edge-textbg { fill: #0c0c0c; }
+
+        /* Einblend-Animation beim ersten Mounten eines Knotens (Graph "materialisiert" sich
+           beim Laden statt einfach dazustehen) und eine dezente, dauerhafte "Atem"-Animation
+           im Ruhezustand, damit der Graph auch ganz ohne aktiven Run nicht komplett
+           still wirkt — beide rein deko, keine fachliche Bedeutung. */
+        @keyframes cockpit-node-in {
+          from { opacity: 0; transform: scale(0.86); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .cockpit-node-in { animation: cockpit-node-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+
+        @keyframes cockpit-breathe {
+          0%, 100% { opacity: 0.18; }
+          50% { opacity: 0.5; }
+        }
+        .cockpit-breathe { animation: cockpit-breathe 3.4s ease-in-out infinite; }
+      `}</style>
+
+      <div className={shellClass}>
+        <NetworkBackground />
+
         <div
           aria-hidden
           className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 45%, rgba(127,119,221,0.10) 0%, transparent 70%)' }}
         />
 
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-4 px-3 py-2 rounded-xl bg-white/5 backdrop-blur-md border border-white/8">
-          {LEGEND.map(({ kind, label }) => (
-            <div key={kind} className="flex items-center gap-1.5">
-              <span
-                className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: colorForNode({ kind, agentStatus: 'active' }), boxShadow: `0 0 6px ${colorForNode({ kind, agentStatus: 'active' })}` }}
-              />
-              <span className="text-xs text-white/60" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                {label}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Dezenter Hinweis statt einer harten Fehlermeldung — der Supabase-Client verbindet
-            Realtime-Channels bei einem Abbruch normalerweise selbst neu, dieser Banner ist
-            nur die sichtbare Rückmeldung dafür, solange die Verbindung wirklich fehlt. */}
-        {connectionStatus === 'lost' && (
-          <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-400/25">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-xs text-amber-300" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              Verbindung verloren — verbinde erneut…
+        {/* Schwebende Kontrollleiste statt der Tab-Leiste aus jarvis/layout.tsx (die blendet
+            sich auf dieser Route selbst aus, siehe dort) — Chat/Cockpit-Umschalter, Legende
+            und Historie-Knopf in einer Zeile, damit der Graph darunter den ganzen Rest der
+            Seite bekommt. */}
+        <div className="absolute top-4 left-4 right-4 z-10 flex flex-wrap items-center gap-3">
+          <div className="flex gap-1 p-1 rounded-lg bg-white/5 backdrop-blur-md border border-white/8">
+            <Link
+              href="/admin/jarvis"
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-white/50 hover:text-white transition-colors"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}
+            >
+              Chat
+            </Link>
+            <span
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-[#7F77DD] text-white"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}
+            >
+              Cockpit
             </span>
           </div>
-        )}
 
-        {loading && (
+          <div className="flex items-center gap-4 px-3 py-2 rounded-xl bg-white/5 backdrop-blur-md border border-white/8">
+            {LEGEND.map(({ kind, label }) => (
+              <div key={kind} className="flex items-center gap-1.5">
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: colorForNode({ kind, agentStatus: 'active' }), boxShadow: `0 0 6px ${colorForNode({ kind, agentStatus: 'active' })}` }}
+                />
+                <span className="text-xs text-white/60" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={openHistory}
+            className="px-3 py-2 rounded-xl bg-white/5 backdrop-blur-md border border-white/8 text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            style={{ fontFamily: 'var(--font-dm-sans)' }}
+          >
+            Historie
+          </button>
+
+          <button
+            onClick={() => setFlowNodeState(layout.nodes)}
+            title="Verschobene Knoten wieder ins automatische Layout einordnen"
+            className="px-3 py-2 rounded-xl bg-white/5 backdrop-blur-md border border-white/8 text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            style={{ fontFamily: 'var(--font-dm-sans)' }}
+          >
+            Layout zurücksetzen
+          </button>
+
+          {/* Dezenter Hinweis statt einer harten Fehlermeldung — der Supabase-Client verbindet
+              Realtime-Channels bei einem Abbruch normalerweise selbst neu, dieser Banner ist
+              nur die sichtbare Rückmeldung dafür, solange die Verbindung wirklich fehlt. */}
+          {connectionStatus === 'lost' && (
+            <div className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-400/25">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs text-amber-300" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Verbindung verloren — verbinde erneut…
+              </span>
+            </div>
+          )}
+        </div>
+
+        {loading ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-sm text-white/40" style={{ fontFamily: 'var(--font-dm-sans)' }}>
               Cockpit wird geladen…
             </p>
           </div>
-        )}
-
-        <div ref={containerRef} className="absolute inset-0">
-          {!loading && (
-            <ForceGraph2D
-              ref={graphRef}
-              graphData={graphData}
-              width={size.width}
-              height={size.height}
-              backgroundColor="rgba(0,0,0,0)"
-              nodeId="id"
-              nodeLabel={(node: unknown) => {
-                const n = node as CockpitNode
-                return `${KIND_LABEL[n.kind]}: ${n.label}`
-              }}
-              nodeCanvasObject={nodeCanvasObject}
-              nodePointerAreaPaint={nodePointerAreaPaint}
-              linkColor={linkColor}
-              linkWidth={1.4}
-              linkDirectionalArrowLength={3.5}
-              linkDirectionalArrowRelPos={1}
-              linkDirectionalParticles={linkDirectionalParticles}
-              linkDirectionalParticleWidth={3.5}
-              linkDirectionalParticleSpeed={0.02}
-              linkDirectionalParticleColor={linkDirectionalParticleColor}
-              cooldownTime={Infinity}
-              d3AlphaDecay={0.006}
-              d3VelocityDecay={0.35}
-              onNodeClick={(node: unknown) => setSelectedNode(node as CockpitNode)}
-              onNodeHover={(node: unknown) => setHoveredId((node as CockpitNode | null)?.id ?? null)}
+        ) : (
+          <ReactFlow<Node<FlowNodeData>, Edge<FlowEdgeData>>
+            nodes={flowNodes}
+            edges={flowEdges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onInit={(instance) => {
+              flowInstanceRef.current = instance
+            }}
+            onNodeClick={(_event, node) => {
+              const cockpitNode = node.data.cockpitNode
+              if (cockpitNode) openNodePanel(cockpitNode)
+            }}
+            nodesDraggable
+            nodesConnectable={false}
+            elementsSelectable
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            proOptions={{ hideAttribution: true }}
+            colorMode="dark"
+          >
+            <Controls showInteractive={false} className="jarvis-cockpit-controls" />
+            <MiniMap
+              className="jarvis-cockpit-minimap"
+              pannable
+              zoomable
+              maskColor="rgba(0,0,0,0.65)"
+              nodeColor={(n) => (n.data as FlowNodeData).accent}
             />
-          )}
-        </div>
+          </ReactFlow>
+        )}
       </div>
+
+      {historyOpen && <HistoryPanel onClose={() => setHistoryOpen(false)} />}
 
       {selectedNode && (
         <CockpitNodePanel

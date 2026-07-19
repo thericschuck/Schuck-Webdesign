@@ -141,7 +141,7 @@ export function RunHistoryTable() {
                   <td className="py-2.5 pr-4 text-gray-800 whitespace-nowrap" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                     {row.agentLabel}
                   </td>
-                  <td className="py-2.5 pr-4 text-gray-600 max-w-xs truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                  <td className="py-2.5 pr-4 text-gray-600 max-w-md truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                     {row.task ?? '—'}
                   </td>
                   <td className="py-2.5 pr-4">
