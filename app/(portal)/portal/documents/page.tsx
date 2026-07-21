@@ -17,7 +17,7 @@ export default async function DocumentsPage() {
 
   const { data: projects } = await supabase
     .from('projects')
-    .select('id, title, status, documents(id, name, file_url, folder, created_at)')
+    .select('id, title, status, documents(id, name, file_url, folder, created_at, uploaded_by)')
     .eq('client_id', client.id)
     .order('created_at', { ascending: false })
 
@@ -31,6 +31,7 @@ export default async function DocumentsPage() {
       file_url: string
       folder: string | null
       created_at: string
+      uploaded_by: string
     }[],
   }))
 
@@ -48,7 +49,7 @@ export default async function DocumentsPage() {
         </p>
       </div>
 
-      <FileExplorer projects={projectsData} />
+      <FileExplorer projects={projectsData} currentUserId={user!.id} />
     </div>
   )
 }

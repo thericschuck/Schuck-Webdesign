@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useRef, useEffect } from 'react'
 import { uploadFile } from '../upload/actions'
-import { getDownloadUrl } from './actions'
+import { getDownloadUrl, renameFile, deleteFile } from './actions'
 import { DocumentPreviewPanel } from '@/components/admin/DocumentPreviewPanel'
 import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB, formatMb } from '@/lib/uploadLimits'
 
@@ -20,6 +20,7 @@ type DocRow = {
   file_url: string
   folder: string | null
   created_at: string
+  uploaded_by: string
 }
 
 type ProjectData = {
@@ -415,31 +416,112 @@ function UploadForm({
 
 // ── File List ─────────────────────────────────────────────────────────────────
 
-function FileList({ files, onPreview }: { files: DocRow[]; onPreview: (doc: DocRow) => void }) {
+function FileList({
+  files,
+  onPreview,
+  currentUserId,
+}: {
+  files: DocRow[]
+  onPreview: (doc: DocRow) => void
+  currentUserId: string
+}) {
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+
   return (
     <div className="divide-y divide-gray-50 pb-2">
-      {files.map((doc) => (
-        <div key={doc.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors">
-          <button
-            onClick={() => onPreview(doc)}
-            className="flex-1 min-w-0 flex items-center gap-3 text-left"
-          >
-            <FileTypeIcon name={doc.name} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{doc.name}</p>
-              <p className="text-xs text-gray-400">{formatDate(doc.created_at)}</p>
+      {files.map((doc) => {
+        const isOwnUpload = doc.uploaded_by === currentUserId
+
+        if (renamingId === doc.id) {
+          return (
+            <form
+              key={doc.id}
+              action={renameFile}
+              onSubmit={() => setRenamingId(null)}
+              className="px-4 py-3 flex items-center gap-3"
+            >
+              <input type="hidden" name="document_id" value={doc.id} />
+              <FileTypeIcon name={doc.name} />
+              <input
+                type="text"
+                name="name"
+                defaultValue={doc.name}
+                autoFocus
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 min-w-0 text-sm rounded-lg border border-gray-200 px-2 py-1.5 outline-none focus:border-gray-400"
+              />
+              <button
+                type="submit"
+                className="text-xs px-2.5 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 font-medium transition-colors shrink-0"
+              >
+                OK
+              </button>
+              <button
+                type="button"
+                onClick={() => setRenamingId(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 shrink-0"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </form>
+          )
+        }
+
+        return (
+          <div key={doc.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors group">
+            <button
+              onClick={() => onPreview(doc)}
+              className="flex-1 min-w-0 flex items-center gap-3 text-left"
+            >
+              <FileTypeIcon name={doc.name} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{doc.name}</p>
+                <p className="text-xs text-gray-400">{formatDate(doc.created_at)}</p>
+              </div>
+            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <DownloadButton fileUrl={doc.file_url} fileName={doc.name} />
+              {isOwnUpload && (
+                <>
+                  <button
+                    onClick={() => setRenamingId(doc.id)}
+                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-blue-500 transition-all p-1"
+                    title="Datei umbenennen"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <form action={deleteFile}>
+                    <input type="hidden" name="document_id" value={doc.id} />
+                    <button
+                      type="submit"
+                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all p-1"
+                      title="Datei löschen"
+                      onClick={(e) => {
+                        if (!confirm(`"${doc.name}" wirklich löschen?`)) e.preventDefault()
+                      }}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </form>
+                </>
+              )}
             </div>
-          </button>
-          <DownloadButton fileUrl={doc.file_url} fileName={doc.name} />
-        </div>
-      ))}
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function FileExplorer({ projects }: { projects: ProjectData[] }) {
+export function FileExplorer({ projects, currentUserId }: { projects: ProjectData[]; currentUserId: string }) {
   const [view, setView] = useState<View>({ type: 'root' })
   const [showNewFolderModal, setShowNewFolderModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
@@ -751,7 +833,7 @@ export function FileExplorer({ projects }: { projects: ProjectData[] }) {
                     </p>
                   </div>
                 )}
-                <FileList files={viewFiles} onPreview={setPreviewDoc} />
+                <FileList files={viewFiles} onPreview={setPreviewDoc} currentUserId={currentUserId} />
               </>
             )}
 
