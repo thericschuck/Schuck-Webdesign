@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState, useRef, useEffect } from 'react'
+import { useActionState, useState, useRef, useEffect, useOptimistic, useTransition } from 'react'
 import {
   addMeeting,
   editMeeting,
@@ -116,6 +116,13 @@ const PRIORITY_ORDER: Record<Todo['priority'], number> = {
   high: 0,
   medium: 1,
   low: 2,
+}
+
+type TodoOptimisticAction = { type: 'toggle'; id: string } | { type: 'delete'; id: string }
+
+function applyTodoOptimisticAction(state: Todo[], action: TodoOptimisticAction): Todo[] {
+  if (action.type === 'toggle') return state.map((t) => (t.id === action.id ? { ...t, done: !t.done } : t))
+  return state.filter((t) => t.id !== action.id)
 }
 
 const CR_LABEL: Record<ChangeRequest['status'], string> = {
@@ -402,6 +409,33 @@ export function AdminProjectTabs({
   const [showTodoForm, setShowTodoForm] = useState(false)
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null)
 
+  // Todos werden optimistisch aktualisiert — Checkbox/Löschen reagieren sofort,
+  // ohne auf die Server-Antwort zu warten; useOptimistic verwirft den lokalen
+  // Override automatisch, sobald die revalidierten `todos` aus dem Server-Component ankommen.
+  const [optimisticTodos, applyTodoOptimistic] = useOptimistic(todos, applyTodoOptimisticAction)
+  const [, startTodoTransition] = useTransition()
+
+  function handleToggleTodo(todo: Todo) {
+    startTodoTransition(async () => {
+      applyTodoOptimistic({ type: 'toggle', id: todo.id })
+      const fd = new FormData()
+      fd.set('todo_id', todo.id)
+      fd.set('project_id', projectId)
+      fd.set('done', String(todo.done))
+      await toggleTodo(fd)
+    })
+  }
+
+  function handleDeleteTodo(todo: Todo) {
+    startTodoTransition(async () => {
+      applyTodoOptimistic({ type: 'delete', id: todo.id })
+      const fd = new FormData()
+      fd.set('todo_id', todo.id)
+      fd.set('project_id', projectId)
+      await deleteTodo(fd)
+    })
+  }
+
   // Add meeting
   const [meetingState, meetingAction, meetingPending] = useActionState<ActionResult | null, FormData>(addMeeting, null)
   const meetingFormRef = useRef<HTMLFormElement>(null)
@@ -426,7 +460,7 @@ export function AdminProjectTabs({
 
   const pendingReviews = reviews.filter((r) => r.status === 'pending').length
   const openRequests = changeRequests.filter((cr) => cr.status === 'open' || cr.status === 'in_progress').length
-  const openTodosCount = todos.filter((t) => !t.done).length
+  const openTodosCount = optimisticTodos.filter((t) => !t.done).length
 
   return (
     <div>
@@ -466,13 +500,13 @@ export function AdminProjectTabs({
 
       {/* ── To-Dos ── */}
       {activeTab === 'todos' && (() => {
-        const openTodos = todos
+        const openTodos = optimisticTodos
           .filter((t) => !t.done)
           .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
-        const doneTodos = todos
+        const doneTodos = optimisticTodos
           .filter((t) => t.done)
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        const pct = todos.length > 0 ? Math.round((doneTodos.length / todos.length) * 100) : 0
+        const pct = optimisticTodos.length > 0 ? Math.round((doneTodos.length / optimisticTodos.length) * 100) : 0
 
         return (
           <div className="flex flex-col gap-4">
@@ -560,7 +594,7 @@ export function AdminProjectTabs({
             </div>
 
             {/* List */}
-            {todos.length > 0 && (
+            {optimisticTodos.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {/* Progress header */}
                 <div className="px-5 py-4 border-b border-gray-100">
@@ -569,7 +603,7 @@ export function AdminProjectTabs({
                       Fortschritt
                     </h3>
                     <span className="text-sm text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                      {doneTodos.length}/{todos.length} erledigt
+                      {doneTodos.length}/{optimisticTodos.length} erledigt
                     </span>
                   </div>
                   <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -588,19 +622,14 @@ export function AdminProjectTabs({
                         Offen · {openTodos.length}
                       </p>
                     </div>
-                    <div className="divide-y divide-gray-50">
+                    <div className="divide-y divide-gray-100">
                       {openTodos.map((todo) => (
                         <div key={todo.id} className="px-5 py-3.5 flex items-start gap-3 group">
-                          <form action={toggleTodo} className="shrink-0 mt-0.5">
-                            <input type="hidden" name="todo_id" value={todo.id} />
-                            <input type="hidden" name="project_id" value={projectId} />
-                            <input type="hidden" name="done" value={String(todo.done)} />
-                            <button
-                              type="submit"
-                              title="Als erledigt markieren"
-                              className="w-4 h-4 rounded border-2 border-gray-300 hover:border-gray-900 hover:bg-gray-100 transition-colors flex items-center justify-center"
-                            />
-                          </form>
+                          <button
+                            onClick={() => handleToggleTodo(todo)}
+                            title="Als erledigt markieren"
+                            className="shrink-0 mt-0.5 w-4 h-4 rounded border-2 border-gray-300 hover:border-gray-900 hover:bg-gray-100 transition-colors flex items-center justify-center"
+                          />
 
                           {editingTodoId === todo.id ? (
                             <EditTodoForm
@@ -646,19 +675,15 @@ export function AdminProjectTabs({
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                   </svg>
                                 </button>
-                                <form action={deleteTodo}>
-                                  <input type="hidden" name="todo_id" value={todo.id} />
-                                  <input type="hidden" name="project_id" value={projectId} />
-                                  <button
-                                    type="submit"
-                                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all p-1"
-                                    title="Aufgabe löschen"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                  </button>
-                                </form>
+                                <button
+                                  onClick={() => handleDeleteTodo(todo)}
+                                  className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all p-1"
+                                  title="Aufgabe löschen"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
                               </div>
                             </>
                           )}
@@ -676,39 +701,30 @@ export function AdminProjectTabs({
                         Erledigt · {doneTodos.length}
                       </p>
                     </div>
-                    <div className="divide-y divide-gray-50">
+                    <div className="divide-y divide-gray-100">
                       {doneTodos.map((todo) => (
                         <div key={todo.id} className="px-5 py-3 flex items-center gap-3 group">
-                          <form action={toggleTodo} className="shrink-0">
-                            <input type="hidden" name="todo_id" value={todo.id} />
-                            <input type="hidden" name="project_id" value={projectId} />
-                            <input type="hidden" name="done" value={String(todo.done)} />
-                            <button
-                              type="submit"
-                              title="Als offen markieren"
-                              className="w-4 h-4 rounded bg-gray-800 border-2 border-gray-800 flex items-center justify-center hover:bg-gray-600 hover:border-gray-600 transition-colors"
-                            >
-                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            </button>
-                          </form>
+                          <button
+                            onClick={() => handleToggleTodo(todo)}
+                            title="Als offen markieren"
+                            className="shrink-0 w-4 h-4 rounded bg-gray-800 border-2 border-gray-800 flex items-center justify-center hover:bg-gray-600 hover:border-gray-600 transition-colors"
+                          >
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
                           <p className="flex-1 text-sm text-gray-400 line-through" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                             {todo.title}
                           </p>
-                          <form action={deleteTodo}>
-                            <input type="hidden" name="todo_id" value={todo.id} />
-                            <input type="hidden" name="project_id" value={projectId} />
-                            <button
-                              type="submit"
-                              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all p-1"
-                              title="Aufgabe löschen"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </form>
+                          <button
+                            onClick={() => handleDeleteTodo(todo)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all p-1"
+                            title="Aufgabe löschen"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -717,7 +733,7 @@ export function AdminProjectTabs({
               </div>
             )}
 
-            {todos.length === 0 && !showTodoForm && (
+            {optimisticTodos.length === 0 && !showTodoForm && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-10 text-center">
                 <p className="text-gray-400 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                   Noch keine Aufgaben für dieses Projekt.
@@ -745,7 +761,7 @@ export function AdminProjectTabs({
               </h3>
             </div>
             {updates.length > 0 ? (
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-gray-100">
                 {updates.map((u) => (
                   <div key={u.id} className="px-5 py-4 flex items-start gap-3 group">
                     <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">

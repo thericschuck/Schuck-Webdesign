@@ -24,6 +24,19 @@ Admin-Bereich für Eric (Projektverwaltung, Kundenverwaltung) + Portal für Kund
 
 ---
 
+## Befehle
+
+- `npm run dev` – Dev-Server (Next.js)
+- `npm run build` – Production-Build
+- `npm run start` – Production-Server
+- `npm run lint` – ESLint (flat config `eslint.config.mjs`, basiert auf `eslint-config-next`)
+- **Kein Test-Framework konfiguriert** (kein Jest/Vitest/Playwright, keine `__tests__`, kein `.github/workflows/`) — nicht nach Tests suchen oder `npm test` annehmen
+- Import-/Batch-Skripte (via `tsx`): `npm run import:catalog[:dry]`, `npm run import:leads[:dry]`, `npm run import:backfill-graph[:dry]` (Dry-Run-Varianten zum Testen ohne DB-Writes)
+- Kein `supabase/config.toml` → kein lokaler Supabase-Stack; Code verbindet direkt gegen das gehostete Supabase-Projekt über Env-Vars
+- Migrationen: `supabase/migrations/NNNN_beschreibung.sql`, fortlaufend nummeriert (aktuell bis `0025`); Buchstaben-Suffixe (`0008b`, `0008c`) markieren Nachträge zu einer bestehenden Migration
+
+---
+
 ## Projektstruktur
 
 ```
@@ -65,6 +78,35 @@ Schuck-Redesign/
 | Client-Login | `/login` → `signInWithPassword` → `/portal` |
 | Client-Invite | Admin invited → E-Mail → Link → `/auth/callback` → `/auth/set-password` → `/portal` |
 | Callback-Typen | PKCE (`?code=`) + Implicit (`#access_token=`) werden beide gehandelt |
+
+---
+
+## JARVIS – Admin-Agenten-System
+
+Internes, admin-only KI-Cockpit (Anthropic Messages API direkt, kein Agent-Framework). Eingebettet als Widget (`components/admin/JarvisWidget.tsx`, floating oder full-page unter `/admin/jarvis`) und als Cockpit-Ansicht (`/admin/jarvis/cockpit`).
+
+**Agent-Loop (`lib/jarvis/agent.ts`)**
+- Eine gemeinsame Loop (`runJarvisAgent`) für Orchestrator und alle Sub-Agenten; max. 10 Iterationen, streamt über `client.messages.stream()`.
+- Tools mit `requiresConfirmation: true` pausieren die Loop → Human-in-the-loop; Zustand wird in `pending_actions` persistiert und über `/api/jarvis/confirm` fortgesetzt.
+- Jeder Run/Tool-Call wird in `agent_runs` / `agent_steps` protokolliert (Observability, keine Business-Daten).
+
+**Sub-Agenten**
+- 6 Stück (`design_agent`, `code_agent`, `seo_agent`, `care_agent`, `akquise_agent`, `finance_agent`), Code-Konstanten in `lib/jarvis/subagents.ts` sind nur Fallback/Seed.
+- **Laufzeit-Quelle ist die DB**: `public.agents` (system_prompt, model, status) + `public.agent_tools`/`public.tools` — live editierbar über `PATCH /api/admin/jarvis/agents/[id]`. `buildScopedRegistry()` liest das bei jedem Sub-Agent-Call frisch (kein Caching).
+- Sub-Agenten dürfen nur read-only Tools halten; ein zugewiesenes `requiresConfirmation`-Tool wirft einen Fehler.
+
+**System-Prompt (`lib/jarvis/system-prompt.ts`)**
+- Orchestrator-Prompt ist **hardcoded** (großer deutscher `BASE_PROMPT`), nicht DB-gesteuert — im Gegensatz zu den Sub-Agenten-Prompts.
+- `buildJarvisSystemPrompt()` hängt dynamisch an: Cold-Start-Kontext (offene Todos, ungelesene Kontaktanfragen), Wissensgraph-Suchtreffer zur letzten Nachricht, und `PageContext` (aktuelle Route, sichtbarer Seitentext, fokussiertes Formularfeld) vom Widget.
+
+**API-Einstiegspunkte**
+- `POST /api/jarvis/chat` (`app/api/jarvis/chat/route.ts`) — admin-only, gibt SSE-Stream zurück (`delta`/`confirmation_required`/`done`/`error`), persistiert sichtbare Turns in `jarvis_messages`.
+- `/api/jarvis/confirm` — setzt einen pausierten Run nach Bestätigung/Ablehnung fort.
+- `/api/admin/jarvis/cockpit`, `/api/admin/jarvis/agent-runs/[id]`, `/api/admin/jarvis/agents/[id]` — Observability + Live-Konfiguration der Agenten (alle admin-only).
+
+**Relevante Tabellen** (siehe `supabase/migrations/0017_jarvis_phase1_agents.sql` ff.): `agents`, `tools`, `agent_tools`, `agent_runs`, `agent_steps`, `pending_actions`, `jarvis_messages`. Migrationen `0021`/`0022` sind reine Daten-Migrationen (echte System-Prompts bzw. Modell-Rightsizing pro Sub-Agent), keine Schema-Änderungen.
+
+**Wissensgraph (`/admin/wissen`, `/admin/wissen/sessions`)** — verwandt, aber nicht JARVIS-exklusiv: `public.nodes`/`public.edges`/`public.conversation_logs` (Migration `0009`), Domain-Layer in `lib/domain/knowledge.ts`. JARVIS liest/schreibt hier über eigene Tools (`add_knowledge_node`, `semantic_search`, `write_session_log`, …); die Sessions-Ansicht zeigt `write_session_log`-Einträge und ist getrennt von der `agent_runs`-Observability (Wissen vs. Ausführung).
 
 ---
 

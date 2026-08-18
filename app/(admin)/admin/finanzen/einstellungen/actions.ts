@@ -27,6 +27,7 @@ export async function updateCompanySettingsAction(_prev: ActionResult | null, fo
       website: str(formData, 'website'),
       iban: str(formData, 'iban'),
       bic: str(formData, 'bic'),
+      bankName: str(formData, 'bank_name'),
       steuernummer: str(formData, 'steuernummer'),
       ustId: str(formData, 'ust_id'),
       ustPflichtig: formData.get('ust_pflichtig') === 'on',

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "WebFetch(domain:github.com)",
+      "Bash(git mv *)",
+      "Bash(npx tsx *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{redirect_url}\\\\n\" http://localhost:3000/admin/jarvis)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{redirect_url}\\\\n\" http://localhost:3000/admin/dashboard)",
+      "Bash(jobs -l)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/admin/jarvis)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist //FI \"IMAGENAME eq node.exe\" //V)",
+      "Bash(netstat -ano //P TCP)",
+      "Bash(cmd.exe /c \"netstat -ano | findstr LISTENING | findstr :30\")",
+      "Bash(curl -s -o /dev/null -w \"port 3000: %{http_code}\\\\n\" http://localhost:3000/admin/jarvis --max-time 5)",
+      "Bash(curl -s -o /dev/null -w \"port 3001: %{http_code}\\\\n\" http://localhost:3001/admin/jarvis --max-time 5)",
+      "Bash(cmd.exe /c \"wmic process where \\\\\"ProcessId=25588 or ProcessId=13508 or ProcessId=19796 or ProcessId=20956\\\\\" get ProcessId,CommandLine /format:list\")",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId=25588 or ProcessId=13508 or ProcessId=19796 or ProcessId=20956\")",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\")",
+      "PowerShell(Get-MpPreference)"
+    ]
+  }
+}

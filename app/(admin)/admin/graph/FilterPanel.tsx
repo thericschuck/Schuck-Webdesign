@@ -179,8 +179,8 @@ export function FilterPanel({
       {truncated && (
         <div className="mt-auto p-3 bg-amber-400/10 border border-amber-400/20 rounded-lg">
           <p className="text-xs text-amber-300" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            {totalCount} Entitäten insgesamt — nur Kunden/Projekte initial geladen. Auf einen Knoten klicken, um dessen
-            Nachbarschaft nachzuladen.
+            Zeige {typeCounts.find((t) => t.type === 'lead')?.count ?? 0} von {totalCount} Leads (neueste zuerst) — alle
+            anderen Daten sind vollständig geladen.
           </p>
         </div>
       )}

@@ -1,24 +1,10 @@
-import Link from 'next/link'
 import * as productsDomain from '@/lib/domain/products'
 import * as countersDomain from '@/lib/domain/counters'
-import { PriceInlineEdit } from './PriceInlineEdit'
-import { ActiveToggle } from './ActiveToggle'
 import { ProductsViewToggle } from './ProductsViewToggle'
 import { NewArticleButton } from './NewArticleButton'
-import { KATEGORIE_ORDER, kategorieChip } from './category-constants'
+import { ProductsBoard } from './ProductsBoard'
 import { InfoTooltip } from '@/components/admin/InfoTooltip'
-import type { Article } from '@/types/database'
-
-type ArticleRow = Pick<
-  Article,
-  'art_nr' | 'bezeichnung' | 'preis_min' | 'preis_max' | 'einheit' | 'typ' | 'kategorie' | 'pflichtbetrieb_art_nr' | 'aktiv'
->
-
-interface SearchParams {
-  q?: string
-  kategorie?: string
-  inaktive?: string
-}
+import type { ArticleRow } from './types'
 
 function StatTile({ label, value, dotColor }: { label: string; value: number; dotColor: string }) {
   return (
@@ -31,34 +17,17 @@ function StatTile({ label, value, dotColor }: { label: string; value: number; do
   )
 }
 
-export default async function ProductsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const sp = await searchParams
-
+export default async function ProductsPage() {
+  // Alles auf einmal laden (inkl. inaktiv) — Kategorie/Suche/Inaktive-Filter laufen
+  // clientseitig im Board, kein Server-Roundtrip pro Filteränderung mehr nötig.
   const [articles, counters] = await Promise.all([
-    productsDomain.listArticles({
-      search: sp.q || undefined,
-      kategorie: sp.kategorie || undefined,
-      includeInactive: sp.inaktive === '1',
-    }) as Promise<ArticleRow[]>,
+    productsDomain.listArticles({ includeInactive: true }) as Promise<ArticleRow[]>,
     countersDomain.listCounters(),
   ])
 
-  const bezeichnungByArtNr = new Map(articles.map((a) => [a.art_nr, a.bezeichnung]))
-
-  const byKategorie = new Map<string, ArticleRow[]>()
-  for (const article of articles) {
-    const key = article.kategorie ?? 'Ohne Kategorie'
-    if (!byKategorie.has(key)) byKategorie.set(key, [])
-    byKategorie.get(key)!.push(article)
-  }
-
-  const groupOrder = sp.kategorie
-    ? [sp.kategorie]
-    : [...KATEGORIE_ORDER, ...[...byKategorie.keys()].filter((k) => !KATEGORIE_ORDER.includes(k))]
-
-  const hasFilters = !!(sp.q || sp.kategorie || sp.inaktive)
   const activeCount = articles.filter((a) => a.aktiv).length
   const inactiveCount = articles.length - activeCount
+  const kategorienCount = new Set(articles.map((a) => a.kategorie ?? 'Ohne Kategorie')).size
 
   return (
     <div className="flex flex-col gap-6">
@@ -69,8 +38,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
             Produkte
           </h1>
           <p className="text-gray-500 text-sm mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            {articles.length} {articles.length === 1 ? 'Artikel' : 'Artikel'}
-            {hasFilters ? ' (gefiltert)' : ' insgesamt'}
+            {articles.length} {articles.length === 1 ? 'Artikel' : 'Artikel'} insgesamt
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -84,58 +52,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         <StatTile label="Artikel" value={articles.length} dotColor="bg-gray-900" />
         <StatTile label="Aktiv" value={activeCount} dotColor="bg-green-500" />
         {inactiveCount > 0 && <StatTile label="Inaktiv" value={inactiveCount} dotColor="bg-gray-300" />}
-        <StatTile label="Kategorien" value={byKategorie.size} dotColor="bg-violet-500" />
+        <StatTile label="Kategorien" value={kategorienCount} dotColor="bg-violet-500" />
       </div>
 
-      {/* Filterleiste */}
-      <form
-        method="GET"
-        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap items-center gap-3"
-      >
-        <input
-          type="search"
-          name="q"
-          defaultValue={sp.q ?? ''}
-          placeholder="Art-Nr. oder Bezeichnung suchen…"
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 bg-white flex-1 min-w-50"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        />
-        <select
-          name="kategorie"
-          defaultValue={sp.kategorie ?? ''}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 bg-white"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        >
-          <option value="">Alle Kategorien</option>
-          {KATEGORIE_ORDER.map((k) => (
-            <option key={k} value={k}>
-              {k}
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-2 text-sm text-gray-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          <input type="checkbox" name="inaktive" value="1" defaultChecked={sp.inaktive === '1'} />
-          Inaktive anzeigen
-        </label>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        >
-          Filtern
-        </button>
-        {hasFilters && (
-          <Link
-            href="/admin/products"
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-            style={{ fontFamily: 'var(--font-dm-sans)' }}
-          >
-            Zurücksetzen
-          </Link>
-        )}
-      </form>
-
-      {/* Kategorien-Gruppen */}
+      {/* Suche + Kategorie-Leiste + Tabelle */}
       {articles.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <p className="text-gray-400 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
@@ -143,121 +63,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           </p>
         </div>
       ) : (
-        groupOrder.map((kategorie) => {
-          const groupArticles = byKategorie.get(kategorie)
-          if (!groupArticles || groupArticles.length === 0) return null
-          const chip = kategorieChip(kategorie)
-
-          return (
-            <div key={kategorie} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-6 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-                <span
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${chip.bg} ${chip.text}`}
-                  style={{ fontFamily: 'var(--font-dm-sans)' }}
-                >
-                  {chip.code}
-                </span>
-                <h2 className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                  {kategorie} <span className="text-gray-400 font-normal">({groupArticles.length})</span>
-                </h2>
-              </div>
-              <div className="overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Artikel</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Preisspanne</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Einheit</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Typ</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Pflichtbetrieb</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Status</th>
-                      <th className="px-6 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {groupArticles.map((article) => (
-                      <tr key={article.art_nr} className={`hover:bg-gray-50 transition-colors ${!article.aktiv ? 'opacity-50' : ''}`}>
-                        <td className="px-6 py-3">
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={`w-8 h-8 rounded-lg flex items-center justify-center text-[9px] font-bold shrink-0 ${chip.bg} ${chip.text}`}
-                              style={{ fontFamily: 'var(--font-dm-sans)' }}
-                            >
-                              {chip.code}
-                            </span>
-                            <div className="min-w-0">
-                              <Link
-                                href={`/admin/products/${article.art_nr}`}
-                                className="text-sm font-medium text-gray-900 hover:text-violet-700 transition-colors block truncate"
-                                style={{ fontFamily: 'var(--font-dm-sans)' }}
-                              >
-                                {article.bezeichnung}
-                              </Link>
-                              <span className="text-xs text-gray-400 font-mono" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                                {article.art_nr}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-3">
-                          <PriceInlineEdit
-                            artNr={article.art_nr}
-                            preisMin={article.preis_min}
-                            preisMax={article.preis_max}
-                            einheit={article.einheit}
-                          />
-                        </td>
-                        <td className="px-6 py-3">
-                          <span className="text-sm text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                            {article.einheit ?? '—'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              article.typ === 'Monatlich' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600'
-                            }`}
-                            style={{ fontFamily: 'var(--font-dm-sans)' }}
-                          >
-                            {article.typ ?? '—'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3">
-                          {article.pflichtbetrieb_art_nr ? (
-                            <Link
-                              href={`/admin/products/${article.pflichtbetrieb_art_nr}`}
-                              className="text-xs text-violet-600 hover:underline"
-                              style={{ fontFamily: 'var(--font-dm-sans)' }}
-                            >
-                              {article.pflichtbetrieb_art_nr}
-                              {bezeichnungByArtNr.get(article.pflichtbetrieb_art_nr)
-                                ? ` · ${bezeichnungByArtNr.get(article.pflichtbetrieb_art_nr)}`
-                                : ''}
-                            </Link>
-                          ) : (
-                            <span className="text-xs text-gray-300">—</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-3">
-                          <ActiveToggle artNr={article.art_nr} aktiv={article.aktiv} />
-                        </td>
-                        <td className="px-6 py-3 text-right">
-                          <Link
-                            href={`/admin/products/${article.art_nr}`}
-                            className="text-sm text-gray-500 hover:text-gray-900 font-medium transition-colors"
-                            style={{ fontFamily: 'var(--font-dm-sans)' }}
-                          >
-                            Details →
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )
-        })
+        <ProductsBoard articles={articles} />
       )}
 
       {/* Nummernkreise */}

@@ -960,7 +960,7 @@ export function GraphExplorer() {
         onClose={() => setSelectedNode(null)}
         connections={selectedConnections}
         onSelectConnection={selectNodeById}
-        showLoadNeighborhood={truncated && !loadedNeighborhoods.has(selectedNode.id)}
+        showLoadNeighborhood={truncated && selectedNode.type === 'lead' && !loadedNeighborhoods.has(selectedNode.id)}
         loadingNeighborhood={loadingNeighborhood}
         onLoadNeighborhood={handleLoadNeighborhood}
       />

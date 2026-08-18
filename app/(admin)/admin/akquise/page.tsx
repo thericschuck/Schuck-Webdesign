@@ -1,182 +1,83 @@
-import Link from 'next/link'
 import * as akquiseDomain from '@/lib/domain/akquise'
-import { LeadCard } from './LeadCard'
-import { NewLeadPanel } from './NewLeadPanel'
-import { STAGE_LABEL, STAGE_ORDER } from './stage-constants'
-import type { LeadPrioritaet, LeadStage } from '@/types/database'
+import { AkquiseBoard } from './AkquiseBoard'
+import { AkquiseTabs } from './AkquiseTabs'
+import { SyncButton } from './SyncButton'
 
-const QUELLE_OPTIONS = [
-  'KI',
-  'Google',
-  'LinkedIn',
-  'Empfehlung',
-  'Kaltakquise',
-  'Messe',
-  'DATEV',
-  'Anwaltskammer',
-  'Website',
-  'Netzwerk',
-]
+// Der Cron läuft nachts einmal — 36h Toleranz lässt einen vollen Tag plus Puffer zu,
+// bevor wir "der Sync hängt vermutlich" annehmen (z.B. Cron schlägt seit Tagen fehl,
+// ohne dass es jemand merkt).
+const STALE_SYNC_MS = 36 * 60 * 60 * 1000
 
-const STAGE_COLOR: Record<LeadStage, string> = {
-  erstkontakt: 'bg-gray-100 text-gray-600',
-  quali_call: 'bg-blue-50 text-blue-700',
-  closing_call: 'bg-amber-50 text-amber-700',
-  gewonnen: 'bg-green-50 text-green-700',
-  verloren: 'bg-red-50 text-red-700',
-}
+export default async function AkquisePage() {
+  // Alles auf einmal laden — Suche, Filter und Kanban/Tabelle-Umschalter laufen
+  // komplett clientseitig im Board, kein Server-Roundtrip pro Klick mehr nötig.
+  const [leads, lastSyncedAt, lastSyncMessage] = await Promise.all([
+    akquiseDomain.listLeads({}),
+    akquiseDomain.getLastSheetSyncAt(),
+    akquiseDomain.getLastSyncMessage(),
+  ])
 
-interface SearchParams {
-  q?: string
-  prioritaet?: string
-  quelle?: string
-  wiedervorlage?: string
-}
-
-export default async function AkquisePage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>
-}) {
-  const sp = await searchParams
-
-  const leads = await akquiseDomain.listLeads({
-    search: sp.q || undefined,
-    prioritaet: (sp.prioritaet as LeadPrioritaet) || undefined,
-    quelle: sp.quelle || undefined,
-    wiedervorlageDue: sp.wiedervorlage === '1',
-  })
-
-  const byStage = new Map<LeadStage, typeof leads>()
-  for (const stage of STAGE_ORDER) byStage.set(stage, [])
-  for (const lead of leads) {
-    byStage.get(lead.current_stage)?.push(lead)
-  }
-
-  const hasFilters = !!(sp.q || sp.prioritaet || sp.quelle || sp.wiedervorlage)
+  const isStale = !lastSyncedAt || new Date().getTime() - new Date(lastSyncedAt).getTime() > STALE_SYNC_MS
+  // summarizeResult() hängt Detailzeilen nur an, wenn es Warnungen gab — ein Zeilenumbruch
+  // in der Nachricht ist also das Signal, dass es etwas zu zeigen gibt.
+  const hasSyncIssues = !!lastSyncMessage && (!lastSyncMessage.success || !!lastSyncMessage.message?.includes('\n'))
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
-            Akquise
-          </h1>
-          <p className="text-gray-500 text-sm mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            {leads.length} {leads.length === 1 ? 'Lead' : 'Leads'}
-            {hasFilters ? ' (gefiltert)' : ' insgesamt'}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
+          Akquise
+        </h1>
+        <p className="text-gray-500 text-sm mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+          {leads.length} {leads.length === 1 ? 'Lead' : 'Leads'} insgesamt
+        </p>
+      </div>
+
+      <AkquiseTabs />
+
+      {isStale && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+          <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-1.5a9 9 0 11-18 0 9 9 0 0118 0zM12 15.75h.007" />
+          </svg>
+          <p className="text-sm text-amber-800" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            {lastSyncedAt
+              ? 'Der letzte Sheet-Sync liegt mehr als 36 Stunden zurück — der nächtliche Cron-Job könnte fehlschlagen. Jetzt manuell synchronisieren oder /admin/integrationen prüfen.'
+              : 'Es wurde noch nie erfolgreich synchronisiert. Auf "Sheet synchronisieren" klicken oder /admin/integrationen prüfen.'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/akquise/tracking"
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-            style={{ fontFamily: 'var(--font-dm-sans)' }}
-          >
-            Tracking
-          </Link>
-          <Link
-            href="/admin/akquise/stats"
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-            style={{ fontFamily: 'var(--font-dm-sans)' }}
-          >
-            Statistik
-          </Link>
-          <NewLeadPanel />
-        </div>
+      )}
+
+      {/* Sheet-Sync */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-sm text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+          Lead-Stammdaten, Ergebnisse und Tracking kommen aus dem Google Sheet — Bearbeitung dort, hier nur Auswertung.
+        </p>
+        <SyncButton lastSyncedAt={lastSyncedAt} />
       </div>
 
-      {/* Filterleiste */}
-      <form
-        method="GET"
-        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap items-center gap-3"
-      >
-        <input
-          type="search"
-          name="q"
-          defaultValue={sp.q ?? ''}
-          placeholder="Firmenname suchen…"
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 bg-white flex-1 min-w-[180px]"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        />
-        <select
-          name="prioritaet"
-          defaultValue={sp.prioritaet ?? ''}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 bg-white"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        >
-          <option value="">Alle Prioritäten</option>
-          <option value="high">Hoch</option>
-          <option value="medium">Mittel</option>
-          <option value="low">Niedrig</option>
-        </select>
-        <select
-          name="quelle"
-          defaultValue={sp.quelle ?? ''}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 bg-white"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        >
-          <option value="">Alle Quellen</option>
-          {QUELLE_OPTIONS.map((q) => (
-            <option key={q} value={q}>
-              {q}
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-2 text-sm text-gray-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          <input type="checkbox" name="wiedervorlage" value="1" defaultChecked={sp.wiedervorlage === '1'} />
-          Wiedervorlage fällig
-        </label>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        >
-          Filtern
-        </button>
-        {hasFilters && (
-          <Link
-            href="/admin/akquise"
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+      {hasSyncIssues && lastSyncMessage && (
+        <details className="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+          <summary
+            className="px-4 py-3 cursor-pointer select-none flex items-center gap-2 text-sm font-medium text-amber-800 hover:bg-amber-50 transition-colors"
             style={{ fontFamily: 'var(--font-dm-sans)' }}
           >
-            Zurücksetzen
-          </Link>
-        )}
-      </form>
+            <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-1.5a9 9 0 11-18 0 9 9 0 0118 0zM12 15.75h.007" />
+            </svg>
+            {lastSyncMessage.success ? 'Warnungen beim letzten Sync' : 'Letzter Sync fehlgeschlagen'}
+          </summary>
+          <pre
+            className="px-4 pb-4 text-xs text-gray-600 whitespace-pre-wrap overflow-x-auto"
+            style={{ fontFamily: 'var(--font-dm-sans)' }}
+          >
+            {lastSyncMessage.message}
+          </pre>
+        </details>
+      )}
 
-      {/* Kanban-Board */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {STAGE_ORDER.map((stage) => {
-          const stageLeads = byStage.get(stage) ?? []
-          return (
-            <div key={stage} className="flex flex-col gap-3 bg-gray-50 rounded-2xl p-3 min-h-[220px]">
-              <div className="flex items-center justify-between px-1">
-                <span
-                  className={`text-xs font-semibold px-2 py-1 rounded-full ${STAGE_COLOR[stage]}`}
-                  style={{ fontFamily: 'var(--font-dm-sans)' }}
-                >
-                  {STAGE_LABEL[stage]}
-                </span>
-                <span className="text-xs text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                  {stageLeads.length}
-                </span>
-              </div>
-              <div className="flex flex-col gap-2">
-                {stageLeads.map((lead) => (
-                  <LeadCard key={lead.id} lead={lead} />
-                ))}
-                {stageLeads.length === 0 && (
-                  <p className="text-xs text-gray-300 text-center py-6" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                    Keine Leads
-                  </p>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
+      <AkquiseBoard leads={leads} />
     </div>
   )
 }

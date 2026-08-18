@@ -29,8 +29,12 @@ function getClient() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 }
 
-function getModel() {
-  return process.env.JARVIS_MODEL || 'claude-sonnet-5'
+// modelOverride kommt von Sub-Agenten-Aufrufen, die agents.model aus der DB gelesen haben
+// (lib/jarvis/tools/subagents.ts#buildScopedRegistry) — Cockpit-Bearbeitung ("Modell
+// wechseln") wirkt sich damit tatsächlich aus, statt nur den globalen JARVIS_MODEL-Fallback
+// zu belassen. Der Haupt-Orchestrator übergibt keinen Override und bleibt beim Fallback.
+function getModel(modelOverride?: string | null) {
+  return modelOverride || process.env.JARVIS_MODEL || 'claude-sonnet-5'
 }
 
 function isColdStartTrigger(message: Anthropic.MessageParam | undefined): boolean {
@@ -67,6 +71,10 @@ export interface RunJarvisAgentOptions {
    * Traversal, deren Ergebnis sonst ungenutzt verworfen würde).
    */
   systemPrompt?: string
+  /** Überschreibt das Modell für diesen Lauf — genutzt von Sub-Agenten
+   * (lib/jarvis/tools/subagents.ts), die agents.model aus der DB lesen. Ohne Override
+   * gilt der globale JARVIS_MODEL-Fallback (siehe getModel()). */
+  model?: string | null
   /** Automatisch ermittelter Kontext zur gerade geöffneten Admin-Seite (Widget) — fließt nur
    * in den selbst gebauten System-Prompt ein, nicht in einen `systemPrompt`-Override. */
   pageContext?: PageContext | null
@@ -108,6 +116,7 @@ export async function runJarvisAgent({
   messages,
   tools = defaultToolRegistry,
   systemPrompt: systemPromptOverride,
+  model: modelOverride,
   pageContext,
   onTextDelta,
   parentRunId,
@@ -157,7 +166,7 @@ export async function runJarvisAgent({
       const toolDefinitions = Array.from(tools.values()).map((tool) => tool.definition)
 
       const stream = client.messages.stream({
-        model: getModel(),
+        model: getModel(modelOverride),
         max_tokens: 4096,
         system: systemPrompt,
         messages: conversation,

@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { logIntegrationCall } from '@/lib/integrations/log'
 
 const FROM_ADDRESS = 'Schuck Webdesign <noreply@schuck-webdesign.de>'
 
@@ -21,7 +22,9 @@ export interface SendEmailResult {
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   if (!process.env.RESEND_API_KEY) {
-    return { sent: false, error: 'RESEND_API_KEY ist nicht konfiguriert.' }
+    const error = 'RESEND_API_KEY ist nicht konfiguriert.'
+    await logIntegrationCall('email', false, error)
+    return { sent: false, error }
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY)
@@ -38,8 +41,10 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
 
   if (error) {
     console.error('[sendEmail] Resend error:', error.message)
+    await logIntegrationCall('email', false, error.message)
     return { sent: false, error: error.message }
   }
 
+  await logIntegrationCall('email', true)
   return { sent: true }
 }

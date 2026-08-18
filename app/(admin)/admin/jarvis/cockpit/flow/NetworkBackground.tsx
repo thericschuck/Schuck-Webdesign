@@ -18,8 +18,19 @@ const SPEED = 0.12
  * Landingpage, hier als dezentes, langsam driftendes Punktnetz statt eines Radialverlaufs).
  * Eigenes <canvas> unterhalb von React Flow (pointer-events: none), läuft unabhängig von
  * dessen Zoom/Pan — bewegt sich nicht mit dem Graphen mit, bleibt bewusst reiner Hintergrund. */
-export function NetworkBackground() {
+interface NetworkBackgroundProps {
+  /** Überspringt Positions-Update + Neuzeichnen pro Frame (letztes Bild bleibt stehen) — für
+   * teure Interaktionen wie Node-Drag&Drop, während denen diese Canvas-Arbeit sonst mit dem
+   * Haupt-Thread konkurriert und zu spürbarem Ruckeln führt. */
+  paused?: boolean
+}
+
+export function NetworkBackground({ paused = false }: NetworkBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const pausedRef = useRef(paused)
+  useEffect(() => {
+    pausedRef.current = paused
+  }, [paused])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -59,33 +70,35 @@ export function NetworkBackground() {
     resizeObserver.observe(canvas.parentElement ?? canvas)
 
     function tick() {
-      ctx.clearRect(0, 0, width, height)
-      for (const dot of dots) {
-        dot.x += dot.vx
-        dot.y += dot.vy
-        if (dot.x < 0 || dot.x > width) dot.vx *= -1
-        if (dot.y < 0 || dot.y > height) dot.vy *= -1
-      }
-      for (let i = 0; i < dots.length; i++) {
-        for (let j = i + 1; j < dots.length; j++) {
-          const a = dots[i]
-          const b = dots[j]
-          const dist = Math.hypot(a.x - b.x, a.y - b.y)
-          if (dist < LINK_DISTANCE) {
-            ctx.strokeStyle = `rgba(127,119,221,${0.16 * (1 - dist / LINK_DISTANCE)})`
-            ctx.lineWidth = 1
-            ctx.beginPath()
-            ctx.moveTo(a.x, a.y)
-            ctx.lineTo(b.x, b.y)
-            ctx.stroke()
+      if (!pausedRef.current) {
+        ctx.clearRect(0, 0, width, height)
+        for (const dot of dots) {
+          dot.x += dot.vx
+          dot.y += dot.vy
+          if (dot.x < 0 || dot.x > width) dot.vx *= -1
+          if (dot.y < 0 || dot.y > height) dot.vy *= -1
+        }
+        for (let i = 0; i < dots.length; i++) {
+          for (let j = i + 1; j < dots.length; j++) {
+            const a = dots[i]
+            const b = dots[j]
+            const dist = Math.hypot(a.x - b.x, a.y - b.y)
+            if (dist < LINK_DISTANCE) {
+              ctx.strokeStyle = `rgba(127,119,221,${0.16 * (1 - dist / LINK_DISTANCE)})`
+              ctx.lineWidth = 1
+              ctx.beginPath()
+              ctx.moveTo(a.x, a.y)
+              ctx.lineTo(b.x, b.y)
+              ctx.stroke()
+            }
           }
         }
-      }
-      for (const dot of dots) {
-        ctx.beginPath()
-        ctx.arc(dot.x, dot.y, 1.6, 0, Math.PI * 2)
-        ctx.fillStyle = 'rgba(155,144,245,0.45)'
-        ctx.fill()
+        for (const dot of dots) {
+          ctx.beginPath()
+          ctx.arc(dot.x, dot.y, 1.6, 0, Math.PI * 2)
+          ctx.fillStyle = 'rgba(155,144,245,0.45)'
+          ctx.fill()
+        }
       }
       raf = requestAnimationFrame(tick)
     }

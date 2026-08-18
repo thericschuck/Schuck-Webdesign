@@ -160,6 +160,40 @@ html.custom-cursor button {
   transform: translateX(4px);
 }
 
+/* ─── Custom scrollbars (Admin-Tabellen, Kategorie-Leisten etc.) ── */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #111827 transparent; /* gray-900 Daumen, durchsichtige Spur */
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #111827; /* gray-900 */
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #000000;
+}
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* Nur wirksam in Browsern, die überhaupt Scrollbar-Pfeiltasten rendern (z.B. ältere
+   Chromium-Konfigurationen) — die meisten aktuellen Browser zeigen keine an, dann bleibt
+   das hier folgenlos. */
+.custom-scrollbar::-webkit-scrollbar-button {
+  background-color: #111827;
+}
+.custom-scrollbar::-webkit-scrollbar-button:hover {
+  background-color: #000000;
+}
+
 /* ─── prefers-reduced-motion ─────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .cursor-outer,

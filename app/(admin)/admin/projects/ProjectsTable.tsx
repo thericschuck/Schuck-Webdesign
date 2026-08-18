@@ -127,7 +127,7 @@ export function ProjectsTable({ rows }: { rows: ProjectRow[] }) {
   return (
     <>
       {/* Mobile cards */}
-      <div className="md:hidden divide-y divide-gray-50">
+      <div className="md:hidden divide-y divide-gray-100">
         {sorted.map((project) => (
           <Link
             key={project.id}
@@ -178,7 +178,7 @@ export function ProjectsTable({ rows }: { rows: ProjectRow[] }) {
             <th className="px-6 py-3" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-50">
+        <tbody className="divide-y divide-gray-100">
           {sorted.map((project) => (
             <tr key={project.id} className="hover:bg-gray-50 transition-colors">
               <td className="px-6 py-4">

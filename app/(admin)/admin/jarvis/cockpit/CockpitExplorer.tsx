@@ -11,8 +11,10 @@ import {
   type Node,
   type NodeChange,
   type ReactFlowInstance,
+  type Viewport,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { FlickeringGrid } from '@/components/ui/flickering-grid'
 import { CockpitNodePanel } from './CockpitNodePanel'
 import { HistoryPanel } from './HistoryPanel'
 import { CONDITION_NODE_ID, DIRECT_NODE_ID, PENDING_NODE_ID, computeLayout, type FlowEdgeData } from './flow/computeLayout'
@@ -57,6 +59,30 @@ export function CockpitExplorer() {
   // Orchestrator kann diesen Status je erreichen (Sub-Agenten dürfen laut buildScopedRegistry
   // keine bestätigungspflichtigen Tools bekommen).
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
+
+  // Spiegelt Pan/Zoom-Änderungen des React-Flow-Viewports relativ zum Stand direkt nach
+  // fitView auf die Ambient-Hintergrundebenen — Ref statt State, damit onMove (feuert bei
+  // jedem Drag-/Zoom-Frame) keinen React-Re-Render auslöst, sondern nur eine einzelne
+  // CSS-transform-Zuweisung. bgBaselineRef hält den fitView-Viewport als Referenzpunkt: die
+  // Differenz dazu ist zu Beginn 0/1, der Hintergrund startet also exakt wie im Ladebildschirm
+  // (identity transform) und bewegt sich erst mit weiterem User-Pan/Zoom.
+  const bgLayerRef = useRef<HTMLDivElement>(null)
+  const bgBaselineRef = useRef<Viewport>({ x: 0, y: 0, zoom: 1 })
+
+  // Pausiert die beiden Ambient-Canvas-Animationen (FlickeringGrid, NetworkBackground)
+  // während aktivem Node- oder Pane-Drag — diese laufen sonst kontinuierlich und ihr
+  // Neuzeichnen konkurriert währenddessen spürbar mit React Flows Drag-Reflow. Nur zwei
+  // State-Updates je Drag-Geste (Start/Ende), kein Re-Render pro Frame.
+  const [bgPaused, setBgPaused] = useState(false)
+
+  const applyBgTransform = useCallback((viewport: Viewport) => {
+    const base = bgBaselineRef.current
+    const scale = viewport.zoom / base.zoom
+    const x = viewport.x - scale * base.x
+    const y = viewport.y - scale * base.y
+    const el = bgLayerRef.current
+    if (el) el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
+  }, [])
 
   const flowInstanceRef = useRef<ReactFlowInstance<Node<FlowNodeData>, Edge<FlowEdgeData>> | null>(null)
   const fadeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
@@ -274,6 +300,16 @@ export function CockpitExplorer() {
         .react-flow__edge-text { fill: rgba(255,255,255,0.7); font-size: 10px; }
         .react-flow__edge-textbg { fill: #0c0c0c; }
 
+        /* React Flow setzt im colorMode="dark" eine eigene, deckende Hintergrundfarbe auf
+           die Pane — die würde FlickeringGrid/NetworkBackground darunter komplett verdecken,
+           sobald der Graph (statt des Loading-Textes) gemountet ist. Transparent machen,
+           damit beide Ambient-Layer durch den gesamten Graph-Bereich sichtbar bleiben. */
+        .jarvis-cockpit-flow.react-flow,
+        .jarvis-cockpit-flow .react-flow__pane,
+        .jarvis-cockpit-flow .react-flow__viewport {
+          background: transparent;
+        }
+
         /* Einblend-Animation beim ersten Mounten eines Knotens (Graph "materialisiert" sich
            beim Laden statt einfach dazustehen) und eine dezente, dauerhafte "Atem"-Animation
            im Ruhezustand, damit der Graph auch ganz ohne aktiven Run nicht komplett
@@ -292,13 +328,35 @@ export function CockpitExplorer() {
       `}</style>
 
       <div className={shellClass}>
-        <NetworkBackground />
-
+        {/* Ambient-Hintergrund in eigenem, transform-gebundenem Layer: die Transform übernimmt
+            exakt den React-Flow-Viewport (x/y/zoom), damit Pan/Zoom auf Hintergrund und Graph
+            gemeinsam wirken statt nur auf den Graph. transformOrigin '0 0' entspricht dem
+            Default von .react-flow__viewport. */}
         <div
+          ref={bgLayerRef}
           aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 45%, rgba(127,119,221,0.10) 0%, transparent 70%)' }}
-        />
+          className="absolute inset-0 pointer-events-none will-change-transform"
+          style={{ transformOrigin: '0 0' }}
+        >
+          {/* Sehr dezentes, statisches Flicker-Raster hinter dem Punktnetz — reine
+              Textur/Atmosphäre auf niedrigster Opacity, keine fachliche Bedeutung. */}
+          <FlickeringGrid
+            className="absolute inset-0"
+            squareSize={3}
+            gridGap={8}
+            color="#7F77DD"
+            maxOpacity={0.08}
+            flickerChance={0.06}
+            paused={bgPaused}
+          />
+          <NetworkBackground paused={bgPaused} />
+
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 45%, rgba(127,119,221,0.10) 0%, transparent 70%)' }}
+          />
+        </div>
 
         {/* Schwebende Kontrollleiste statt der Tab-Leiste aus jarvis/layout.tsx (die blendet
             sich auf dieser Route selbst aus, siehe dort) — Chat/Cockpit-Umschalter, Legende
@@ -373,13 +431,26 @@ export function CockpitExplorer() {
           </div>
         ) : (
           <ReactFlow<Node<FlowNodeData>, Edge<FlowEdgeData>>
+            className="jarvis-cockpit-flow"
             nodes={flowNodes}
             edges={flowEdges}
             nodeTypes={nodeTypes}
             onNodesChange={onNodesChange}
             onInit={(instance) => {
               flowInstanceRef.current = instance
+              // fitView berechnet den initialen Viewport erst nach diesem Callback — ein
+              // rAF-Tick später steht instance.getViewport() bereit. Als Baseline gesetzt,
+              // bleibt der Hintergrund optisch identisch zum Ladebildschirm (Differenz 0/1)
+              // und bewegt sich erst mit weiterem Pan/Zoom des Nutzers.
+              requestAnimationFrame(() => {
+                bgBaselineRef.current = instance.getViewport()
+              })
             }}
+            onMove={(_event, viewport) => applyBgTransform(viewport)}
+            onMoveStart={() => setBgPaused(true)}
+            onMoveEnd={() => setBgPaused(false)}
+            onNodeDragStart={() => setBgPaused(true)}
+            onNodeDragStop={() => setBgPaused(false)}
             onNodeClick={(_event, node) => {
               const cockpitNode = node.data.cockpitNode
               if (cockpitNode) openNodePanel(cockpitNode)

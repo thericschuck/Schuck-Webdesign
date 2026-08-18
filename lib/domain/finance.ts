@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DomainError } from './errors'
 import { generateInvoicePdf } from '@/lib/pdf/invoice'
-import { fmtEuro } from '@/lib/pdf/shared'
+import { fmtEuro, OVERDUE_DAYS } from '@/lib/pdf/shared'
 import { sendEmail } from '@/lib/email/send'
 import { clientDisplayName } from '@/lib/client-name'
 import type { CompanySettings, CreditNote, Database, Invoice, InvoiceStatus } from '@/types/database'
@@ -11,9 +11,6 @@ type InvoiceUpdate = Database['public']['Tables']['invoices']['Update']
 type CompanySettingsUpdate = Database['public']['Tables']['company_settings']['Update']
 
 export const INVOICE_STATUS_VALUES: InvoiceStatus[] = ['entwurf', 'versendet', 'bezahlt', 'storniert']
-
-/** Kein `due_date`-Feld im Schema — für die "überfällig"-Kachel im Dashboard wird ein Zahlungsziel von 14 Tagen angenommen. */
-const OVERDUE_DAYS = 14
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
@@ -49,6 +46,7 @@ export interface UpdateCompanySettingsInput {
   website?: string | null
   iban?: string | null
   bic?: string | null
+  bankName?: string | null
   steuernummer?: string | null
   ustId?: string | null
   ustPflichtig?: boolean
@@ -69,6 +67,7 @@ export async function updateCompanySettings(patch: UpdateCompanySettingsInput): 
   if (patch.website !== undefined) updates.website = patch.website
   if (patch.iban !== undefined) updates.iban = patch.iban
   if (patch.bic !== undefined) updates.bic = patch.bic
+  if (patch.bankName !== undefined) updates.bank_name = patch.bankName
   if (patch.steuernummer !== undefined) updates.steuernummer = patch.steuernummer
   if (patch.ustId !== undefined) updates.ust_id = patch.ustId
   if (patch.ustPflichtig !== undefined) updates.ust_pflichtig = patch.ustPflichtig
@@ -163,6 +162,8 @@ export interface ListInvoicesFilter {
   clientId?: string
   fromDate?: string
   toDate?: string
+  /** Default: Testrechnungen (is_test=true) sind ausgeblendet. */
+  includeTest?: boolean
 }
 
 export async function listInvoices(filter: ListInvoicesFilter = {}) {
@@ -170,7 +171,7 @@ export async function listInvoices(filter: ListInvoicesFilter = {}) {
   let query = adminClient
     .from('invoices')
     .select(
-      'id, invoice_number, client_id, project_id, status, invoice_date, service_date, total_net, sent_at, paid_at, created_at, clients(company_name, contact_name, profiles(full_name))'
+      'id, invoice_number, client_id, project_id, status, invoice_date, service_date, total_net, sent_at, paid_at, created_at, is_test, is_backfilled, clients(company_name, contact_name, profiles(full_name))'
     )
     .order('created_at', { ascending: false })
 
@@ -178,6 +179,7 @@ export async function listInvoices(filter: ListInvoicesFilter = {}) {
   if (filter.clientId) query = query.eq('client_id', filter.clientId)
   if (filter.fromDate) query = query.gte('invoice_date', filter.fromDate)
   if (filter.toDate) query = query.lte('invoice_date', filter.toDate)
+  if (!filter.includeTest) query = query.eq('is_test', false)
 
   const { data, error } = await query
   if (error) throw new DomainError(error.message)
@@ -228,6 +230,9 @@ export interface CreateInvoiceDraftInput {
   projectId?: string | null
   serviceDate?: string | null
   recurringSource?: string | null
+  /** Testrechnung: eigener Nummernkreis (TEST-JJJJ-NNN) beim Stellen, aus Umsatzstatistik/Liste
+   * ausgeblendet, frei löschbar (siehe issueInvoice()/deleteTestInvoice() unten). */
+  isTest?: boolean
   items: InvoiceItemInput[]
 }
 
@@ -253,6 +258,7 @@ export async function createInvoiceDraft(input: CreateInvoiceDraftInput) {
       ust_pflichtig: companySettings.ust_pflichtig,
       total_net: totalNet,
       recurring_source: input.recurringSource ?? null,
+      is_test: input.isTest ?? false,
     })
     .select('*')
     .single()
@@ -325,12 +331,89 @@ export async function updateInvoiceDraft(invoiceId: string, patch: UpdateInvoice
   return getInvoice(invoiceId)
 }
 
+// ── invoices: PDF-Erzeugung (gemeinsam für Stellen/Nachtragen/Neu-Erzeugen) ──
+
+async function buildInvoicePdfBytes(invoice: InvoiceDetail, companySettings: CompanySettings): Promise<Uint8Array> {
+  if (!invoice.client) throw new DomainError('Kunde der Rechnung konnte nicht geladen werden.')
+  if (!invoice.invoice_number || !invoice.invoice_date) {
+    throw new DomainError('Rechnung hat keine Nummer/kein Datum — PDF kann nicht erzeugt werden.')
+  }
+
+  const invoiceClientProfile = Array.isArray(invoice.client.profiles) ? invoice.client.profiles[0] : invoice.client.profiles
+
+  return generateInvoicePdf({
+    invoiceNumber: invoice.invoice_number,
+    invoiceDate: invoice.invoice_date,
+    serviceDate: invoice.service_date,
+    ustPflichtig: invoice.ust_pflichtig,
+    totalNet: invoice.total_net,
+    items: invoice.items,
+    client: { ...invoice.client, full_name: invoiceClientProfile?.full_name ?? null },
+    companySettings,
+    projectTitle: invoice.project?.title ?? null,
+  })
+}
+
+/** Erzeugt das PDF einer bereits gestellten Rechnung (Nummer + Datum vorhanden) und lädt es
+ * in den privaten Bucket 'invoices' hoch — Basis für issueInvoice(), regenerateInvoicePdf()
+ * und createBackfilledInvoice(). */
+async function generateAndStoreInvoicePdf(invoiceId: string, invoice: InvoiceDetail): Promise<Invoice> {
+  const adminClient = createAdminClient()
+  const companySettings = await getCompanySettings()
+  const pdfBytes = await buildInvoicePdfBytes(invoice, companySettings)
+
+  const path = `${invoice.client_id}/${invoice.invoice_number}.pdf`
+  const { error: uploadError } = await adminClient.storage
+    .from('invoices')
+    .upload(path, pdfBytes, { contentType: 'application/pdf', upsert: true })
+  if (uploadError) {
+    throw new DomainError(`PDF konnte nicht gespeichert werden: ${uploadError.message}`)
+  }
+
+  const { data: updated, error: updateError } = await adminClient
+    .from('invoices')
+    .update({ pdf_url: path })
+    .eq('id', invoiceId)
+    .select('*')
+    .single()
+  if (updateError) {
+    throw new DomainError(`PDF gespeichert, aber pdf_url konnte nicht aktualisiert werden: ${updateError.message}`)
+  }
+  return updated
+}
+
+/** Erzeugt eine Vorschau-PDF für einen Entwurf, OHNE etwas zu speichern (keine Nummer, kein
+ * Upload) — Rechnungsnummer/-datum werden nur als Platzhalter fürs Layout eingesetzt. */
+export async function previewInvoicePdf(invoiceId: string): Promise<Uint8Array> {
+  const invoice = await getInvoice(invoiceId)
+  if (invoice.status !== 'entwurf') {
+    throw new DomainError('Eine Vorschau ist nur für Entwürfe möglich — gestellte Rechnungen haben bereits ein PDF.')
+  }
+  const companySettings = await getCompanySettings()
+  return buildInvoicePdfBytes(
+    { ...invoice, invoice_number: 'VORSCHAU', invoice_date: invoice.invoice_date ?? new Date().toISOString().slice(0, 10) },
+    companySettings
+  )
+}
+
+/** Erzeugt das PDF einer bereits gestellten Rechnung erneut (z.B. nach Layout-Änderungen oder
+ * wenn das ursprüngliche PDF verloren ging) — Nummer/Daten der Rechnung bleiben unverändert. */
+export async function regenerateInvoicePdf(invoiceId: string): Promise<InvoiceDetail> {
+  const invoice = await getInvoice(invoiceId)
+  if (invoice.status === 'entwurf') {
+    throw new DomainError('Entwürfe haben noch kein PDF — erst stellen.')
+  }
+  const updated = await generateAndStoreInvoicePdf(invoiceId, invoice)
+  return { ...invoice, ...updated }
+}
+
 // ── invoices: stellen (Nummer + PDF) ─────────────────────────────────────────
 
 /**
  * Stellt eine Rechnung: zieht die RE-Nummer über die atomare Postgres-Funktion
- * `issue_invoice` (Nummer + Statuswechsel in einer Transaktion, GoBD-konform),
- * erzeugt danach das PDF und lädt es in den privaten Bucket 'invoices' hoch.
+ * `issue_invoice` (Nummer + Statuswechsel in einer Transaktion, GoBD-konform) —
+ * bzw. bei Testrechnungen (is_test) eine TEST-Nummer über den eigenen, nicht
+ * GoBD-relevanten Nummernkreis — und erzeugt danach das PDF im privaten Bucket.
  *
  * Schlägt die PDF-Erzeugung/der Upload fehl, ist die Nummer bereits sicher
  * vergeben (die Transaktion ist committed) — ein erneuter Aufruf dieser
@@ -343,57 +426,168 @@ export async function issueInvoice(invoiceId: string): Promise<InvoiceDetail> {
   let invoice = await getInvoice(invoiceId)
 
   if (invoice.status === 'entwurf') {
-    const { data: issued, error } = await adminClient.rpc('issue_invoice', { p_id: invoiceId })
-    if (error) throw new DomainError(error.message)
-    invoice = { ...invoice, ...(issued as Invoice) }
+    if (invoice.is_test) {
+      const year = String(new Date().getFullYear())
+      const { data: seq, error: seqError } = await adminClient.rpc('get_next_number', { p_typ: 'TEST', p_scope: year })
+      if (seqError) throw new DomainError(seqError.message)
+      const invoiceNumber = `TEST-${year}-${String(seq).padStart(3, '0')}`
+      const { data: issued, error } = await adminClient
+        .from('invoices')
+        .update({ invoice_number: invoiceNumber, invoice_date: new Date().toISOString().slice(0, 10), status: 'versendet' })
+        .eq('id', invoiceId)
+        .select('*')
+        .single()
+      if (error) throw new DomainError(error.message)
+      invoice = { ...invoice, ...(issued as Invoice) }
+    } else {
+      const { data: issued, error } = await adminClient.rpc('issue_invoice', { p_id: invoiceId })
+      if (error) throw new DomainError(error.message)
+      invoice = { ...invoice, ...(issued as Invoice) }
+    }
   } else if (invoice.pdf_url) {
     throw new DomainError(`Rechnung ${invoice.invoice_number} wurde bereits gestellt.`)
   }
   // status != 'entwurf' und pdf_url == null: vorheriger PDF-Versuch ist fehlgeschlagen —
   // Retry unten, OHNE erneut issue_invoice() aufzurufen (keine neue Nummer).
 
+  const updated = await generateAndStoreInvoicePdf(invoiceId, invoice)
+  return { ...invoice, ...updated }
+}
+
+// ── invoices: Nachtragen bereits (außerhalb dieses Systems) ausgestellter Rechnungen ──
+
+export interface CreateBackfilledInvoiceInput {
+  clientId: string
+  projectId?: string | null
+  /** Ursprüngliche, bereits vergebene Rechnungsnummer — wird 1:1 übernommen, keine neue Nummer
+   * wird gezogen. Muss eindeutig sein (DB-Constraint prüft das ohnehin). */
+  invoiceNumber: string
+  invoiceDate: string
+  serviceDate?: string | null
+  status: 'versendet' | 'bezahlt'
+  /** Nur bei status='bezahlt' relevant; Default: invoiceDate. */
+  paidAt?: string | null
+  ustPflichtig?: boolean
+  items: InvoiceItemInput[]
+  /** Original-PDF der Rechnung (z.B. aus Word/einem Vorsystem) — wird 1:1 als pdf_url abgelegt.
+   * Hat Vorrang vor generatePdf, wenn beides angegeben wird. */
+  uploadedPdf?: { bytes: Uint8Array; contentType: string } | null
+  /** Nur relevant, wenn kein uploadedPdf angegeben ist: erzeugt stattdessen ein PDF nach dem
+   * Layout dieses Systems (entspricht dann nicht zwingend dem Original). Default: false. */
+  generatePdf?: boolean
+}
+
+/**
+ * Trägt eine Rechnung nach, die bereits außerhalb dieses Systems gestellt wurde (z.B. vor
+ * Einführung dieser Software) — mit ihrer ursprünglichen Nummer statt einer neu gezogenen.
+ *
+ * Ablauf bewusst wie ein manuelles issue_invoice(): Header zunächst als 'entwurf' anlegen
+ * (Positionen sind nur für Entwürfe einfügbar, siehe enforce_invoice_items_immutability()),
+ * dann in einem einzigen UPDATE auf den Zielstatus samt manueller Nummer heben — laut
+ * enforce_invoice_immutability() ist das erlaubt, solange old.status noch 'entwurf' ist.
+ * Ab diesem UPDATE ist die Rechnung eine ganz normale, GoBD-unveränderliche Rechnung.
+ */
+export async function createBackfilledInvoice(input: CreateBackfilledInvoiceInput): Promise<InvoiceDetail> {
+  if (!input.clientId) throw new DomainError('client_id ist erforderlich.')
+  if (!input.invoiceNumber?.trim()) throw new DomainError('Die ursprüngliche Rechnungsnummer ist erforderlich.')
+  if (!input.invoiceDate) throw new DomainError('Rechnungsdatum ist erforderlich.')
+
+  const adminClient = createAdminClient()
+
+  const { error: clientError } = await adminClient.from('clients').select('id').eq('id', input.clientId).single()
+  if (clientError) throw new DomainError('Kunde nicht gefunden.')
+
+  const { data: duplicate } = await adminClient
+    .from('invoices')
+    .select('id')
+    .eq('invoice_number', input.invoiceNumber.trim())
+    .maybeSingle()
+  if (duplicate) throw new DomainError(`Rechnungsnummer ${input.invoiceNumber} existiert bereits.`)
+
+  const resolvedItems = await resolveInvoiceItems(adminClient, input.items)
+  const totalNet = round2(resolvedItems.reduce((sum, i) => sum + i.gesamt, 0))
   const companySettings = await getCompanySettings()
-  if (!invoice.client) throw new DomainError('Kunde der Rechnung konnte nicht geladen werden.')
-  if (!invoice.invoice_number || !invoice.invoice_date) {
-    throw new DomainError('Rechnung hat keine Nummer/kein Datum — Stellen ist fehlgeschlagen.')
-  }
 
-  const invoiceClientProfile = Array.isArray(invoice.client.profiles) ? invoice.client.profiles[0] : invoice.client.profiles
-
-  const pdfBytes = await generateInvoicePdf({
-    invoiceNumber: invoice.invoice_number,
-    invoiceDate: invoice.invoice_date,
-    serviceDate: invoice.service_date,
-    ustPflichtig: invoice.ust_pflichtig,
-    totalNet: invoice.total_net,
-    items: invoice.items,
-    client: { ...invoice.client, full_name: invoiceClientProfile?.full_name ?? null },
-    companySettings,
-    projectTitle: invoice.project?.title ?? null,
-  })
-
-  const path = `${invoice.client_id}/${invoice.invoice_number}.pdf`
-  const { error: uploadError } = await adminClient.storage
+  const { data: draft, error: draftError } = await adminClient
     .from('invoices')
-    .upload(path, pdfBytes, { contentType: 'application/pdf', upsert: true })
-
-  if (uploadError) {
-    throw new DomainError(
-      `Rechnung ${invoice.invoice_number} wurde gestellt, aber das PDF konnte nicht gespeichert werden: ${uploadError.message}. Erneuter Versuch (issue_invoice) zieht KEINE neue Nummer.`
-    )
-  }
-
-  const { data: updated, error: updateError } = await adminClient
-    .from('invoices')
-    .update({ pdf_url: path })
-    .eq('id', invoiceId)
+    .insert({
+      client_id: input.clientId,
+      project_id: input.projectId ?? null,
+      status: 'entwurf',
+      service_date: input.serviceDate ?? null,
+      ust_pflichtig: input.ustPflichtig ?? companySettings.ust_pflichtig,
+      total_net: totalNet,
+      is_backfilled: true,
+    })
     .select('*')
     .single()
-  if (updateError) {
-    throw new DomainError(`PDF gespeichert, aber pdf_url konnte nicht aktualisiert werden: ${updateError.message}`)
+  if (draftError) throw new DomainError(`Rechnung konnte nicht angelegt werden: ${draftError.message}`)
+
+  const { error: itemsError } = await adminClient
+    .from('invoice_items')
+    .insert(resolvedItems.map((i) => ({ ...i, invoice_id: draft.id })))
+  if (itemsError) {
+    await adminClient.from('invoices').delete().eq('id', draft.id)
+    throw new DomainError(`Positionen konnten nicht gespeichert werden: ${itemsError.message}`)
   }
 
-  return { ...invoice, ...updated }
+  const { data: issued, error: issueError } = await adminClient
+    .from('invoices')
+    .update({
+      invoice_number: input.invoiceNumber.trim(),
+      invoice_date: input.invoiceDate,
+      status: input.status,
+      sent_at: input.invoiceDate,
+      paid_at: input.status === 'bezahlt' ? input.paidAt ?? input.invoiceDate : null,
+    })
+    .eq('id', draft.id)
+    .select('*')
+    .single()
+  if (issueError) throw new DomainError(`Rechnung angelegt, aber Nummer konnte nicht gesetzt werden: ${issueError.message}`)
+
+  let result = await getInvoice(draft.id)
+  result = { ...result, ...(issued as Invoice) }
+
+  if (input.uploadedPdf) {
+    const path = `${input.clientId}/${input.invoiceNumber.trim()}.pdf`
+    const { error: uploadError } = await adminClient.storage
+      .from('invoices')
+      .upload(path, input.uploadedPdf.bytes, { contentType: input.uploadedPdf.contentType, upsert: true })
+    if (uploadError) throw new DomainError(`Rechnung angelegt, aber PDF konnte nicht hochgeladen werden: ${uploadError.message}`)
+
+    const { data: withPdf, error: pdfUrlError } = await adminClient
+      .from('invoices')
+      .update({ pdf_url: path })
+      .eq('id', draft.id)
+      .select('*')
+      .single()
+    if (pdfUrlError) throw new DomainError(`PDF hochgeladen, aber pdf_url konnte nicht gesetzt werden: ${pdfUrlError.message}`)
+    result = { ...result, ...withPdf }
+  } else if (input.generatePdf) {
+    const updated = await generateAndStoreInvoicePdf(draft.id, result)
+    result = { ...result, ...updated }
+  }
+
+  return result
+}
+
+// ── invoices: Testrechnungen löschen ─────────────────────────────────────────
+
+/** Testrechnungen sind nicht GoBD-unveränderlich (siehe enforce_invoice_immutability()) und
+ * dürfen daher, anders als echte Rechnungen, wieder gelöscht werden. */
+export async function deleteTestInvoice(invoiceId: string): Promise<void> {
+  const adminClient = createAdminClient()
+
+  const { data: existing, error: existingError } = await adminClient
+    .from('invoices')
+    .select('is_test')
+    .eq('id', invoiceId)
+    .single()
+  if (existingError) throw new DomainError('Rechnung nicht gefunden.')
+  if (!existing.is_test) throw new DomainError('Nur Testrechnungen können hier gelöscht werden.')
+
+  const { error } = await adminClient.from('invoices').delete().eq('id', invoiceId)
+  if (error) throw new DomainError(error.message)
 }
 
 export async function getInvoicePdfUrl(pdfPath: string): Promise<string | null> {
@@ -441,6 +635,62 @@ export async function sendInvoice(invoiceId: string, to?: string): Promise<Invoi
   if (updateError) throw new DomainError(updateError.message)
 
   return updated
+}
+
+// ── invoices: Zahlungserinnerung ─────────────────────────────────────────
+
+export interface SendPaymentReminderResult {
+  sent: true
+  to: string
+  /** Tage seit Ablauf der Zahlungsfrist (OVERDUE_DAYS) — 0 oder negativ heißt: noch nicht fällig. */
+  overdueDays: number | null
+}
+
+/**
+ * Verschickt eine Zahlungserinnerung (Mahnung) für eine bereits gestellte, noch offene
+ * Rechnung — hängt das Rechnungs-PDF erneut an. Im Gegensatz zu sendInvoice() setzt das
+ * hier keinen unveränderlichen Zeitstempel — ein mehrfacher Versand (1., 2. Mahnung) ist
+ * bewusst erlaubt.
+ */
+export async function sendPaymentReminder(invoiceId: string, to?: string): Promise<SendPaymentReminderResult> {
+  const invoice = await getInvoice(invoiceId)
+  if (invoice.status !== 'versendet') {
+    throw new DomainError(`Zahlungserinnerung nur für offene (versendete) Rechnungen möglich — aktueller Status: "${invoice.status}".`)
+  }
+  if (!invoice.pdf_url) throw new DomainError('Rechnung hat kein PDF (noch nicht gestellt?).')
+
+  const profile = invoice.client ? (Array.isArray(invoice.client.profiles) ? invoice.client.profiles[0] : invoice.client.profiles) : null
+  const recipient = to ?? profile?.email ?? invoice.client?.contact_email ?? null
+  if (!recipient) throw new DomainError('Keine Empfänger-E-Mail-Adresse angegeben oder für den Kunden hinterlegt.')
+
+  const overdueDays = invoice.invoice_date
+    ? Math.floor((Date.now() - new Date(invoice.invoice_date).getTime()) / (24 * 60 * 60 * 1000)) - OVERDUE_DAYS
+    : null
+
+  const adminClient = createAdminClient()
+  const { data: pdfBlob, error: downloadError } = await adminClient.storage.from('invoices').download(invoice.pdf_url)
+  if (downloadError) throw new DomainError(`PDF konnte nicht geladen werden: ${downloadError.message}`)
+
+  const betreff = overdueDays != null && overdueDays > 0 ? `Zahlungserinnerung: Rechnung ${invoice.invoice_number}` : `Erinnerung: Rechnung ${invoice.invoice_number}`
+  const ueberfaelligZeile =
+    overdueDays != null && overdueDays > 0
+      ? `Die Zahlungsfrist ist seit ${overdueDays} ${overdueDays === 1 ? 'Tag' : 'Tagen'} abgelaufen. `
+      : ''
+
+  const result = await sendEmail({
+    to: recipient,
+    subject: betreff,
+    html:
+      `Sehr geehrte Damen und Herren,<br><br>` +
+      `wir möchten Sie freundlich an die noch offene Rechnung ${invoice.invoice_number} über ${fmtEuro(invoice.total_net)} erinnern. ` +
+      `${ueberfaelligZeile}Die Rechnung finden Sie noch einmal im Anhang.<br><br>` +
+      `Bitte gleichen Sie den Betrag zeitnah aus — bei bereits erfolgter Zahlung betrachten Sie diese Erinnerung als erledigt.<br><br>` +
+      `Beste Grüße<br>Schuck Webdesign`,
+    attachment: { filename: `${invoice.invoice_number}.pdf`, content: new Uint8Array(await pdfBlob.arrayBuffer()) },
+  })
+  if (!result.sent) throw new DomainError(`Zahlungserinnerung konnte nicht gesendet werden: ${result.error}`)
+
+  return { sent: true, to: recipient, overdueDays }
 }
 
 // ── invoices: Statuswechsel ───────────────────────────────────────────────
@@ -511,6 +761,15 @@ export interface RevenueOverview {
   by_month: { month: string; total_net: number }[]
   by_client: { client_id: string; display_name: string; total_net: number }[]
   by_category: { kategorie: string; total_net: number }[]
+  /** Offene (versendete) Rechnungen, älteste zuerst — für die Dashboard-Übersicht. */
+  open_invoices: {
+    id: string
+    invoice_number: string | null
+    display_name: string
+    invoice_date: string | null
+    total_net: number
+    is_overdue: boolean
+  }[]
 }
 
 export async function getRevenueOverview(filter: RevenueOverviewFilter = {}): Promise<RevenueOverview> {
@@ -524,8 +783,9 @@ export async function getRevenueOverview(filter: RevenueOverviewFilter = {}): Pr
 
   const { data: invoicesRaw, error } = await adminClient
     .from('invoices')
-    .select('id, client_id, status, invoice_date, total_net, clients(company_name, contact_name, profiles(full_name))')
+    .select('id, invoice_number, client_id, status, invoice_date, total_net, clients(company_name, contact_name, profiles(full_name))')
     .in('status', ['versendet', 'bezahlt'])
+    .eq('is_test', false)
 
   if (error) throw new DomainError(error.message)
 
@@ -599,6 +859,19 @@ export async function getRevenueOverview(filter: RevenueOverviewFilter = {}): Pr
       .sort((a, b) => b.total_net - a.total_net)
   }
 
+  const openInvoices = openRows
+    .slice()
+    .sort((a, b) => (a.invoice_date ?? '').localeCompare(b.invoice_date ?? ''))
+    .slice(0, 8)
+    .map((r) => ({
+      id: r.id,
+      invoice_number: r.invoice_number,
+      display_name: r.display_name,
+      invoice_date: r.invoice_date,
+      total_net: r.total_net,
+      is_overdue: !!r.invoice_date && r.invoice_date < overdueCutoffStr,
+    }))
+
   return {
     total_net: round2(inRange.reduce((sum, r) => sum + r.total_net, 0)),
     revenue_this_month: revenueThisMonth,
@@ -608,5 +881,6 @@ export async function getRevenueOverview(filter: RevenueOverviewFilter = {}): Pr
     by_month: byMonth,
     by_client: byClient,
     by_category: byCategory,
+    open_invoices: openInvoices,
   }
 }

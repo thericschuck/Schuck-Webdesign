@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import { updateInvoiceDraftAction } from './actions'
-import { ItemsEditor, type ItemDraft, type ArticleOption } from '../ItemsEditor'
+import { ItemsEditor, isSubstantiveItem, type ItemDraft, type ArticleOption, type PackageOption } from '../ItemsEditor'
 
 interface ProjectOption {
   id: string
@@ -24,6 +24,7 @@ export function InvoiceEditForm({
   projectId,
   projects,
   articles,
+  packages,
 }: {
   invoiceId: string
   initialItems: ItemDraft[]
@@ -31,12 +32,13 @@ export function InvoiceEditForm({
   projectId: string | null
   projects: ProjectOption[]
   articles: ArticleOption[]
+  packages: PackageOption[]
 }) {
   const boundAction = updateInvoiceDraftAction.bind(null, invoiceId)
   const [state, action, pending] = useActionState<State, FormData>(boundAction, null)
   const [items, setItems] = useState<ItemDraft[]>(initialItems)
 
-  const validItems = items.filter((it) => it.ep > 0 && (it.art_nr || it.bezeichnung))
+  const validItems = items.filter(isSubstantiveItem)
   const total = validItems.reduce((sum, it) => sum + (it.menge || 0) * (it.ep || 0), 0)
 
   return (
@@ -62,7 +64,7 @@ export function InvoiceEditForm({
         </div>
       </div>
 
-      <ItemsEditor items={items} onChange={setItems} articles={articles} disabled={pending} />
+      <ItemsEditor items={items} onChange={setItems} articles={articles} packages={packages} disabled={pending} />
 
       <p className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
         Gesamt (netto): {total.toFixed(2)} €

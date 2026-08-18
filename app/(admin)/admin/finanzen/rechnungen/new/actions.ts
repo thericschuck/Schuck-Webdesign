@@ -14,6 +14,7 @@ function str(formData: FormData, key: string): string | null {
 
 interface ItemFormValue {
   art_nr?: string
+  pkt_nr?: string
   bezeichnung?: string
   menge?: number
   ep: number
@@ -43,10 +44,12 @@ export async function createInvoiceDraftAction(_prev: ActionResult, formData: Fo
       serviceDate: str(formData, 'service_date'),
       items: items.map((item) => ({
         artNr: item.art_nr,
+        pktNr: item.pkt_nr,
         bezeichnung: item.bezeichnung,
         menge: item.menge,
         ep: item.ep,
       })),
+      isTest: formData.get('is_test') === 'on',
     })
     invoiceId = invoice.id
   } catch (error) {

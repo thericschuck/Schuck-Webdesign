@@ -15,6 +15,25 @@ export type ProjectEntry = {
 
 export const projects: ProjectEntry[] = [
   {
+    slug: "athena-finance",
+    name: "Athena Finance",
+    category: "Finance & Portfolio Dashboard",
+    url: "https://athena-finance.de",
+    image: "/athena-finance.webp",
+    blurDataURL:
+      "data:image/webp;base64,UklGRlIAAABXRUJQVlA4IEYAAAAQAgCdASoQAAgAA4BaJZACdAEO9CH72IcAAPx1khb0MPcF8o6EyhT/6ia83Sbv1VPuXM1gqjsX2sfFTaVLIbH2tIfZQcAA",
+    shortDesc:
+      "Eine eigene Finanz-Plattform für Portfolio, Ausgaben, Verträge und Strategie in einem ruhigen, edlen Interface — Finanzen im vollen Überblick statt verstreut über zehn Apps.",
+    intro:
+      "Ein persönliches SaaS-Projekt, das Vermögensverwaltung so aufbereitet, wie sie sich anfühlen sollte: klar, kontrolliert und ohne Tabellen-Chaos.",
+    challenge:
+      "Finanz-Tools wirken oft entweder wie nüchterne Excel-Klone oder wie verspielte Consumer-Apps, denen man kein Vertrauen schenkt. Die Aufgabe war, Portfolio-Tracking, Ausgaben, Verträge und Strategie in einem Produkt zu bündeln, das seriös wirkt, ohne kalt zu sein — und das komplexe Daten auf einen Blick verständlich macht.",
+    solution:
+      "Entstanden ist ein editorial-geprägtes Interface mit warmer, vertrauensbildender Bildsprache und klarer Informationshierarchie: Portfolio, Ausgaben, Verträge und Strategie sind jeweils eigene, fokussierte Module statt einer überladenen Übersicht. Auth, Datenhaltung und Logik laufen vollständig über Supabase, das Frontend ist auf Next.js und TypeScript aufgebaut — technisch robust und gestalterisch auf Präzision statt Spielerei ausgelegt.",
+    stack: ["Next.js", "TypeScript", "Supabase", "Vercel"],
+    accent: "from-[#a5813a]/20 via-[#7F77DD]/8 to-transparent",
+  },
+  {
     slug: "vmp-kuenstlerpool",
     name: "VMP Künstlerpool",
     category: "Talent & Booking Platform",

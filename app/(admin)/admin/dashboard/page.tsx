@@ -26,14 +26,17 @@ export default async function DashboardPage() {
     { count: clientCount },
     { data: projects },
     { count: docCount },
+    { count: leadCount },
     { data: recentClients },
     { count: unreadMessages },
     { count: openRequests },
     { count: pendingReviews },
+    { count: leadsWiedervorlageFaellig },
   ] = await Promise.all([
     supabase.from('clients').select('id', { count: 'exact', head: true }),
     supabase.from('projects').select('id, status'),
     supabase.from('documents').select('id', { count: 'exact', head: true }),
+    supabase.from('leads').select('id', { count: 'exact', head: true }),
     supabase
       .from('clients')
       .select('id, company_name, contact_name, status, created_at, profile:profiles(full_name, email)')
@@ -52,6 +55,13 @@ export default async function DashboardPage() {
       .from('reviews')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending'),
+    supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .not('wiedervorlage', 'is', null)
+      .lte('wiedervorlage', new Date().toISOString().slice(0, 10))
+      .neq('current_stage', 'gewonnen')
+      .neq('current_stage', 'verloren'),
   ])
 
   const liveCount = projects?.filter((p) => p.status === 'live').length ?? 0
@@ -94,6 +104,16 @@ export default async function DashboardPage() {
         </svg>
       ),
     },
+    {
+      label: 'Leads',
+      value: leadCount ?? 0,
+      href: '/admin/akquise',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      ),
+    },
   ]
 
   return (
@@ -121,20 +141,32 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-gray-500 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                {stat.label}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {stats.map((stat) => {
+          const content = (
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-gray-500 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                  {stat.label}
+                </p>
+                <span className="text-gray-400">{stat.icon}</span>
+              </div>
+              <p className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
+                {stat.value}
               </p>
-              <span className="text-gray-400">{stat.icon}</span>
+            </>
+          )
+          const className = 'bg-white rounded-2xl p-5 border border-gray-100 shadow-sm transition-colors' + (stat.href ? ' hover:border-gray-300' : '')
+          return stat.href ? (
+            <Link key={stat.label} href={stat.href} className={className}>
+              {content}
+            </Link>
+          ) : (
+            <div key={stat.label} className={className}>
+              {content}
             </div>
-            <p className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'var(--font-playfair)' }}>
-              {stat.value}
-            </p>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Recent clients */}
@@ -149,7 +181,7 @@ export default async function DashboardPage() {
         </div>
 
         {recentClients && recentClients.length > 0 ? (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-100">
             {recentClients.map((client) => {
               const profile = Array.isArray(client.profile) ? client.profile[0] : client.profile
               const displayName = clientDisplayName(profile?.full_name, client.contact_name, client.company_name)
@@ -204,7 +236,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Open items */}
-      {((unreadMessages ?? 0) > 0 || (openRequests ?? 0) > 0 || (pendingReviews ?? 0) > 0) && (
+      {((unreadMessages ?? 0) > 0 || (openRequests ?? 0) > 0 || (pendingReviews ?? 0) > 0 || (leadsWiedervorlageFaellig ?? 0) > 0) && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
             Offene Punkte
@@ -244,6 +276,18 @@ export default async function DashboardPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                 </svg>
                 <span className="font-medium">{pendingReviews}</span> Bewertung{(pendingReviews ?? 0) !== 1 ? 'en' : ''} zur Prüfung
+              </Link>
+            )}
+            {(leadsWiedervorlageFaellig ?? 0) > 0 && (
+              <Link
+                href="/admin/akquise"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 border border-orange-100 text-sm text-orange-700 hover:bg-orange-100 transition-colors"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">{leadsWiedervorlageFaellig}</span> Wiedervorlage{(leadsWiedervorlageFaellig ?? 0) !== 1 ? 'n' : ''} fällig
               </Link>
             )}
           </div>

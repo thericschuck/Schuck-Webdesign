@@ -112,7 +112,7 @@ export async function listLeads(filter: ListLeadsFilter = {}) {
   let query = adminClient
     .from('leads')
     .select(
-      'id, lead_number, firmenname, zielgruppe, stadt, quelle, prioritaet, akquise_ergebnis, current_stage, wiedervorlage, created_at'
+      'id, lead_number, firmenname, zielgruppe, stadt, quelle, prioritaet, akquise_ergebnis, current_stage, wiedervorlage, sheet_lead_id, last_synced_at, created_at'
     )
     .order('created_at', { ascending: false })
 
@@ -551,6 +551,8 @@ export async function setWiedervorlage(leadId: string, wiedervorlage: string, no
 
 export interface LogAkquiseTrackingInput {
   datum?: string
+  /** Wer die Aktivitäten erfasst hat — mehrere Personen tragen unabhängig ein. Default: 'Eric'. */
+  wer?: string
   waehlversuche?: number
   gespraecheEmpfang?: number
   gespraecheEntscheider?: number
@@ -559,9 +561,15 @@ export interface LogAkquiseTrackingInput {
 
 export async function logAkquiseTracking(input: LogAkquiseTrackingInput) {
   const datum = input.datum ?? new Date().toISOString().slice(0, 10)
+  const wer = input.wer ?? 'Eric'
   const adminClient = createAdminClient()
 
-  const { data: existing } = await adminClient.from('akquise_tracking').select('*').eq('datum', datum).single()
+  const { data: existing } = await adminClient
+    .from('akquise_tracking')
+    .select('*')
+    .eq('datum', datum)
+    .eq('wer', wer)
+    .maybeSingle()
 
   const deltas = {
     waehlversuche: input.waehlversuche ?? 0,
@@ -579,7 +587,7 @@ export async function logAkquiseTracking(input: LogAkquiseTrackingInput) {
         gespraeche_entscheider: existing.gespraeche_entscheider + deltas.gespraeche_entscheider,
         termine_vereinbart: existing.termine_vereinbart + deltas.termine_vereinbart,
       })
-      .eq('datum', datum)
+      .eq('id', existing.id)
       .select('*')
       .single()
     if (error) throw new DomainError(error.message)
@@ -588,7 +596,7 @@ export async function logAkquiseTracking(input: LogAkquiseTrackingInput) {
 
   const { data, error } = await adminClient
     .from('akquise_tracking')
-    .insert({ datum, ...deltas })
+    .insert({ datum, wer, ...deltas })
     .select('*')
     .single()
   if (error) throw new DomainError(error.message)
@@ -598,6 +606,7 @@ export async function logAkquiseTracking(input: LogAkquiseTrackingInput) {
 export interface ListAkquiseTrackingFilter {
   fromDate?: string
   toDate?: string
+  wer?: string
 }
 
 export async function listAkquiseTracking(filter: ListAkquiseTrackingFilter = {}) {
@@ -606,8 +615,65 @@ export async function listAkquiseTracking(filter: ListAkquiseTrackingFilter = {}
 
   if (filter.fromDate) query = query.gte('datum', filter.fromDate)
   if (filter.toDate) query = query.lte('datum', filter.toDate)
+  if (filter.wer) query = query.eq('wer', filter.wer)
 
   const { data, error } = await query
+  if (error) throw new DomainError(error.message)
+  return data
+}
+
+// ── sheet sync status ──────────────────────────────────────────────────────────
+
+/** Zeitpunkt des letzten erfolgreichen Sheet-Syncs (jüngstes leads.last_synced_at). */
+export async function getLastSheetSyncAt(): Promise<string | null> {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('leads')
+    .select('last_synced_at')
+    .not('last_synced_at', 'is', null)
+    .order('last_synced_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw new DomainError(error.message)
+  return data?.last_synced_at ?? null
+}
+
+/**
+ * Nachricht des letzten Sheet-Sync-Laufs (Erfolg wie Fehler) inkl. Warnungs-Details —
+ * dieselbe Zeile, die syncAkquiseFromSheet() über logIntegrationCall('sheets', ...) in
+ * integration_calls schreibt. Macht Sync-Warnungen (nicht zuordenbare Sheet-Werte etc.)
+ * dauerhaft nachschaubar statt nur einmalig im Toast sichtbar.
+ */
+export interface LastSyncMessage {
+  success: boolean
+  message: string | null
+  calledAt: string
+}
+
+export async function getLastSyncMessage(): Promise<LastSyncMessage | null> {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('integration_calls')
+    .select('success, error_message, called_at')
+    .eq('service', 'sheets')
+    .order('called_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw new DomainError(error.message)
+  if (!data) return null
+  return { success: data.success, message: data.error_message, calledAt: data.called_at }
+}
+
+// ── lead change log (audit trail) ───────────────────────────────────────────────
+
+/** Änderungshistorie eines Leads aus dem Sheet-Sync (siehe akquise-sync.ts#diffLeadFields). */
+export async function getLeadChangeLog(leadId: string) {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('lead_change_log')
+    .select('id, field, old_value, new_value, changed_at')
+    .eq('lead_id', leadId)
+    .order('changed_at', { ascending: false })
   if (error) throw new DomainError(error.message)
   return data
 }
@@ -654,4 +720,39 @@ export async function getFunnelStats() {
       gesamt_erstkontakt_zu_gewonnen: rate(gewonnen, totalLeads),
     },
   }
+}
+
+// ── get_zielgruppen_stats ──────────────────────────────────────────────────────
+// Entspricht der "NACH ZIELGRUPPE"-Übersicht im Akquise-Sheet — pro Zielgruppe,
+// wie viele Leads, wie viele davon gewonnen, und die Conversion-Rate.
+
+export interface ZielgruppenStatsRow {
+  zielgruppe: string
+  total: number
+  gewonnen: number
+  conversionPercent: number | null
+}
+
+export async function getZielgruppenStats(): Promise<ZielgruppenStatsRow[]> {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient.from('leads').select('zielgruppe, current_stage')
+  if (error) throw new DomainError(error.message)
+
+  const byZielgruppe = new Map<string, { total: number; gewonnen: number }>()
+  for (const lead of data ?? []) {
+    const key = lead.zielgruppe?.trim() || 'Ohne Zielgruppe'
+    const entry = byZielgruppe.get(key) ?? { total: 0, gewonnen: 0 }
+    entry.total += 1
+    if (lead.current_stage === 'gewonnen') entry.gewonnen += 1
+    byZielgruppe.set(key, entry)
+  }
+
+  return Array.from(byZielgruppe.entries())
+    .map(([zielgruppe, { total, gewonnen }]) => ({
+      zielgruppe,
+      total,
+      gewonnen,
+      conversionPercent: total > 0 ? Math.round((gewonnen / total) * 1000) / 10 : null,
+    }))
+    .sort((a, b) => b.total - a.total)
 }

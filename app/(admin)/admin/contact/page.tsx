@@ -120,13 +120,13 @@ export default async function ContactPage() {
                 </div>
               </div>
               {/* Message */}
-              <div className="px-6 py-4 border-t border-gray-50">
+              <div className="px-6 py-4 border-t border-gray-100">
                 <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                   {s.message}
                 </p>
               </div>
               {/* Reply CTA */}
-              <div className="px-6 py-3 border-t border-gray-50 flex justify-end gap-4">
+              <div className="px-6 py-3 border-t border-gray-100 flex justify-end gap-4">
                 <form action={convertContactToLead.bind(null, s.id)}>
                   <button
                     type="submit"

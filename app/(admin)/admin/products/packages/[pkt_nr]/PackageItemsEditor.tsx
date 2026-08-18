@@ -234,7 +234,7 @@ export function PackageItemsEditor({
               <th className="px-6 py-3" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-gray-100">
             {items.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>

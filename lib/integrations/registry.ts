@@ -122,4 +122,17 @@ export const INTEGRATIONS: IntegrationDescriptor[] = [
     envVars: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'],
     isConfigured: () => hasEnv('CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'),
   },
+  {
+    service: 'sheets',
+    label: 'Google Sheets (Akquise)',
+    envVars: ['GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'SHEETS_REFRESH_TOKEN', 'AKQUISE_SPREADSHEET_ID'],
+    isConfigured: () =>
+      hasEnv('GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'SHEETS_REFRESH_TOKEN', 'AKQUISE_SPREADSHEET_ID'),
+  },
+  {
+    service: 'email',
+    label: 'E-Mail (Resend)',
+    envVars: ['RESEND_API_KEY'],
+    isConfigured: () => hasEnv('RESEND_API_KEY'),
+  },
 ]

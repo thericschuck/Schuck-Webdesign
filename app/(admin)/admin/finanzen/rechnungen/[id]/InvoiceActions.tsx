@@ -1,7 +1,13 @@
 'use client'
 
 import { useActionState, useEffect, useState, useTransition } from 'react'
-import { createCreditNoteAction, issueInvoiceAction, updateInvoiceStatusAction } from './actions'
+import {
+  createCreditNoteAction,
+  deleteTestInvoiceAction,
+  issueInvoiceAction,
+  regenerateInvoicePdfAction,
+  updateInvoiceStatusAction,
+} from './actions'
 import type { InvoiceStatus } from '@/types/database'
 
 type CreditState = { status: 'error'; message: string } | { status: 'success'; creditNoteNumber: string } | null
@@ -16,17 +22,22 @@ export function InvoiceActions({
   invoiceId,
   status,
   totalNet,
+  isTest,
 }: {
   invoiceId: string
   status: InvoiceStatus
   totalNet: number
+  isTest?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
   const [confirmStellen, setConfirmStellen] = useState(false)
   const [confirmStorno, setConfirmStorno] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [showCreditForm, setShowCreditForm] = useState(false)
   const [issueError, setIssueError] = useState<string | null>(null)
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [pdfSuccess, setPdfSuccess] = useState(false)
 
   const boundCreditAction = createCreditNoteAction.bind(null, invoiceId)
   const [creditState, creditAction, creditPending] = useActionState<CreditState, FormData>(boundCreditAction, null)
@@ -59,8 +70,39 @@ export function InvoiceActions({
     })
   }
 
+  function handleRegeneratePdf() {
+    startTransition(async () => {
+      const result = await regenerateInvoicePdfAction(invoiceId)
+      if (result.status === 'error') {
+        setPdfError(result.message)
+        setPdfSuccess(false)
+      } else {
+        setPdfError(null)
+        setPdfSuccess(true)
+      }
+    })
+  }
+
+  function handleDelete() {
+    startTransition(async () => {
+      await deleteTestInvoiceAction(invoiceId)
+    })
+  }
+
   return (
     <div className="flex flex-col gap-3">
+      {status === 'entwurf' && (
+        <a
+          href={`/api/admin/finanzen/rechnungen/${invoiceId}/preview-pdf`}
+          target="_blank"
+          rel="noreferrer"
+          className={secondaryBtn}
+          style={{ fontFamily: 'var(--font-dm-sans)', textAlign: 'center' }}
+        >
+          PDF-Vorschau
+        </a>
+      )}
+
       {status === 'entwurf' &&
         (!confirmStellen ? (
           <button onClick={() => setConfirmStellen(true)} className={primaryBtn} style={{ fontFamily: 'var(--font-dm-sans)' }}>
@@ -199,6 +241,50 @@ export function InvoiceActions({
           Diese Rechnung ist storniert — keine weiteren Aktionen möglich.
         </p>
       )}
+
+      {status !== 'entwurf' && (
+        <div className="pt-1 border-t border-gray-100 flex flex-col gap-2">
+          <button onClick={handleRegeneratePdf} disabled={isPending} className={secondaryBtn} style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            {isPending ? 'Wird erzeugt…' : 'PDF neu erzeugen'}
+          </button>
+          {pdfError && (
+            <p className="text-xs text-red-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              {pdfError}
+            </p>
+          )}
+          {pdfSuccess && (
+            <p className="text-xs text-green-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              PDF wurde neu erzeugt.
+            </p>
+          )}
+        </div>
+      )}
+
+      {isTest &&
+        (!confirmDelete ? (
+          <button onClick={() => setConfirmDelete(true)} className={dangerLinkBtn} style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            Testrechnung löschen
+          </button>
+        ) : (
+          <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex flex-col gap-3">
+            <p className="text-sm text-gray-800 font-medium" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Testrechnung wirklich löschen?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={isPending}
+                className="flex-1 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                {isPending ? 'Wird gelöscht…' : 'Ja, löschen'}
+              </button>
+              <button onClick={() => setConfirmDelete(false)} disabled={isPending} className={secondaryBtn} style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        ))}
     </div>
   )
 }

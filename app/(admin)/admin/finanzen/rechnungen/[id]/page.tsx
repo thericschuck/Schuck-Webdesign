@@ -5,6 +5,7 @@ import * as projectsDomain from '@/lib/domain/projects'
 import * as productsDomain from '@/lib/domain/products'
 import { InvoiceEditForm } from './InvoiceEditForm'
 import { InvoiceActions } from './InvoiceActions'
+import { FinanzenTabs } from '../../FinanzenTabs'
 import type { InvoiceStatus } from '@/types/database'
 import { clientDisplayName } from '@/lib/client-name'
 
@@ -38,9 +39,10 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   const isDraft = invoice.status === 'entwurf'
 
-  const [projects, articles, pdfUrl] = await Promise.all([
+  const [projects, articles, packages, pdfUrl] = await Promise.all([
     isDraft ? projectsDomain.listProjects({ clientId: invoice.client_id }) : Promise.resolve([]),
     isDraft ? productsDomain.listArticles().catch(() => []) : Promise.resolve([]),
+    isDraft ? productsDomain.listPackages().catch(() => []) : Promise.resolve([]),
     invoice.pdf_url ? financeDomain.getInvoicePdfUrl(invoice.pdf_url) : Promise.resolve(null),
   ])
 
@@ -75,6 +77,16 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             >
               {STATUS_LABEL[invoice.status]}
             </span>
+            {invoice.is_test && (
+              <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-amber-50 text-amber-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Testrechnung
+              </span>
+            )}
+            {invoice.is_backfilled && (
+              <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-purple-50 text-purple-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Nachgetragen
+              </span>
+            )}
           </div>
           <p className="text-gray-500 text-sm mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
             {invoiceClientName}
@@ -98,6 +110,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         )}
       </div>
 
+      <FinanzenTabs />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 flex flex-col gap-6">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
@@ -109,6 +123,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                   bezeichnung: item.bezeichnung,
                   menge: item.menge,
                   ep: item.ep,
+                }))}
+                packages={(packages ?? []).map((p) => ({
+                  pkt_nr: p.pkt_nr,
+                  paketname: p.paketname,
+                  paketpreis: p.paketpreis,
                 }))}
                 serviceDate={invoice.service_date}
                 projectId={invoice.project_id}
@@ -152,7 +171,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                         <th className="py-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>Gesamt</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-gray-100">
                       {invoice.items.map((item) => (
                         <tr key={item.id}>
                           <td className="py-2 text-sm text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>{item.pos}</td>
@@ -205,7 +224,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           <h2 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: 'var(--font-dm-sans)' }}>
             Aktionen
           </h2>
-          <InvoiceActions invoiceId={invoice.id} status={invoice.status} totalNet={invoice.total_net} />
+          <InvoiceActions invoiceId={invoice.id} status={invoice.status} totalNet={invoice.total_net} isTest={invoice.is_test} />
         </div>
       </div>
     </div>

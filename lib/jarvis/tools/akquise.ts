@@ -1,6 +1,7 @@
 import type { JarvisTool } from '../tool-types'
 import { optionalNumber, optionalString, requireString } from './helpers'
 import * as akquiseDomain from '@/lib/domain/akquise'
+import { syncAkquiseFromSheet } from '@/lib/domain/akquise-sync'
 import type { AkquiseErgebnis, ClientStatus, LeadPrioritaet, LeadStage, QualiErgebnis, SalesErgebnis } from '@/types/database'
 
 const LEAD_STAGE_VALUES = akquiseDomain.LEAD_STAGE_VALUES
@@ -491,6 +492,45 @@ const getFunnelStats: JarvisTool = {
   },
 }
 
+// ── get_akquise_sync_status ──────────────────────────────────────────────────
+
+const getAkquiseSyncStatus: JarvisTool = {
+  name: 'get_akquise_sync_status',
+  requiresConfirmation: false,
+  definition: {
+    name: 'get_akquise_sync_status',
+    description:
+      'Zeigt Zeitpunkt und Ergebnis des letzten Google-Sheet-Syncs der Akquise-Daten (Leads/Calls/Tracking) — ' +
+      'inklusive Warnungen wie nicht zuordenbare Sheet-Werte.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  async execute() {
+    const [lastSyncedAt, lastSync] = await Promise.all([
+      akquiseDomain.getLastSheetSyncAt(),
+      akquiseDomain.getLastSyncMessage(),
+    ])
+    return { last_synced_at: lastSyncedAt, last_sync_success: lastSync?.success ?? null, last_sync_message: lastSync?.message ?? null }
+  },
+}
+
+// ── sync_akquise_sheet ────────────────────────────────────────────────────────
+
+const syncAkquiseSheet: JarvisTool = {
+  name: 'sync_akquise_sheet',
+  requiresConfirmation: true,
+  definition: {
+    name: 'sync_akquise_sheet',
+    description:
+      'Zieht Leads, Quali-/Sales-Calls und Tages-Tracking frisch aus dem Akquise-Google-Sheet und gleicht sie mit ' +
+      'der Datenbank ab (dieselbe Aktion wie der "Sheet synchronisieren"-Button in /admin/akquise). Erfordert ' +
+      'Bestätigung, da es Leads/Calls/Tracking in der Datenbank verändert.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  async execute() {
+    return syncAkquiseFromSheet()
+  },
+}
+
 export const akquiseTools: JarvisTool[] = [
   listContactSubmissions,
   listLeads,
@@ -506,4 +546,6 @@ export const akquiseTools: JarvisTool[] = [
   setWiedervorlage,
   logAkquiseTracking,
   getFunnelStats,
+  getAkquiseSyncStatus,
+  syncAkquiseSheet,
 ]

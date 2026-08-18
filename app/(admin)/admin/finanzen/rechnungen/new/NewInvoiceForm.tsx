@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from 'react'
 import { createInvoiceDraftAction } from './actions'
-import { ItemsEditor, EMPTY_ITEM, type ItemDraft, type ArticleOption } from '../ItemsEditor'
+import { ItemsEditor, EMPTY_ITEM, isSubstantiveItem, type ItemDraft, type ArticleOption, type PackageOption } from '../ItemsEditor'
 
 type State = { status: 'error'; message: string } | null
 
@@ -28,17 +28,19 @@ export function NewInvoiceForm({
   clients,
   projects,
   articles,
+  packages,
 }: {
   clients: ClientOption[]
   projects: ProjectOption[]
   articles: ArticleOption[]
+  packages: PackageOption[]
 }) {
   const [state, action, pending] = useActionState<State, FormData>(createInvoiceDraftAction, null)
   const [clientId, setClientId] = useState('')
   const [items, setItems] = useState<ItemDraft[]>([{ ...EMPTY_ITEM }])
 
   const clientProjects = useMemo(() => projects.filter((p) => p.client_id === clientId), [projects, clientId])
-  const validItems = items.filter((it) => it.ep > 0 && (it.art_nr || it.bezeichnung))
+  const validItems = items.filter(isSubstantiveItem)
   const total = validItems.reduce((sum, it) => sum + (it.menge || 0) * (it.ep || 0), 0)
 
   return (
@@ -83,11 +85,16 @@ export function NewInvoiceForm({
         </div>
       </div>
 
-      <ItemsEditor items={items} onChange={setItems} articles={articles} disabled={pending} />
+      <ItemsEditor items={items} onChange={setItems} articles={articles} packages={packages} disabled={pending} />
 
       <p className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
         Gesamt (netto): {total.toFixed(2)} €
       </p>
+
+      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+        <input name="is_test" type="checkbox" disabled={pending} className="rounded border-gray-300" />
+        Als Testrechnung anlegen (eigener Nummernkreis TEST-…, zählt nicht in der Umsatzstatistik, kann jederzeit gelöscht werden)
+      </label>
 
       {state?.status === 'error' && (
         <p className="text-sm text-red-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>

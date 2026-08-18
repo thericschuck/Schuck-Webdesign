@@ -146,6 +146,31 @@ const sendInvoice: JarvisTool = {
   },
 }
 
+// ── send_payment_reminder ─────────────────────────────────────────────────────
+
+const sendPaymentReminder: JarvisTool = {
+  name: 'send_payment_reminder',
+  requiresConfirmation: true,
+  definition: {
+    name: 'send_payment_reminder',
+    description:
+      'Verschickt eine Zahlungserinnerung (Mahnung) für eine bereits gestellte, noch offene Rechnung — hängt das ' +
+      'Rechnungs-PDF erneut an. Mehrfacher Versand ist erlaubt (1., 2. Mahnung). Ohne "to" wird die hinterlegte ' +
+      'Portal-E-Mail des Kunden verwendet. Erfordert Bestätigung.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        invoice_id: { type: 'string', description: 'UUID der Rechnung (invoices.id).' },
+        to: { type: 'string', description: 'Empfänger-E-Mail (optional, Default: Kunden-E-Mail).' },
+      },
+      required: ['invoice_id'],
+    },
+  },
+  async execute(args) {
+    return financeDomain.sendPaymentReminder(requireString(args, 'invoice_id'), optionalString(args, 'to') ?? undefined)
+  },
+}
+
 // ── update_invoice_status ────────────────────────────────────────────────────
 
 const updateInvoiceStatus: JarvisTool = {
@@ -233,6 +258,7 @@ export const financeTools: JarvisTool[] = [
   createInvoice,
   issueInvoice,
   sendInvoice,
+  sendPaymentReminder,
   updateInvoiceStatus,
   createCreditNote,
   getRevenueOverview,

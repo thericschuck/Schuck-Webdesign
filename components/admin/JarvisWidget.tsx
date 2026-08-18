@@ -43,10 +43,54 @@ const TOOL_LABELS: Record<string, string> = {
 
 const HISTORY_SENT_TO_MODEL = 40
 const OPEN_STORAGE_KEY = 'jarvis-widget-open'
+const PAGE_TEXT_MAX = 6000
+const FIELD_VALUE_MAX = 2000
+// War die letzte Nachricht länger her als das, öffnet JARVIS beim nächsten Aufruf keinen
+// alten Chat mehr weiter, sondern startet automatisch neu (wie der "Neuer Chat"-Button) —
+// rollierend seit der letzten Nachricht, nicht an Kalendertagen/Mitternacht festgemacht.
+const AUTO_NEW_CHAT_AFTER_MS = 24 * 60 * 60 * 1000
 
 function formatTime(iso?: string) {
   if (!iso) return ''
   return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+}
+
+type TrackableField = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+const UNTRACKED_INPUT_TYPES = new Set(['password', 'hidden', 'checkbox', 'radio', 'submit', 'button', 'file'])
+
+function isTrackableField(el: EventTarget | null): el is TrackableField {
+  if (!(el instanceof HTMLElement)) return false
+  if (el instanceof HTMLInputElement) return !UNTRACKED_INPUT_TYPES.has(el.type)
+  return el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement
+}
+
+// Sucht ein sprechendes Label fürs Feld — <label for>, umschließendes <label>,
+// aria-label, placeholder, dann name — damit JARVIS weiß, WAS Eric gerade tippt,
+// nicht nur den rohen Wert.
+function labelForField(el: TrackableField): string {
+  if (el.id) {
+    const byFor = document.querySelector(`label[for="${CSS.escape(el.id)}"]`)
+    const text = byFor?.textContent?.trim()
+    if (text) return text
+  }
+  const wrapping = el.closest('label')?.textContent?.trim()
+  if (wrapping) return wrapping
+  const ariaLabel = el.getAttribute('aria-label')
+  if (ariaLabel) return ariaLabel
+  const placeholder = el.getAttribute('placeholder')
+  if (placeholder) return placeholder
+  if (el.name) return el.name
+  return 'Eingabefeld'
+}
+
+// Extrahiert den sichtbaren Text der aktuellen Seite (main-Element, ohne Nav und
+// ohne das JARVIS-Widget selbst, das außerhalb von <main> gerendert wird).
+function extractPageText(): string | null {
+  if (typeof document === 'undefined') return null
+  const main = document.querySelector('main')
+  const text = main?.innerText?.replace(/\n{3,}/g, '\n\n').trim()
+  if (!text) return null
+  return text.length > PAGE_TEXT_MAX ? `${text.slice(0, PAGE_TEXT_MAX)}…` : text
 }
 
 function TypingDots() {
@@ -134,6 +178,10 @@ export function JarvisWidget({ mode }: { mode: 'floating' | 'full' }) {
   const hasTriggeredColdStart = useRef(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Letztes Formularfeld, das Eric außerhalb des JARVIS-Chats fokussiert hat — bleibt
+  // auch nach dem Blur stehen (z.B. wenn er danach in den Chat klickt, um JARVIS zu
+  // fragen), damit sendMessage() den zu diesem Zeitpunkt aktuellen Live-Wert lesen kann.
+  const lastFieldRef = useRef<TrackableField | null>(null)
 
   // Offen/Geschlossen-Zustand über Reloads hinweg merken (nur im schwebenden Modus relevant).
   useEffect(() => {
@@ -150,13 +198,27 @@ export function JarvisWidget({ mode }: { mode: 'floating' | 'full' }) {
 
   // Historie einmalig aus der DB laden — verhindert, dass bei jedem Reload/Mount
   // neu generiert wird, was Eric explizit als Ziel (Token/Kontext sparen) genannt hat.
+  // Ist die letzte Nachricht aber schon länger als AUTO_NEW_CHAT_AFTER_MS her, macht JARVIS
+  // stattdessen automatisch das, was der "Neuer Chat"-Button manuell auslöst: alte Historie
+  // in der DB löschen und lokal leer starten — der Cold-Start-Effekt unten (ausgelöst durch
+  // messages.length === 0) übernimmt danach von selbst die neue Begrüßung. So bekommt Eric
+  // beim ersten Öffnen nach einer Pause wieder ein "Hallo, was steht an" statt eines
+  // tagealten Gesprächsrests.
   useEffect(() => {
     let cancelled = false
     fetch('/api/jarvis/history')
       .then((res) => (res.ok ? res.json() : { messages: [] }))
       .then((data: { messages?: { role: 'user' | 'assistant'; content: string; created_at: string }[] }) => {
         if (cancelled) return
-        setMessages((data.messages ?? []).map((m) => ({ role: m.role, content: m.content, createdAt: m.created_at })))
+        const loaded = data.messages ?? []
+        const lastMessage = loaded[loaded.length - 1]
+        const isStale = lastMessage && Date.now() - new Date(lastMessage.created_at).getTime() > AUTO_NEW_CHAT_AFTER_MS
+
+        if (isStale) {
+          void fetch('/api/jarvis/history', { method: 'DELETE' })
+          return
+        }
+        setMessages(loaded.map((m) => ({ role: m.role, content: m.content, createdAt: m.created_at })))
       })
       .finally(() => {
         if (!cancelled) setHistoryLoaded(true)
@@ -181,6 +243,30 @@ export function JarvisWidget({ mode }: { mode: 'floating' | 'full' }) {
     if (mode === 'full' || isOpen) maybeColdStart()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historyLoaded, messages.length, mode, isOpen])
+
+  // Verfolgt fortlaufend, welches Formularfeld auf der Seite zuletzt fokussiert war —
+  // JARVIS soll auch mitbekommen, was Eric gerade eintippt, bevor er es speichert.
+  // Das eigene Chat-Textarea zählt bewusst nicht mit (sonst würde JARVIS sich selbst
+  // "zitieren", sobald Eric ins Chatfeld klickt).
+  useEffect(() => {
+    function onFocusIn(event: FocusEvent) {
+      if (event.target === textareaRef.current) return
+      if (isTrackableField(event.target)) lastFieldRef.current = event.target
+    }
+    document.addEventListener('focusin', onFocusIn)
+    return () => document.removeEventListener('focusin', onFocusIn)
+  }, [])
+
+  function getFocusedFieldContext(): { label: string; value: string } | null {
+    const el = lastFieldRef.current
+    if (!el || !document.contains(el)) return null
+    const value = el.value
+    if (!value || !value.trim()) return null
+    return {
+      label: labelForField(el),
+      value: value.length > FIELD_VALUE_MAX ? `${value.slice(0, FIELD_VALUE_MAX)}…` : value,
+    }
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -283,6 +369,10 @@ export function JarvisWidget({ mode }: { mode: 'floating' | 'full' }) {
           messages: history,
           currentPath: pathname,
           pageHeading: typeof document !== 'undefined' ? document.querySelector('h1')?.textContent?.trim() || null : null,
+          // Nur im schwebenden Widget sinnvoll — auf der Vollbild-Jarvis-Seite selbst
+          // wäre "Seiteninhalt" nur der Chat-Verlauf, den das Modell schon kennt.
+          pageText: mode === 'floating' ? extractPageText() : null,
+          focusedField: mode === 'floating' ? getFocusedFieldContext() : null,
         }),
       })
       await consumeSSE(response)
@@ -349,7 +439,21 @@ export function JarvisWidget({ mode }: { mode: 'floating' | 'full' }) {
             <p className="text-white/40 text-xs truncate">Kommandozentrale · Schuck Webdesign</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {mode === 'full' && (
+            <div className="flex gap-1 p-1 rounded-lg bg-white/5 border border-white/8 mr-1">
+              <span className="px-3 py-1 rounded-md text-xs font-medium bg-[#7F77DD] text-white" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Chat
+              </span>
+              <Link
+                href="/admin/jarvis/cockpit"
+                className="px-3 py-1 rounded-md text-xs font-medium text-white/50 hover:text-white transition-colors"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                Cockpit
+              </Link>
+            </div>
+          )}
           <button
             type="button"
             onClick={handleNewChat}
@@ -386,7 +490,7 @@ export function JarvisWidget({ mode }: { mode: 'floating' | 'full' }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5 flex flex-col gap-3">
         {!historyLoaded && (
           <p className="text-white/30 text-xs text-center py-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
             Verlauf wird geladen…
@@ -427,35 +531,50 @@ export function JarvisWidget({ mode }: { mode: 'floating' | 'full' }) {
         <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="flex items-end gap-2 px-4 py-4 border-t border-white/8 shrink-0">
-        <textarea
-          ref={textareaRef}
-          rows={1}
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault()
-              handleSubmit(event)
-            }
-          }}
-          disabled={isStreaming || !!pendingConfirmation}
-          placeholder={pendingConfirmation ? 'Bitte zuerst bestätigen oder ablehnen…' : 'Frag JARVIS…'}
-          className="flex-1 resize-none bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-violet-400/40 disabled:opacity-50 max-h-32"
-        />
-        <button
-          type="submit"
-          disabled={isStreaming || !!pendingConfirmation || !input.trim()}
-          className="px-4 py-2.5 rounded-xl bg-violet-400/90 hover:bg-violet-400 text-[#0d0d0d] text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
-        >
-          Senden
-        </button>
+      <form onSubmit={handleSubmit} className={`shrink-0 ${mode === 'full' ? 'px-6 py-5' : 'px-4 py-4'}`}>
+        <div className="flex items-end gap-2 rounded-2xl bg-white/5 border border-white/10 focus-within:border-violet-400/40 transition-colors px-3 py-2">
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                handleSubmit(event)
+              }
+            }}
+            disabled={isStreaming || !!pendingConfirmation}
+            placeholder={pendingConfirmation ? 'Bitte zuerst bestätigen oder ablehnen…' : 'Frag JARVIS…'}
+            className="flex-1 resize-none bg-transparent text-sm text-white placeholder:text-white/30 outline-none disabled:opacity-50 max-h-40 py-1.5"
+          />
+          <button
+            type="submit"
+            disabled={isStreaming || !!pendingConfirmation || !input.trim()}
+            title="Senden"
+            aria-label="Senden"
+            className="shrink-0 w-9 h-9 rounded-xl bg-violet-400/90 hover:bg-violet-400 flex items-center justify-center text-[#0d0d0d] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.3} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6" />
+            </svg>
+          </button>
+        </div>
       </form>
     </>
   )
 
   if (mode === 'full') {
-    return <div className="flex flex-col h-[75vh] rounded-2xl border border-white/8 bg-[#0d0d0d] overflow-hidden">{chatBody}</div>
+    // Eigenständiger, fixed-positionierter Shell wie /admin/jarvis/cockpit (siehe dort) —
+    // ignoriert das gepolsterte (admin)-Layout komplett statt sich mit Prozent-Höhen durch
+    // mehrere verschachtelte Container zu kämpfen. top-14 gleicht auf Mobile die AdminNav-
+    // Topbar aus, md:left-60 die Desktop-Sidebar. Die Nachrichtenliste in chatBody scrollt
+    // selbst (eigenes overflow-y-auto) — der Rest der Seite bleibt fix, kein Page-Scroll.
+    return (
+      <div className="fixed inset-x-0 bottom-0 top-14 md:top-0 md:left-60 overflow-hidden bg-[#0d0d0d] flex flex-col">
+        {chatBody}
+      </div>
+    )
   }
 
   // Schwebender Modus: nicht auf der eigenen Vollbild-Seite anzeigen (dort ist die

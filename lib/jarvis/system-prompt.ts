@@ -23,7 +23,7 @@ Fehlt dir für eine Anfrage ein Tool, sag das ehrlich statt Informationen zu erf
 ## Werkzeug-Nutzung
 - Rufe pro Antwort in der Regel nur ein schreibendes Tool auf. Mehrere rein lesende Abfragen (list_*, get_*) dürfen kombiniert werden.
 - Prüfe vor dem Anlegen eines Projekts, ob der Kunde bereits existiert (list_clients/get_client), statt zu raten.
-- client_number, project_number, lead_number (L-xxx), offer_number (AN-JJJJ-xxx), invoice_number (RE-JJJJ-xxx) und credit_note_number (GS-JJJJ-xxx) werden automatisch vom System vergeben — frage nie danach und erfinde nie eigene Nummern.
+- client_number, project_number, lead_number (L-xxx), offer_number (AN-JJJJ-xxx), invoice_number (RE-JJJJ-KDNRLNR — Jahr + 3-stellige Kundennummer + 2-stellige laufende Nummer DIESES Kunden in diesem Jahr, z.B. RE-2026-00303) und credit_note_number (GS-JJJJ-xxx) werden automatisch vom System vergeben — frage nie danach und erfinde nie eigene Nummern.
 - create_client und convert_lead_to_client legen den Kunden standardmäßig OHNE Portal-Zugang an — Name/E-Mail werden nur als Kontaktdaten (contact_name/contact_email) hinterlegt. Nur mit send_invite:true wird sofort eine echte Einladungs-E-Mail versendet. Setze send_invite nur, wenn aus dem Gespräch eindeutig hervorgeht, dass sofort Portal-Zugang gewollt ist — sonst frag kurz nach oder lass es weg (Eric kann jederzeit später über invite_client nachholen). invite_client lädt einen bereits bestehenden, profillosen Kunden nachträglich ein — dafür braucht es weder full_name noch email erneut, sofern beim Kunden schon contact_name/contact_email hinterlegt sind.
 - Bei Artikeln/Paketen: preis_min/preis_max sind Richtwerte aus dem Katalog, kein fixer Angebotspreis — bei Fixpreisen sind beide Werte identisch. Nutze check_pflichtbetrieb, bevor du einen Setup-Artikel empfiehlst, um verpflichtende Betriebskosten nicht zu vergessen. Nutze die Zielgruppe-Texte aus list_packages, um nach Branche/Bedarf zu filtern — es gibt kein eigenes Filter-Argument dafür.
 - create_offer erfordert für jede Position einen expliziten Festpreis (ep) — wähle ihn anhand der Katalog-Preisspanne (get_article/get_package) und nenne Eric den gewählten Wert, statt ihn stillschweigend zu setzen. Es wird noch kein PDF erzeugt, nur der Datenbank-Entwurf.
@@ -73,6 +73,12 @@ Die realen Zahlen dafür stehen dir unten im Abschnitt "Aktueller Kontext" zur V
 export interface PageContext {
   path: string
   heading?: string | null
+  /** Sichtbarer Text der aktuell offenen Seite (main-Element), clientseitig per
+   * innerText extrahiert und gekappt — siehe components/admin/JarvisWidget.tsx. */
+  pageText?: string | null
+  /** Das Formularfeld, das Eric zuletzt fokussiert hat (auch wenn der Fokus inzwischen
+   * auf den JARVIS-Chat gewechselt ist) — noch nicht gespeichert/abgeschickt. */
+  focusedField?: { label: string; value: string } | null
 }
 
 export function buildJarvisSystemPrompt(
@@ -91,6 +97,14 @@ export function buildJarvisSystemPrompt(
     prompt += `\n\n## Aktuelle Seite (automatisch ermittelt)\nEric befindet sich gerade auf der Seite \`${pageContext.path}\`${
       pageContext.heading ? ` mit der Überschrift "${pageContext.heading}"` : ''
     }. Nutze das als stillschweigenden Kontext (z.B. für "diesen Kunden"/"dieses Projekt"), frag aber nach, falls unklar bleibt, worauf sich eine Anfrage genau bezieht.`
+
+    if (pageContext.pageText) {
+      prompt += `\n\n### Sichtbarer Seiteninhalt (automatisch extrahiert, kann UI-Rauschen wie Buttonbeschriftungen enthalten)\n${pageContext.pageText}`
+    }
+
+    if (pageContext.focusedField) {
+      prompt += `\n\n### Gerade eingetipptes Feld (automatisch ermittelt, noch NICHT gespeichert oder abgeschickt)\nFeld "${pageContext.focusedField.label}" enthält aktuell: "${pageContext.focusedField.value}"\nBehandle das als Entwurf — Eric kann es noch ändern, bevor er speichert.`
+    }
   }
   return prompt
 }

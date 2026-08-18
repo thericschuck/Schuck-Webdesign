@@ -396,6 +396,7 @@ export type Database = {
           priority: 'high' | 'medium' | 'low'
           due_date: string | null
           created_at: string
+          completed_at: string | null
         }
         Insert: {
           id?: string
@@ -406,6 +407,7 @@ export type Database = {
           priority?: 'high' | 'medium' | 'low'
           due_date?: string | null
           created_at?: string
+          completed_at?: string | null
         }
         Update: {
           id?: string
@@ -416,6 +418,7 @@ export type Database = {
           priority?: 'high' | 'medium' | 'low'
           due_date?: string | null
           created_at?: string
+          completed_at?: string | null
         }
         Relationships: [
           {
@@ -1157,6 +1160,8 @@ export type Database = {
           notizen: string | null
           current_stage: LeadStage
           client_id: string | null
+          sheet_lead_id: string | null
+          last_synced_at: string | null
           created_at: string
           updated_at: string
         }
@@ -1180,6 +1185,8 @@ export type Database = {
           notizen?: string | null
           current_stage?: LeadStage
           client_id?: string | null
+          sheet_lead_id?: string | null
+          last_synced_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1203,6 +1210,8 @@ export type Database = {
           notizen?: string | null
           current_stage?: LeadStage
           client_id?: string | null
+          sheet_lead_id?: string | null
+          last_synced_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1298,10 +1307,46 @@ export type Database = {
           }
         ]
       }
+      lead_change_log: {
+        Row: {
+          id: string
+          lead_id: string
+          field: string
+          old_value: string | null
+          new_value: string | null
+          changed_at: string
+        }
+        Insert: {
+          id?: string
+          lead_id: string
+          field: string
+          old_value?: string | null
+          new_value?: string | null
+          changed_at?: string
+        }
+        Update: {
+          id?: string
+          lead_id?: string
+          field?: string
+          old_value?: string | null
+          new_value?: string | null
+          changed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'lead_change_log_lead_id_fkey'
+            columns: ['lead_id']
+            isOneToOne: false
+            referencedRelation: 'leads'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       akquise_tracking: {
         Row: {
           id: string
           datum: string
+          wer: string
           waehlversuche: number
           gespraeche_empfang: number
           gespraeche_entscheider: number
@@ -1311,6 +1356,7 @@ export type Database = {
         Insert: {
           id?: string
           datum: string
+          wer?: string
           waehlversuche?: number
           gespraeche_empfang?: number
           gespraeche_entscheider?: number
@@ -1320,6 +1366,7 @@ export type Database = {
         Update: {
           id?: string
           datum?: string
+          wer?: string
           waehlversuche?: number
           gespraeche_empfang?: number
           gespraeche_entscheider?: number
@@ -1447,6 +1494,7 @@ export type Database = {
           website: string | null
           iban: string | null
           bic: string | null
+          bank_name: string | null
           steuernummer: string | null
           ust_id: string | null
           ust_pflichtig: boolean
@@ -1466,6 +1514,7 @@ export type Database = {
           website?: string | null
           iban?: string | null
           bic?: string | null
+          bank_name?: string | null
           steuernummer?: string | null
           ust_id?: string | null
           ust_pflichtig?: boolean
@@ -1485,6 +1534,7 @@ export type Database = {
           website?: string | null
           iban?: string | null
           bic?: string | null
+          bank_name?: string | null
           steuernummer?: string | null
           ust_id?: string | null
           ust_pflichtig?: boolean
@@ -1508,6 +1558,8 @@ export type Database = {
           sent_at: string | null
           paid_at: string | null
           recurring_source: string | null
+          is_test: boolean
+          is_backfilled: boolean
           created_at: string
           updated_at: string
         }
@@ -1525,6 +1577,8 @@ export type Database = {
           sent_at?: string | null
           paid_at?: string | null
           recurring_source?: string | null
+          is_test?: boolean
+          is_backfilled?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -1542,6 +1596,8 @@ export type Database = {
           sent_at?: string | null
           paid_at?: string | null
           recurring_source?: string | null
+          is_test?: boolean
+          is_backfilled?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -1788,6 +1844,21 @@ export type Database = {
           success?: boolean
           error_message?: string | null
           called_at?: string
+        }
+        Relationships: []
+      }
+      sync_locks: {
+        Row: {
+          key: string
+          locked_at: string
+        }
+        Insert: {
+          key: string
+          locked_at?: string
+        }
+        Update: {
+          key?: string
+          locked_at?: string
         }
         Relationships: []
       }

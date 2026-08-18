@@ -45,7 +45,7 @@ export default async function IntegrationenPage() {
               <th className="px-5 py-3 font-medium">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-gray-100">
             {INTEGRATIONS.map((integration) => {
               const configured = integration.isConfigured()
               const lastCall = latestByService.get(integration.service)
@@ -114,7 +114,10 @@ export default async function IntegrationenPage() {
                     {!lastCall ? (
                       <span className="text-xs text-gray-400">Noch kein Aufruf</span>
                     ) : lastCall.success ? (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-50 text-green-700">Erfolgreich</span>
+                      <div>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-50 text-green-700">Erfolgreich</span>
+                        {lastCall.error_message && <p className="text-xs text-gray-400 mt-1 max-w-md truncate" title={lastCall.error_message}>{lastCall.error_message}</p>}
+                      </div>
                     ) : (
                       <div>
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-50 text-red-700">Fehler</span>

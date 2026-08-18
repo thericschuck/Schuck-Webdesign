@@ -34,6 +34,17 @@ export async function POST(request: Request) {
   const messages = body?.messages
   const currentPath = typeof body?.currentPath === 'string' ? body.currentPath : null
   const pageHeading = typeof body?.pageHeading === 'string' ? body.pageHeading : null
+  // Clientseitig bereits gekappt (JarvisWidget.tsx) — hier nochmal serverseitig
+  // deckeln, falls die Payload manipuliert wird.
+  const pageText = typeof body?.pageText === 'string' ? body.pageText.slice(0, 8000) : null
+  const focusedFieldRaw = body?.focusedField
+  const focusedField =
+    focusedFieldRaw &&
+    typeof focusedFieldRaw === 'object' &&
+    typeof focusedFieldRaw.label === 'string' &&
+    typeof focusedFieldRaw.value === 'string'
+      ? { label: focusedFieldRaw.label.slice(0, 200), value: focusedFieldRaw.value.slice(0, 4000) }
+      : null
 
   if (!isValidMessages(messages) || messages.length === 0) {
     return new Response(JSON.stringify({ error: 'messages fehlt oder ist ungültig.' }), {
@@ -50,7 +61,7 @@ export async function POST(request: Request) {
     createJarvisStream(messages, {
       profileId: user.id,
       userMessage: !isColdStart && lastText ? lastText : undefined,
-      pageContext: currentPath ? { path: currentPath, heading: pageHeading } : null,
+      pageContext: currentPath ? { path: currentPath, heading: pageHeading, pageText, focusedField } : null,
     }),
     { headers: SSE_HEADERS }
   )

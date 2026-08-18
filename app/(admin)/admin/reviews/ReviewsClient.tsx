@@ -227,7 +227,7 @@ function AddReviewCard({
           <span className="text-xs text-gray-600">Sofort veröffentlichen</span>
         </label>
 
-        <div className="flex items-center gap-2 pt-1 border-t border-gray-50">
+        <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
           <button
             type="submit"
             disabled={pending}
@@ -301,7 +301,7 @@ function ReviewCard({
               onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
               projects={projects}
             />
-            <div className="flex items-center gap-2 pt-1 border-t border-gray-50">
+            <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
               <button
                 type="submit"
                 disabled={pending}
@@ -351,7 +351,7 @@ function ReviewCard({
           <p className="text-sm text-gray-600 leading-relaxed">{review.text}</p>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 pt-1 border-t border-gray-50 flex-wrap">
+          <div className="flex items-center gap-2 pt-1 border-t border-gray-100 flex-wrap">
             {status === 'pending' && (
               <>
                 <form action={approveReview.bind(null, review.id)}>

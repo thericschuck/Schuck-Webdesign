@@ -94,11 +94,14 @@ export interface UpdateTodoInput {
 export async function updateTodo(id: string, input: UpdateTodoInput): Promise<Todo> {
   const adminClient = createAdminClient()
 
-  const patch: { title?: string; priority?: TodoPriority; due_date?: string | null; done?: boolean } = {}
+  const patch: { title?: string; priority?: TodoPriority; due_date?: string | null; done?: boolean; completed_at?: string | null } = {}
   if (input.title !== undefined) patch.title = input.title
   if (input.priority !== undefined) patch.priority = input.priority
   if (input.dueDate !== undefined) patch.due_date = input.dueDate
-  if (input.done !== undefined) patch.done = input.done
+  if (input.done !== undefined) {
+    patch.done = input.done
+    patch.completed_at = input.done ? new Date().toISOString() : null
+  }
 
   const { data, error } = await adminClient.from('todos').update(patch).eq('id', id).select(TODO_SELECT).single()
 

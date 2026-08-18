@@ -7,6 +7,7 @@ import { AddCallForm } from './AddCallForm'
 import { ConvertToClientForm } from './ConvertToClientForm'
 import { CreateOfferForm } from './CreateOfferForm'
 import { OfferDocumentActions } from './OfferDocumentActions'
+import { ChangeLogList } from './ChangeLogList'
 import { STAGE_LABEL } from '../stage-constants'
 import { createClient } from '@/lib/supabase/server'
 import type { LeadStage } from '@/types/database'
@@ -42,6 +43,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   }
 
   const articles = await productsDomain.listArticles().catch(() => [])
+  const changeLog = lead.sheet_lead_id ? await akquiseDomain.getLeadChangeLog(lead.id).catch(() => []) : []
 
   let clientEmail: string | null = null
   if (lead.client_id) {
@@ -111,6 +113,22 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <LeadEditForm lead={lead} />
           </div>
 
+          {lead.sheet_lead_id && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <details>
+                <summary
+                  className="text-sm font-semibold text-gray-900 cursor-pointer select-none"
+                  style={{ fontFamily: 'var(--font-dm-sans)' }}
+                >
+                  Änderungshistorie {changeLog.length > 0 && `(${changeLog.length})`}
+                </summary>
+                <div className="mt-4">
+                  <ChangeLogList entries={changeLog} />
+                </div>
+              </details>
+            </div>
+          )}
+
           {!lead.client_id && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h2 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: 'var(--font-dm-sans)' }}>
@@ -128,7 +146,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <h2 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: 'var(--font-dm-sans)' }}>
               Call erfassen
             </h2>
-            <AddCallForm leadId={lead.id} />
+            <AddCallForm leadId={lead.id} isFromSheet={!!lead.sheet_lead_id} />
           </div>
 
           {/* Funnel-Historie */}

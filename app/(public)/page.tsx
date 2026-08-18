@@ -41,20 +41,20 @@ const SERVICES = [
 
 const FEATURED_PROJECTS = [
   {
+    slug: "athena-finance",
+    name: "Athena Finance",
+    category: "Finance & Portfolio Dashboard",
+    desc: "Eine eigene Finanz-Plattform für Portfolio, Ausgaben, Verträge und Strategie in einem ruhigen, edlen Interface — Finanzen im vollen Überblick statt verstreut über zehn Apps.",
+    image: "/athena-finance.webp",
+    blurDataURL: "data:image/webp;base64,UklGRlIAAABXRUJQVlA4IEYAAAAQAgCdASoQAAgAA4BaJZACdAEO9CH72IcAAPx1khb0MPcF8o6EyhT/6ia83Sbv1VPuXM1gqjsX2sfFTaVLIbH2tIfZQcAA",
+  },
+  {
     slug: "vmp-kuenstlerpool",
     name: "VMP Künstlerpool",
     category: "Talent & Booking Platform",
     desc: "Für Vivid Music Productions — eine der etablierten Booking-Agentur für Live-Musik im Rhein-Main-Gebiet — haben wir eine neue digitale Präsenz entwickelt, die das Niveau der Acts widerspiegelt, die sie vertreten.",
     image: "/vmp-kuenstlerpool.webp",
     blurDataURL: "data:image/webp;base64,UklGRk4AAABXRUJQVlA4IEIAAADwAQCdASoQAAkABUB8JYgCdAEORn6UGXAA/tT7AaPRJrYcslRqGEMewJC/AUlFXagE7TKUA/ChIzrXxsHhGaEAAAA=",
-  },
-  {
-    slug: "safe-untermain",
-    name: "SAFE — Sven Zöller",
-    category: "Sicherheitstraining & Coaching",
-    desc: "Klarer, vertrauensbildender Webauftritt für Sicherheitstrainer Sven Zöller mit Fokus auf Deeskalation und Konfliktprävention.",
-    image: "/safe-untermain.webp",
-    blurDataURL: "data:image/webp;base64,UklGRkQAAABXRUJQVlA4IDgAAADwAQCdASoQAAgAAsBMJZwAAt41Vt9N14AA/u45OtK6rp+KLP1L56jIxwFQUOSM07qXA6oLdAAAAA==",
   },
 ];
 
@@ -505,7 +505,7 @@ function HeroSection() {
       >
         <div className="flex items-center gap-10 md:gap-14 border-t border-white/8 pt-6 px-4">
           {[
-            { value: 6, suffix: "+", prefix: "", label: "Projekte" },
+            { value: 9, suffix: "+", prefix: "", label: "Projekte" },
             { value: 1, suffix: "s", prefix: "<", label: "Ladezeit" },
             { value: 100, suffix: "%", prefix: "", label: "Kundenzufriedenheit" },
           ].map(({ value, suffix, prefix, label }) => (

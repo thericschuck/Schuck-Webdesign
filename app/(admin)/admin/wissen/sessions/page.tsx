@@ -39,7 +39,7 @@ export default async function SessionLogsPage() {
             Noch keine Session-Logs. JARVIS legt sie über write_session_log am Ende relevanter Gespräche an.
           </p>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-100">
             {logs.map((log) => (
               <div key={log.id} className="px-5 py-4">
                 <div className="flex items-center justify-between gap-4 mb-1">

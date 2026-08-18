@@ -3,15 +3,17 @@ import { createClient } from '@/lib/supabase/server'
 import * as projectsDomain from '@/lib/domain/projects'
 import * as productsDomain from '@/lib/domain/products'
 import { NewInvoiceForm } from './NewInvoiceForm'
+import { FinanzenTabs } from '../../FinanzenTabs'
 import { clientDisplayName } from '@/lib/client-name'
 
 export default async function NewInvoicePage() {
   const supabase = await createClient()
 
-  const [{ data: clientsRaw }, projects, articles] = await Promise.all([
+  const [{ data: clientsRaw }, projects, articles, packages] = await Promise.all([
     supabase.from('clients').select('id, company_name, contact_name, client_number, profiles(full_name)'),
     projectsDomain.listProjects(),
     productsDomain.listArticles().catch(() => []),
+    productsDomain.listPackages().catch(() => []),
   ])
 
   const sortedClients = (clientsRaw ?? [])
@@ -40,6 +42,8 @@ export default async function NewInvoicePage() {
         </p>
       </div>
 
+      <FinanzenTabs />
+
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-3xl">
         <NewInvoiceForm
           clients={sortedClients}
@@ -49,6 +53,11 @@ export default async function NewInvoicePage() {
             bezeichnung: a.bezeichnung,
             preis_min: a.preis_min,
             preis_max: a.preis_max,
+          }))}
+          packages={(packages ?? []).map((p) => ({
+            pkt_nr: p.pkt_nr,
+            paketname: p.paketname,
+            paketpreis: p.paketpreis,
           }))}
         />
       </div>

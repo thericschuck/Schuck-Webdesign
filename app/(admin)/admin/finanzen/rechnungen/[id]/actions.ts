@@ -1,5 +1,6 @@
 'use server'
 
+import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { assertAdmin } from '@/lib/auth/assert-admin'
 import * as financeDomain from '@/lib/domain/finance'
@@ -26,6 +27,7 @@ function revalidateInvoice(invoiceId: string) {
 
 interface ItemFormValue {
   art_nr?: string
+  pkt_nr?: string
   bezeichnung?: string
   menge?: number
   ep: number
@@ -54,7 +56,7 @@ export async function updateInvoiceDraftAction(
     await financeDomain.updateInvoiceDraft(invoiceId, {
       projectId: str(formData, 'project_id'),
       serviceDate: str(formData, 'service_date'),
-      items: items.map((item) => ({ artNr: item.art_nr, bezeichnung: item.bezeichnung, menge: item.menge, ep: item.ep })),
+      items: items.map((item) => ({ artNr: item.art_nr, pktNr: item.pkt_nr, bezeichnung: item.bezeichnung, menge: item.menge, ep: item.ep })),
     })
   } catch (error) {
     return { status: 'error', message: error instanceof Error ? error.message : 'Entwurf konnte nicht gespeichert werden.' }
@@ -92,6 +94,37 @@ export async function updateInvoiceStatusAction(invoiceId: string, status: 'beza
 
   revalidateInvoice(invoiceId)
   return { status: 'success' }
+}
+
+// ── PDF neu erzeugen ──────────────────────────────────────────────────────
+
+export async function regenerateInvoicePdfAction(invoiceId: string): Promise<ActionResult> {
+  await assertAdmin()
+
+  try {
+    await financeDomain.regenerateInvoicePdf(invoiceId)
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'PDF konnte nicht neu erzeugt werden.' }
+  }
+
+  revalidateInvoice(invoiceId)
+  return { status: 'success' }
+}
+
+// ── Testrechnung löschen ──────────────────────────────────────────────────
+
+export async function deleteTestInvoiceAction(invoiceId: string): Promise<ActionResult> {
+  await assertAdmin()
+
+  try {
+    await financeDomain.deleteTestInvoice(invoiceId)
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Testrechnung konnte nicht gelöscht werden.' }
+  }
+
+  revalidatePath('/admin/finanzen/rechnungen')
+  revalidatePath('/admin/finanzen')
+  redirect('/admin/finanzen/rechnungen')
 }
 
 // ── Gutschrift ────────────────────────────────────────────────────────────

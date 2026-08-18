@@ -140,7 +140,7 @@ export function ClientsTable({ rows }: { rows: ClientRow[] }) {
   return (
     <>
       {/* Mobile cards */}
-      <div className="md:hidden divide-y divide-gray-50">
+      <div className="md:hidden divide-y divide-gray-100">
         {sorted.map((client) => (
           <Link
             key={client.id}
@@ -190,7 +190,7 @@ export function ClientsTable({ rows }: { rows: ClientRow[] }) {
             <th className="px-6 py-3" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-50">
+        <tbody className="divide-y divide-gray-100">
           {sorted.map((client) => (
             <tr key={client.id} className="hover:bg-gray-50 transition-colors">
               <td className="px-6 py-4">

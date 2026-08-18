@@ -549,7 +549,7 @@ export async function toggleTodo(formData: FormData): Promise<void> {
   const projectId = typeof projectIdRaw === 'string' && projectIdRaw.trim() ? projectIdRaw.trim() : null
   const done = formData.get('done') === 'true'
 
-  await supabase.from('todos').update({ done: !done }).eq('id', todoId)
+  await supabase.from('todos').update({ done: !done, completed_at: !done ? new Date().toISOString() : null }).eq('id', todoId)
   if (projectId) revalidatePath(`/admin/projects/${projectId}`)
   revalidatePath('/admin/todos')
 }

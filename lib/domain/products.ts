@@ -114,31 +114,45 @@ export async function listPackagesForArticle(artNr: string): Promise<ListPackage
     .filter((pkg): pkg is ListPackagesForArticleResult => pkg != null)
 }
 
+export interface PackageItemSummary {
+  art_nr: string
+  bezeichnung: string
+}
+
 export interface PackageWithSavings extends Package {
   einzelpreise_summe: number | null
   ersparnis: number | null
+  items: PackageItemSummary[]
 }
 
 export async function listPackagesWithSavings(): Promise<PackageWithSavings[]> {
   const adminClient = createAdminClient()
   const { data, error } = await adminClient
     .from('packages')
-    .select('pkt_nr, paketname, paketpreis, zielgruppe, laufzeit, folgeprodukt, created_at, updated_at, package_items(ep, menge, gesamt)')
+    .select(
+      'pkt_nr, paketname, paketpreis, zielgruppe, laufzeit, folgeprodukt, created_at, updated_at, package_items(ep, menge, gesamt, art_nr, articles(bezeichnung))'
+    )
     .order('pkt_nr', { ascending: true })
 
   if (error) throw new DomainError(error.message)
 
   return (data ?? []).map(({ package_items, ...pkg }) => {
-    const items = Array.isArray(package_items) ? package_items : []
-    const hasPriceData = items.some((i) => i.gesamt != null || i.ep != null)
+    const rawItems = Array.isArray(package_items) ? package_items : []
+    const hasPriceData = rawItems.some((i) => i.gesamt != null || i.ep != null)
     const summe = hasPriceData
-      ? items.reduce((sum, i) => sum + (i.gesamt ?? (i.ep ?? 0) * (i.menge ?? 1)), 0)
+      ? rawItems.reduce((sum, i) => sum + (i.gesamt ?? (i.ep ?? 0) * (i.menge ?? 1)), 0)
       : null
+
+    const items = rawItems.map((i) => {
+      const articleInfo = Array.isArray(i.articles) ? i.articles[0] : i.articles
+      return { art_nr: i.art_nr, bezeichnung: articleInfo?.bezeichnung ?? i.art_nr }
+    })
 
     return {
       ...pkg,
       einzelpreise_summe: summe,
       ersparnis: summe != null && pkg.paketpreis != null ? summe - pkg.paketpreis : null,
+      items,
     }
   })
 }

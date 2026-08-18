@@ -124,7 +124,21 @@ const NAV = [
   },
 ]
 
-export function AdminNav({ adminName, unreadMessages = 0, pendingReviews = 0, unreadContacts = 0, openTodos = 0 }: { adminName: string | null; unreadMessages?: number; pendingReviews?: number; unreadContacts?: number; openTodos?: number }) {
+export function AdminNav({
+  adminName,
+  unreadMessages = 0,
+  pendingReviews = 0,
+  unreadContacts = 0,
+  openTodos = 0,
+  leadsWiedervorlageFaellig = 0,
+}: {
+  adminName: string | null
+  unreadMessages?: number
+  pendingReviews?: number
+  unreadContacts?: number
+  openTodos?: number
+  leadsWiedervorlageFaellig?: number
+}) {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -169,6 +183,11 @@ export function AdminNav({ adminName, unreadMessages = 0, pendingReviews = 0, un
           {item.href === '/admin/contact' && unreadContacts > 0 && (
             <span className="text-xs bg-violet-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
               {unreadContacts > 99 ? '99+' : unreadContacts}
+            </span>
+          )}
+          {item.href === '/admin/akquise' && leadsWiedervorlageFaellig > 0 && (
+            <span className="text-xs bg-amber-500 text-white font-medium px-1.5 py-0.5 rounded-full leading-none min-w-4.5 text-center">
+              {leadsWiedervorlageFaellig > 99 ? '99+' : leadsWiedervorlageFaellig}
             </span>
           )}
         </Link>

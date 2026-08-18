@@ -55,6 +55,10 @@ export function CompanySettingsForm({ settings }: { settings: CompanySettings })
         <input name="website" disabled={pending} defaultValue={settings.website ?? ''} className={inputClass} />
       </div>
       <div>
+        <label className={labelClass}>Bank</label>
+        <input name="bank_name" disabled={pending} defaultValue={settings.bank_name ?? ''} className={inputClass} />
+      </div>
+      <div>
         <label className={labelClass}>IBAN</label>
         <input name="iban" disabled={pending} defaultValue={settings.iban ?? ''} className={inputClass} />
       </div>

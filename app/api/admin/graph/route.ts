@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { clientDisplayName } from '@/lib/client-name'
 
 /** Ab wie vielen Entitäten nur noch der Kern (Kunden+Projekte) initial geladen wird. Testbar via .env.local ohne Code-Änderung. */
-const TRUNCATION_THRESHOLD = Number(process.env.ADMIN_GRAPH_THRESHOLD) || 500
+const TRUNCATION_THRESHOLD = Number(process.env.ADMIN_GRAPH_THRESHOLD) || 800
 
 export interface GraphNodeDetail {
   label: string
@@ -32,7 +32,9 @@ export interface GraphEdge {
 export interface GraphPayload {
   nodes: GraphNode[]
   edges: GraphEdge[]
+  /** true, wenn nicht alle Leads ins Budget gepasst haben — alle anderen Entitäten sind immer vollständig geladen. */
   truncated: boolean
+  /** Gesamtzahl der Leads in der DB (nur gesetzt, wenn truncated). */
   totalCount?: number
 }
 
@@ -202,29 +204,34 @@ function knowledgeNodeGraphId(node: { id: string; ref_table: string | null; ref_
 
 // ── Vollständiger Graph ───────────────────────────────────────────────────
 
-async function fetchFullGraph(admin: SupabaseAdminClient): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
+/**
+ * Alle Entitäten außer Leads werden immer vollständig geladen — davon gibt es nie genug, um an
+ * TRUNCATION_THRESHOLD heranzukommen. Nur Leads (aktuell >600) werden auf das verbleibende Budget
+ * begrenzt, sortiert nach zuletzt bearbeitet, damit die relevantesten zuerst erscheinen.
+ */
+async function fetchGraph(admin: SupabaseAdminClient): Promise<GraphPayload> {
   const [
     { data: clients },
     { data: projects },
     { data: documents },
-    { data: leads },
     { data: offers },
     { data: invoices },
     { data: todos },
     { data: meetings },
     { data: kgNodes },
     { data: kgEdges },
+    { count: totalLeads },
   ] = await Promise.all([
     admin.from('clients').select(CLIENT_SELECT),
     admin.from('projects').select('id, title, project_number, status, client_id'),
     admin.from('documents').select('id, name, category, project_id, client_id'),
-    admin.from('leads').select('id, firmenname, lead_number, current_stage, client_id'),
     admin.from('offers').select('id, offer_number, status, lead_id, client_id'),
     admin.from('invoices').select('id, invoice_number, status, client_id, project_id'),
     admin.from('todos').select('id, title, done, project_id, meeting_id').or('project_id.not.is.null,meeting_id.not.is.null'),
     admin.from('meetings').select('id, title, project_id'),
     admin.from('nodes').select('id, type, label, confidence, ref_table, ref_id'),
     admin.from('edges').select('from_id, to_id, type, weight'),
+    admin.from('leads').select('id', { count: 'exact', head: true }),
   ])
 
   const nodes: GraphNode[] = []
@@ -245,10 +252,6 @@ async function fetchFullGraph(admin: SupabaseAdminClient): Promise<{ nodes: Grap
   for (const d of documents ?? []) {
     addNode(documentNode(d))
     edges.push(edge(d.project_id ? `project:${d.project_id}` : `client:${d.client_id}`, `document:${d.id}`, 'has_document'))
-  }
-  for (const l of leads ?? []) {
-    addNode(leadNode(l))
-    if (l.client_id) edges.push(edge(`lead:${l.id}`, `client:${l.client_id}`, 'converted_to'))
   }
   for (const o of offers ?? []) {
     addNode(offerNode(o))
@@ -284,73 +287,31 @@ async function fetchFullGraph(admin: SupabaseAdminClient): Promise<{ nodes: Grap
     }
   }
 
-  const validEdges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
+  const leadBudget = Math.max(0, TRUNCATION_THRESHOLD - nodes.length)
+  const { data: leads } =
+    leadBudget > 0
+      ? await admin
+          .from('leads')
+          .select('id, firmenname, lead_number, current_stage, client_id')
+          .order('updated_at', { ascending: false })
+          .limit(leadBudget)
+      : { data: [] }
 
-  return { nodes, edges: validEdges }
-}
-
-async function fetchCoreGraph(admin: SupabaseAdminClient): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
-  const [{ data: clients }, { data: projects }] = await Promise.all([
-    admin.from('clients').select(CLIENT_SELECT),
-    admin.from('projects').select('id, title, project_number, status, client_id'),
-  ])
-
-  const nodes: GraphNode[] = (clients ?? []).map(clientNode)
-  const clientIds = new Set(nodes.map((n) => n.id))
-  const edges: GraphEdge[] = []
-  for (const p of projects ?? []) {
-    nodes.push(projectNode(p))
-    const source = `client:${p.client_id}`
-    if (clientIds.has(source)) edges.push(edge(source, `project:${p.id}`, 'has_project'))
+  for (const l of leads ?? []) {
+    addNode(leadNode(l))
+    if (l.client_id) edges.push(edge(`lead:${l.id}`, `client:${l.client_id}`, 'converted_to'))
   }
 
-  return { nodes, edges }
-}
+  const validEdges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
+  const truncated = (totalLeads ?? 0) > (leads?.length ?? 0)
 
-async function countEligible(admin: SupabaseAdminClient): Promise<number> {
-  const [clients, projects, documents, leads, offers, invoices, meetings, allTodos, orphanTodos, allNodes, mappedNodes] =
-    await Promise.all([
-      admin.from('clients').select('id', { count: 'exact', head: true }),
-      admin.from('projects').select('id', { count: 'exact', head: true }),
-      admin.from('documents').select('id', { count: 'exact', head: true }),
-      admin.from('leads').select('id', { count: 'exact', head: true }),
-      admin.from('offers').select('id', { count: 'exact', head: true }),
-      admin.from('invoices').select('id', { count: 'exact', head: true }),
-      admin.from('meetings').select('id', { count: 'exact', head: true }),
-      admin.from('todos').select('id', { count: 'exact', head: true }),
-      admin.from('todos').select('id', { count: 'exact', head: true }).is('project_id', null).is('meeting_id', null),
-      admin.from('nodes').select('id', { count: 'exact', head: true }),
-      admin.from('nodes').select('id', { count: 'exact', head: true }).in('ref_table', ['clients', 'projects']),
-    ])
-
-  const eligibleTodos = (allTodos.count ?? 0) - (orphanTodos.count ?? 0)
-  const standaloneKgNodes = (allNodes.count ?? 0) - (mappedNodes.count ?? 0)
-
-  return (
-    (clients.count ?? 0) +
-    (projects.count ?? 0) +
-    (documents.count ?? 0) +
-    (leads.count ?? 0) +
-    (offers.count ?? 0) +
-    (invoices.count ?? 0) +
-    (meetings.count ?? 0) +
-    eligibleTodos +
-    standaloneKgNodes
-  )
+  return { nodes, edges: validEdges, truncated, totalCount: truncated ? (totalLeads ?? 0) : undefined }
 }
 
 const getCachedGraph = unstable_cache(
   async (): Promise<GraphPayload> => {
     const admin = createAdminClient()
-    const totalCount = await countEligible(admin)
-
-    if (totalCount >= TRUNCATION_THRESHOLD) {
-      const { nodes, edges } = await fetchCoreGraph(admin)
-      return { nodes, edges, truncated: true, totalCount }
-    }
-
-    const { nodes, edges } = await fetchFullGraph(admin)
-    return { nodes, edges, truncated: false }
+    return fetchGraph(admin)
   },
   ['admin-graph'],
   { revalidate: 60, tags: ['admin-graph'] }
@@ -359,7 +320,7 @@ const getCachedGraph = unstable_cache(
 // ── 1-Hop-Nachbarschaft für einen einzelnen Knoten (truncated-Modus) ────────
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const NEIGHBORHOOD_TYPES = ['client', 'project', 'kg'] as const
+const NEIGHBORHOOD_TYPES = ['client', 'project', 'kg', 'lead'] as const
 
 async function fetchNeighborhood(admin: SupabaseAdminClient, graphId: string): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
   const separatorIndex = graphId.indexOf(':')
@@ -474,6 +435,31 @@ async function fetchNeighborhood(admin: SupabaseAdminClient, graphId: string): P
       edges.push(edge(`project:${id}`, `invoice:${i.id}`, 'has_invoice'))
     }
     await addKnowledgeNeighbors('projects', id)
+  } else if (type === 'lead') {
+    const { data: lead } = await admin
+      .from('leads')
+      .select('id, firmenname, lead_number, current_stage, client_id')
+      .eq('id', id)
+      .maybeSingle()
+    if (!lead) return { nodes, edges }
+    addNode(leadNode(lead))
+
+    if (lead.client_id) {
+      const { data: client } = await admin.from('clients').select(CLIENT_SELECT).eq('id', lead.client_id).maybeSingle()
+      if (client) {
+        addNode(clientNode(client))
+        edges.push(edge(`lead:${id}`, `client:${lead.client_id}`, 'converted_to'))
+      }
+    }
+
+    const { data: offers } = await admin
+      .from('offers')
+      .select('id, offer_number, status, lead_id, client_id')
+      .eq('lead_id', id)
+    for (const o of offers ?? []) {
+      addNode(offerNode(o))
+      edges.push(edge(`lead:${id}`, `offer:${o.id}`, 'has_offer'))
+    }
   } else if (type === 'kg') {
     const { data: node } = await admin.from('nodes').select('id, type, label, confidence, ref_table, ref_id').eq('id', id).maybeSingle()
     if (!node) return { nodes, edges }

@@ -26,23 +26,33 @@ const ALL_TOOLS: JarvisTool[] = [
 ]
 const ALL_TOOLS_BY_NAME = new Map(ALL_TOOLS.map((tool) => [tool.name, tool]))
 
+// Alter Seed-Wert aus 0017_jarvis_phase1_agents.sql — falls eine agents-Zeile (z.B. ein
+// künftig neu angelegter Sub-Agent) noch nie über das Cockpit bzw. eine Migration einen
+// echten Prompt bekommen hat, wird das wie "kein DB-Prompt vorhanden" behandelt.
+const PLACEHOLDER_PROMPT = 'PLATZHALTER: System-Prompt folgt'
+
 /**
- * Liest zur Laufzeit aus public.agent_tools (JOIN public.agents/public.tools aus
- * Migration 0017_jarvis_phase1_agents.sql), welche Tool-Slugs diesem Sub-Agenten
- * zugeordnet sind, und baut daraus die scoped Registry gegen ALL_TOOLS_BY_NAME.
- * public.agent_tools ist jetzt die Laufzeit-Quelle der Wahrheit — NICHT mehr
- * def.toolNames (siehe subagents.ts, dort nur noch Referenz für die Seed-Daten).
+ * Liest zur Laufzeit aus public.agents/public.agent_tools (JOIN public.tools, Migration
+ * 0017_jarvis_phase1_agents.sql), welcher System-Prompt und welche Tool-Slugs diesem
+ * Sub-Agenten zugeordnet sind, und baut daraus die scoped Registry gegen ALL_TOOLS_BY_NAME.
+ * public.agents.system_prompt und public.agent_tools sind jetzt die Laufzeit-Quelle der
+ * Wahrheit — NICHT mehr def.systemPrompt/def.toolNames (siehe subagents.ts, dort nur noch
+ * Fallback + Referenz für die Seed-Daten). Eine Bearbeitung im Cockpit
+ * (PATCH /api/admin/jarvis/agents/[id]) wirkt sich damit tatsächlich auf den nächsten Lauf
+ * dieses Sub-Agenten aus.
  *
  * Bewusst kein Caching: läuft bei jedem Sub-Agenten-Aufruf frisch, damit eine
  * Änderung an der DB-Zuordnung sofort wirkt statt einen Neudeploy zu brauchen —
  * Sub-Agenten-Aufrufe sind kein Hot-Path (höchstens ein paar pro Konversation).
  */
-async function buildScopedRegistry(def: SubAgentDefinition): Promise<ToolRegistry> {
+async function buildScopedRegistry(
+  def: SubAgentDefinition
+): Promise<{ registry: ToolRegistry; systemPrompt: string; model: string | null }> {
   const adminClient = createAdminClient()
 
   const { data: agentRow, error: agentError } = await adminClient
     .from('agents')
-    .select('id, status')
+    .select('id, status, system_prompt, model')
     .eq('slug', def.name)
     .maybeSingle()
 
@@ -57,6 +67,9 @@ async function buildScopedRegistry(def: SubAgentDefinition): Promise<ToolRegistr
   if (agentRow.status !== 'active') {
     throw new AgentDisabledError(def.name)
   }
+
+  const dbPrompt = agentRow.system_prompt?.trim()
+  const systemPrompt = dbPrompt && dbPrompt !== PLACEHOLDER_PROMPT ? dbPrompt : def.systemPrompt
 
   const { data: rows, error } = await adminClient
     .from('agent_tools')
@@ -89,7 +102,7 @@ async function buildScopedRegistry(def: SubAgentDefinition): Promise<ToolRegistr
     }
     registry.set(tool.name, tool)
   }
-  return registry
+  return { registry, systemPrompt, model: agentRow.model ?? null }
 }
 
 function buildSubAgentTool(def: SubAgentDefinition): JarvisTool {
@@ -111,12 +124,13 @@ function buildSubAgentTool(def: SubAgentDefinition): JarvisTool {
       const task = typeof args.task === 'string' ? args.task : ''
       if (!task.trim()) throw new Error('Parameter "task" ist erforderlich.')
 
-      const scopedRegistry = await buildScopedRegistry(def)
+      const { registry: scopedRegistry, systemPrompt, model } = await buildScopedRegistry(def)
 
       const result = await runJarvisAgent({
         messages: [{ role: 'user', content: task }],
         tools: scopedRegistry,
-        systemPrompt: def.systemPrompt,
+        systemPrompt,
+        model,
         agentSlug: def.name,
         parentRunId: context?.runId,
       })

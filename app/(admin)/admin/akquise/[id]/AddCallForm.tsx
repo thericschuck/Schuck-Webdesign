@@ -125,8 +125,16 @@ function SalesCallForm({ leadId, onSuccess }: { leadId: string; onSuccess: () =>
   )
 }
 
-export function AddCallForm({ leadId }: { leadId: string }) {
+export function AddCallForm({ leadId, isFromSheet }: { leadId: string; isFromSheet?: boolean }) {
   const [mode, setMode] = useState<Mode>(null)
+
+  if (isFromSheet) {
+    return (
+      <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+        Quali-/Sales-Calls für diesen Lead kommen aus dem Google Sheet — dort erfassen, nicht hier.
+      </p>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-3">

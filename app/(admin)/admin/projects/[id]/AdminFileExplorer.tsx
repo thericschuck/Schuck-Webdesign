@@ -456,7 +456,7 @@ function FileList({
   const [movingId, setMovingId] = useState<string | null>(null)
 
   return (
-    <div className="divide-y divide-gray-50 pb-2">
+    <div className="divide-y divide-gray-100 pb-2">
       {files.map((doc) => (
         <div key={doc.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors group">
           <button

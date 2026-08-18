@@ -84,7 +84,7 @@ export default async function WissenPage({ searchParams }: { searchParams: Promi
           name="q"
           defaultValue={sp.q ?? ''}
           placeholder="Label/Text durchsuchen…"
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 bg-white flex-1 min-w-[180px]"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 bg-white flex-1 min-w-45"
           style={{ fontFamily: 'var(--font-dm-sans)' }}
         />
         <select
@@ -149,7 +149,7 @@ export default async function WissenPage({ searchParams }: { searchParams: Promi
             Keine Knoten gefunden.
           </p>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-100">
             {nodes.map((node) => (
               <Link
                 key={node.id}

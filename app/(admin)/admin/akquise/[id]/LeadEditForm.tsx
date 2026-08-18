@@ -11,9 +11,63 @@ const inputClass =
 
 const labelClass = 'text-xs font-medium text-gray-500 mb-1 block'
 
+const PRIORITAET_LABEL: Record<string, string> = { high: 'Hoch', medium: 'Mittel', low: 'Niedrig' }
+const AKQUISE_ERGEBNIS_LABEL: Record<string, string> = {
+  offen: 'Offen',
+  nicht_erreicht: 'Nicht erreicht',
+  wiedervorlage: 'Wiedervorlage',
+  kein_interesse: 'Kein Interesse',
+  qualifiziert: 'Qualifiziert',
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div>
+      <p className={labelClass}>{label}</p>
+      <p className="text-sm text-gray-900" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+        {value || '—'}
+      </p>
+    </div>
+  )
+}
+
 export function LeadEditForm({ lead }: { lead: Lead }) {
   const boundAction = updateLeadAction.bind(null, lead.id)
   const [state, action, pending] = useActionState<State, FormData>(boundAction, null)
+
+  if (lead.sheet_lead_id) {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+          Dieser Lead stammt aus dem Google Sheet ({lead.sheet_lead_id}) — Bearbeitung dort, hier nur Auswertung.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ReadOnlyField label="Firmenname" value={lead.firmenname} />
+          <ReadOnlyField label="Ansprechpartner" value={lead.ansprechpartner} />
+          <ReadOnlyField label="Position" value={lead.position} />
+          <ReadOnlyField label="Zielgruppe" value={lead.zielgruppe} />
+          <ReadOnlyField label="Stadt" value={lead.stadt} />
+          <ReadOnlyField label="Website" value={lead.website} />
+          <ReadOnlyField label="Telefon" value={lead.phone} />
+          <ReadOnlyField label="E-Mail" value={lead.email} />
+          <ReadOnlyField label="Quelle" value={lead.quelle} />
+          <ReadOnlyField label="Website-Qualität" value={lead.website_qualitaet} />
+          <ReadOnlyField label="Priorität" value={PRIORITAET_LABEL[lead.prioritaet] ?? lead.prioritaet} />
+          <ReadOnlyField label="Akquise-Ergebnis" value={AKQUISE_ERGEBNIS_LABEL[lead.akquise_ergebnis] ?? lead.akquise_ergebnis} />
+          <ReadOnlyField label="Erstkontakt am" value={lead.erstkontakt_am} />
+          <ReadOnlyField label="Wiedervorlage" value={lead.wiedervorlage} />
+        </div>
+        {lead.notizen && (
+          <div>
+            <p className={labelClass}>Notizen</p>
+            <p className="text-sm text-gray-900 whitespace-pre-wrap" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              {lead.notizen}
+            </p>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <form action={action} className="grid grid-cols-1 sm:grid-cols-2 gap-4">

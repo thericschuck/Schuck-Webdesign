@@ -1,11 +1,41 @@
+'use client'
+
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import type { TooltipContentProps } from 'recharts'
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
+
 const MONTH_LABEL = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+
+const BAR_COLOR = '#2a78d6' // dataviz-Skill: sequentielle Standardfarbe „blue“, Stufe 450
+
+function monthLabel(month: string) {
+  const [, monthNum] = month.split('-')
+  return MONTH_LABEL[Number(monthNum) - 1] ?? month
+}
 
 function fmtEuroShort(n: number) {
   if (n >= 1000) return `${(n / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })}k €`
-  return `${Math.round(n)} €`
+  return `${Math.round(n).toLocaleString('de-DE')} €`
 }
 
-/** Leichtgewichtiges SVG-Balkendiagramm — keine externe Chart-Lib nötig, rein serverseitig gerendert. */
+function fmtEuro(n: number) {
+  return `${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+}
+
+function ChartTooltip({ active, payload }: TooltipContentProps<ValueType, NameType>) {
+  if (!active || !payload?.length) return null
+  const point = payload[0]
+  return (
+    <div
+      className="bg-white border border-gray-100 shadow-sm rounded-lg px-3 py-2"
+      style={{ fontFamily: 'var(--font-dm-sans)' }}
+    >
+      <p className="text-xs text-gray-400 mb-0.5">{monthLabel(String(point.payload.month))}</p>
+      <p className="text-sm text-gray-900 font-semibold">{fmtEuro(Number(point.value))}</p>
+    </div>
+  )
+}
+
 export function RevenueBarChart({ data }: { data: { month: string; total_net: number }[] }) {
   if (data.length === 0) {
     return (
@@ -15,50 +45,27 @@ export function RevenueBarChart({ data }: { data: { month: string; total_net: nu
     )
   }
 
-  const width = 640
-  const height = 220
-  const paddingBottom = 28
-  const paddingTop = 16
-  const chartHeight = height - paddingBottom - paddingTop
-  const barGap = 12
-  const barWidth = (width - barGap * (data.length + 1)) / data.length
-  const max = Math.max(...data.map((d) => d.total_net), 1)
-
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" role="img" aria-label="Umsatz pro Monat">
-      {data.map((d, i) => {
-        const barHeight = Math.max((d.total_net / max) * chartHeight, d.total_net > 0 ? 3 : 0)
-        const x = barGap + i * (barWidth + barGap)
-        const y = paddingTop + (chartHeight - barHeight)
-        const [, monthNum] = d.month.split('-')
-        const label = MONTH_LABEL[Number(monthNum) - 1] ?? d.month
-
-        return (
-          <g key={d.month}>
-            <rect x={x} y={y} width={barWidth} height={barHeight} rx={3} className="fill-violet-500" />
-            {d.total_net > 0 && (
-              <text
-                x={x + barWidth / 2}
-                y={y - 6}
-                textAnchor="middle"
-                className="fill-gray-600"
-                style={{ fontSize: 9, fontFamily: 'var(--font-dm-sans)' }}
-              >
-                {fmtEuroShort(d.total_net)}
-              </text>
-            )}
-            <text
-              x={x + barWidth / 2}
-              y={height - paddingBottom + 16}
-              textAnchor="middle"
-              className="fill-gray-400"
-              style={{ fontSize: 10, fontFamily: 'var(--font-dm-sans)' }}
-            >
-              {label}
-            </text>
-          </g>
-        )
-      })}
-    </svg>
+    <ResponsiveContainer width="100%" height={240}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }} barCategoryGap="24%">
+        <CartesianGrid vertical={false} stroke="#f3f4f6" />
+        <XAxis
+          dataKey="month"
+          tickFormatter={monthLabel}
+          tickLine={false}
+          axisLine={{ stroke: '#e5e7eb' }}
+          tick={{ fontSize: 11, fill: '#9ca3af', fontFamily: 'var(--font-dm-sans)' }}
+        />
+        <YAxis
+          tickFormatter={fmtEuroShort}
+          tickLine={false}
+          axisLine={false}
+          width={56}
+          tick={{ fontSize: 11, fill: '#9ca3af', fontFamily: 'var(--font-dm-sans)' }}
+        />
+        <Tooltip cursor={{ fill: '#f9fafb' }} content={(props) => <ChartTooltip {...props} />} />
+        <Bar dataKey="total_net" fill={BAR_COLOR} radius={[4, 4, 0, 0]} maxBarSize={48} />
+      </BarChart>
+    </ResponsiveContainer>
   )
 }

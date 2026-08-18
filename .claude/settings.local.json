@@ -163,5 +163,9 @@
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\api\\admin\\jarvis\\agent-runs",
       "c:\\Users\\eschu\\Desktop\\Unternehmensstruktur\\07-Projekte\\Schuck-Webdesign\\Schuck-Redesign\\app\\api\\admin\\jarvis\\agents\\[id]"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "code-review-graph",
+    "symdex"
+  ]
 }

@@ -3,14 +3,15 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import * as XLSX from 'xlsx'
 import { createClient } from '@supabase/supabase-js'
-import type {
-  Database,
-  LeadPrioritaet,
-  LeadStage,
-  AkquiseErgebnis,
-  QualiErgebnis,
-  SalesErgebnis,
-} from '../../types/database'
+import {
+  newMappingReport,
+  parseLeads,
+  parseQualiCalls,
+  parseSalesCalls,
+  type MappingReport,
+  type UnmappedValue,
+} from '../../lib/domain/akquise-mapping'
+import type { Database } from '../../types/database'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 config({ path: path.resolve(__dirname, '../../.env.local') })
@@ -19,277 +20,14 @@ const DRY_RUN = process.argv.includes('--dry-run')
 const XLSX_PATH = path.resolve(__dirname, 'Schuck_Webdesign_Akquise.xlsx')
 const EXPECTED_COUNT = 259
 
-// ── Parsing-Helfer ────────────────────────────────────────────────────────
-
-function cell(row: unknown[], i: number): unknown {
-  return row[i]
-}
-
-function str(raw: unknown): string | null {
-  return raw == null || String(raw).trim() === '' ? null : String(raw).trim()
-}
-
-function toNumber(raw: unknown): number | null {
-  if (raw == null) return null
-  if (typeof raw === 'number') return raw
-  const s = String(raw).trim()
-  if (!s) return null
-  const cleaned = s.replace(/\./g, '').replace(',', '.')
-  const n = parseFloat(cleaned)
-  return Number.isNaN(n) ? null : n
-}
-
-function parseDate(raw: unknown): string | null {
-  if (raw == null) return null
-  if (raw instanceof Date) return raw.toISOString().slice(0, 10)
-  const s = String(raw).trim()
-  if (!s) return null
-  const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
-  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
-  return null
-}
+// Dieses Script war der einmalige Erstimport aus der lokalen Excel-Datei, bevor die
+// Akquise ins Google Sheet umgezogen ist. Die Mapping-Logik lebt jetzt in
+// lib/domain/akquise-mapping.ts (gemeinsam mit dem laufenden Sheet-Sync,
+// lib/domain/akquise-sync.ts) — dieses Script bleibt nur als Fallback/Referenz für
+// einen erneuten Excel-Import, wird für den Regelbetrieb aber nicht mehr benötigt.
 
 function dedupKey(firmenname: string, zielgruppe: string): string {
   return `${firmenname.trim().toLowerCase()}|||${zielgruppe.trim().toLowerCase()}`
-}
-
-// Alle Mappings stammen aus dem Dropdown-Referenzblatt "Listen" der Quelldatei
-// (Excel-Datenvalidierung) — das ist die vollständige, verbindliche Werteliste,
-// nicht nur das, was in den 259 Zeilen zufällig vorkommt.
-
-const PRIORITY_MAP: Record<string, LeadPrioritaet> = { Hoch: 'high', Mittel: 'medium', Niedrig: 'low' }
-
-function parsePrioritaet(raw: unknown): { value: LeadPrioritaet; unmapped: string | null } {
-  if (raw == null) return { value: 'medium', unmapped: null }
-  const cleaned = String(raw).replace(/[^\p{L}\s]/gu, '').trim()
-  const mapped = PRIORITY_MAP[cleaned]
-  return mapped ? { value: mapped, unmapped: null } : { value: 'medium', unmapped: String(raw) }
-}
-
-const AKQUISE_ERGEBNIS_MAP: Record<string, AkquiseErgebnis> = {
-  Offen: 'offen',
-  'Nicht erreicht': 'nicht_erreicht',
-  Wiedervorlage: 'wiedervorlage',
-  'Kein Interesse': 'kein_interesse',
-  Qualifiziert: 'qualifiziert',
-}
-
-function parseAkquiseErgebnis(raw: unknown): { value: AkquiseErgebnis; unmapped: string | null } {
-  const key = str(raw)
-  if (!key) return { value: 'offen', unmapped: null }
-  const mapped = AKQUISE_ERGEBNIS_MAP[key]
-  return mapped ? { value: mapped, unmapped: null } : { value: 'offen', unmapped: key }
-}
-
-const QUALI_ERGEBNIS_MAP: Record<string, QualiErgebnis> = {
-  Offen: 'offen',
-  'Follow-up': 'follow_up',
-  Disqualifiziert: 'disqualifiziert',
-  Qualifiziert: 'qualifiziert',
-}
-
-function parseQualiErgebnis(raw: unknown): { value: QualiErgebnis; unmapped: string | null } {
-  const key = str(raw)
-  if (!key) return { value: 'offen', unmapped: null }
-  const mapped = QUALI_ERGEBNIS_MAP[key]
-  return mapped ? { value: mapped, unmapped: null } : { value: 'offen', unmapped: key }
-}
-
-const SALES_ERGEBNIS_MAP: Record<string, SalesErgebnis> = {
-  Offen: 'offen',
-  'Follow-up': 'follow_up',
-  Abgelehnt: 'abgelehnt',
-  Abgeschlossen: 'abgeschlossen',
-}
-
-function parseSalesErgebnis(raw: unknown): { value: SalesErgebnis; unmapped: string | null } {
-  const key = str(raw)
-  if (!key) return { value: 'offen', unmapped: null }
-  const mapped = SALES_ERGEBNIS_MAP[key]
-  return mapped ? { value: mapped, unmapped: null } : { value: 'offen', unmapped: key }
-}
-
-// ── Sheets parsen ─────────────────────────────────────────────────────────
-// "Akquise": ID, Zielgruppe, Firmenname, Ansprechpartner, Position, Stadt / Region,
-//   Website, Telefon, E-Mail, Quelle, Website-Qualität, Priorität, Erstkontakt am,
-//   Akquise-Ergebnis, Wiedervorlage, Notizen
-// "Quali-Calls": ID, Zielgruppe, Firmenname, Ansprechpartner, Telefon, E-Mail,
-//   Quali-Call am, Quali-Ergebnis, Wiedervorlage, Bedarf / Notizen
-// "Sales-Calls": ID, Zielgruppe, Firmenname, Ansprechpartner, Telefon, E-Mail,
-//   Closing-Call am, Leistungen, Angebotsvolumen (€), Leistungsbeginn, Sales-Ergebnis, Notizen
-// "ID" ist die im Sheet bereits vergebene Lead-Referenz (L-001 ...) — nur zur
-// Verknüpfung von Quali-/Sales-Calls mit dem richtigen Lead. Die tatsächliche
-// lead_number wird beim Import frisch über get_next_number gezogen.
-
-interface ParsedLead {
-  sourceId: string
-  firmenname: string
-  ansprechpartner: string | null
-  position: string | null
-  zielgruppe: string | null
-  stadt: string | null
-  website: string | null
-  phone: string | null
-  email: string | null
-  quelle: string | null
-  website_qualitaet: string | null
-  prioritaet: LeadPrioritaet
-  erstkontakt_am: string | null
-  akquise_ergebnis: AkquiseErgebnis
-  wiedervorlage: string | null
-  notizen: string | null
-  current_stage: LeadStage
-  sourceRow: number
-}
-
-interface ParsedQualiCall {
-  sourceLeadId: string
-  quali_call_am: string | null
-  quali_ergebnis: QualiErgebnis
-  wiedervorlage: string | null
-  bedarf_notizen: string | null
-  sourceRow: number
-}
-
-interface ParsedSalesCall {
-  sourceLeadId: string
-  closing_call_am: string | null
-  leistungen: string | null
-  angebotsvolumen: number | null
-  leistungsbeginn: string | null
-  sales_ergebnis: SalesErgebnis
-  notizen: string | null
-  sourceRow: number
-}
-
-interface UnmappedValue {
-  sheet: string
-  row: number
-  value: string
-}
-
-interface MappingReport {
-  sheetErrors: string[]
-  unmappedPrioritaet: UnmappedValue[]
-  unmappedAkquiseErgebnis: UnmappedValue[]
-  unmappedQualiErgebnis: UnmappedValue[]
-  unmappedSalesErgebnis: UnmappedValue[]
-  insertErrors: string[]
-  importedLeads: number
-  skippedExistingLeads: number
-  importedQualiCalls: number
-  skippedExistingQualiCalls: number
-  importedSalesCalls: number
-  skippedExistingSalesCalls: number
-}
-
-function parseLeads(rows: unknown[][], report: MappingReport): ParsedLead[] {
-  const headerIdx = rows.findIndex((r) => cell(r, 0) === 'ID')
-  if (headerIdx === -1) {
-    report.sheetErrors.push('Sheet "Akquise": Header-Zeile "ID" nicht gefunden.')
-    return []
-  }
-
-  const leads: ParsedLead[] = []
-  rows.slice(headerIdx + 1).forEach((row, i) => {
-    const sourceId = str(cell(row, 0))
-    const firmenname = str(cell(row, 2))
-    if (!sourceId || !firmenname) return
-
-    const rowNumber = headerIdx + 2 + i
-
-    const prio = parsePrioritaet(cell(row, 11))
-    if (prio.unmapped) report.unmappedPrioritaet.push({ sheet: 'Akquise', row: rowNumber, value: prio.unmapped })
-
-    const ergebnis = parseAkquiseErgebnis(cell(row, 13))
-    if (ergebnis.unmapped) {
-      report.unmappedAkquiseErgebnis.push({ sheet: 'Akquise', row: rowNumber, value: ergebnis.unmapped })
-    }
-
-    leads.push({
-      sourceId,
-      firmenname,
-      ansprechpartner: str(cell(row, 3)),
-      position: str(cell(row, 4)),
-      zielgruppe: str(cell(row, 1)),
-      stadt: str(cell(row, 5)),
-      website: str(cell(row, 6)),
-      phone: str(cell(row, 7)),
-      email: str(cell(row, 8)),
-      quelle: str(cell(row, 9)),
-      website_qualitaet: str(cell(row, 10)),
-      prioritaet: prio.value,
-      erstkontakt_am: parseDate(cell(row, 12)),
-      akquise_ergebnis: ergebnis.value,
-      wiedervorlage: parseDate(cell(row, 14)),
-      notizen: str(cell(row, 15)),
-      current_stage: 'erstkontakt',
-      sourceRow: rowNumber,
-    })
-  })
-  return leads
-}
-
-function parseQualiCalls(rows: unknown[][], report: MappingReport): ParsedQualiCall[] {
-  const headerIdx = rows.findIndex((r) => cell(r, 0) === 'ID')
-  if (headerIdx === -1) {
-    report.sheetErrors.push('Sheet "Quali-Calls": Header-Zeile "ID" nicht gefunden.')
-    return []
-  }
-
-  const calls: ParsedQualiCall[] = []
-  rows.slice(headerIdx + 1).forEach((row, i) => {
-    const sourceLeadId = str(cell(row, 0))
-    if (!sourceLeadId) return
-    const rowNumber = headerIdx + 2 + i
-
-    const ergebnis = parseQualiErgebnis(cell(row, 7))
-    if (ergebnis.unmapped) {
-      report.unmappedQualiErgebnis.push({ sheet: 'Quali-Calls', row: rowNumber, value: ergebnis.unmapped })
-    }
-
-    calls.push({
-      sourceLeadId,
-      quali_call_am: parseDate(cell(row, 6)),
-      quali_ergebnis: ergebnis.value,
-      wiedervorlage: parseDate(cell(row, 8)),
-      bedarf_notizen: str(cell(row, 9)),
-      sourceRow: rowNumber,
-    })
-  })
-  return calls
-}
-
-function parseSalesCalls(rows: unknown[][], report: MappingReport): ParsedSalesCall[] {
-  const headerIdx = rows.findIndex((r) => cell(r, 0) === 'ID')
-  if (headerIdx === -1) {
-    report.sheetErrors.push('Sheet "Sales-Calls": Header-Zeile "ID" nicht gefunden.')
-    return []
-  }
-
-  const calls: ParsedSalesCall[] = []
-  rows.slice(headerIdx + 1).forEach((row, i) => {
-    const sourceLeadId = str(cell(row, 0))
-    if (!sourceLeadId) return
-    const rowNumber = headerIdx + 2 + i
-
-    const ergebnis = parseSalesErgebnis(cell(row, 10))
-    if (ergebnis.unmapped) {
-      report.unmappedSalesErgebnis.push({ sheet: 'Sales-Calls', row: rowNumber, value: ergebnis.unmapped })
-    }
-
-    calls.push({
-      sourceLeadId,
-      closing_call_am: parseDate(cell(row, 6)),
-      leistungen: str(cell(row, 7)),
-      angebotsvolumen: toNumber(cell(row, 8)),
-      leistungsbeginn: parseDate(cell(row, 9)),
-      sales_ergebnis: ergebnis.value,
-      notizen: str(cell(row, 11)),
-      sourceRow: rowNumber,
-    })
-  })
-  return calls
 }
 
 function sheetRows(workbook: XLSX.WorkBook, sheetName: string): unknown[][] {
@@ -302,13 +40,23 @@ function sheetRows(workbook: XLSX.WorkBook, sheetName: string): unknown[][] {
 
 // ── Report ────────────────────────────────────────────────────────────────
 
+interface ImportReport extends MappingReport {
+  insertErrors: string[]
+  importedLeads: number
+  skippedExistingLeads: number
+  importedQualiCalls: number
+  skippedExistingQualiCalls: number
+  importedSalesCalls: number
+  skippedExistingSalesCalls: number
+}
+
 function printUnmapped(title: string, values: UnmappedValue[]) {
   if (values.length === 0) return
   console.log(`\n  ${title}:`)
   for (const u of values) console.log(`    - [${u.sheet} Zeile ${u.row}] "${u.value}"`)
 }
 
-function printReport(totalLeadsParsed: number, report: MappingReport) {
+function printReport(totalLeadsParsed: number, report: ImportReport) {
   console.log('\n── Mapping-Report ──')
   console.log(`  Gefundene Leads in der Excel: ${totalLeadsParsed}`)
   if (totalLeadsParsed !== EXPECTED_COUNT) {
@@ -345,12 +93,8 @@ function printReport(totalLeadsParsed: number, report: MappingReport) {
 async function run() {
   const workbook = XLSX.readFile(XLSX_PATH, { cellDates: true })
 
-  const report: MappingReport = {
-    sheetErrors: [],
-    unmappedPrioritaet: [],
-    unmappedAkquiseErgebnis: [],
-    unmappedQualiErgebnis: [],
-    unmappedSalesErgebnis: [],
+  const report: ImportReport = {
+    ...newMappingReport(),
     insertErrors: [],
     importedLeads: 0,
     skippedExistingLeads: 0,
@@ -421,6 +165,7 @@ async function run() {
       .from('leads')
       .insert({
         lead_number: leadNumber,
+        sheet_lead_id: lead.sourceId,
         firmenname: lead.firmenname,
         ansprechpartner: lead.ansprechpartner,
         position: lead.position,
