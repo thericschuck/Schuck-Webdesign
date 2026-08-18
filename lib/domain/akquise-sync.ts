@@ -255,14 +255,50 @@ async function runSync(adminClient: AdminClient): Promise<SyncResult> {
   const sheetData = await sheets.fetchAkquiseSheetData()
 
   const leads = parseLeads(sheetData.akquise, report)
-  const qualiCalls = parseQualiCalls(sheetData.qualiCalls, report)
-  const salesCalls = parseSalesCalls(sheetData.salesCalls, report)
+  const parsedQualiCalls = parseQualiCalls(sheetData.qualiCalls, report)
+  const parsedSalesCalls = parseSalesCalls(sheetData.salesCalls, report)
   const trackingRows = parseTrackingRows(sheetData.tracking, report)
+
+  const errors: string[] = []
+
+  // ── Plausibilitätscheck: die ID-Spalte in Quali-/Sales-Calls kann im Sheet veraltet
+  // sein (z.B. wenn im Akquise-Blatt zwischenzeitlich Zeilen verschoben wurden) — ein
+  // Match nur über die ID kann dann versehentlich die Daten eines anderen Leads
+  // übernehmen. Firmenname aus der jeweiligen Zeile muss daher zum per ID gematchten
+  // Akquise-Lead passen, sonst wird die Zeile übersprungen statt falsch zugeordnet. ──
+
+  const firmennameBySourceId = new Map(leads.map((l) => [l.sourceId, l.firmenname]))
+
+  function normalizeName(s: string | null): string {
+    return (s ?? '').trim().toLowerCase()
+  }
+
+  function filterMismatchedCalls<T extends { sourceLeadId: string; firmenname: string | null; sourceRow: number }>(
+    calls: T[],
+    sheetLabel: string
+  ): T[] {
+    return calls.filter((call) => {
+      const expectedName = firmennameBySourceId.get(call.sourceLeadId)
+      if (expectedName === undefined) {
+        errors.push(`${sheetLabel} ${call.sourceLeadId} (Zeile ${call.sourceRow}): kein Lead mit dieser ID im Akquise-Blatt gefunden — übersprungen.`)
+        return false
+      }
+      if (call.firmenname && normalizeName(call.firmenname) !== normalizeName(expectedName)) {
+        errors.push(
+          `${sheetLabel} ${call.sourceLeadId} (Zeile ${call.sourceRow}): Firmenname "${call.firmenname}" passt nicht zum Lead ` +
+            `"${expectedName}" im Akquise-Blatt (ID im Sheet vermutlich veraltet/verrutscht) — übersprungen.`
+        )
+        return false
+      }
+      return true
+    })
+  }
+
+  const qualiCalls = filterMismatchedCalls(parsedQualiCalls, 'Quali-Call')
+  const salesCalls = filterMismatchedCalls(parsedSalesCalls, 'Sales-Call')
 
   const qualiByLead = new Map(qualiCalls.map((c) => [c.sourceLeadId, c]))
   const salesByLead = new Map(salesCalls.map((c) => [c.sourceLeadId, c]))
-
-  const errors: string[] = []
 
   const { data: existingLeads, error: existingError } = await adminClient
     .from('leads')

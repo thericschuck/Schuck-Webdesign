@@ -123,12 +123,33 @@ function documentNode(row: { id: string; name: string; category: string; project
   }
 }
 
-function leadNode(row: { id: string; firmenname: string; lead_number: string; current_stage: string }): GraphNode {
+/**
+ * `status` trägt hier nicht current_stage direkt, sondern eine feinere Einteilung — Grundlage
+ * für die Einfärbung nach Lead-Status in types.ts:
+ * - "erstkontakt": nach akquise_ergebnis unterschieden (offen/nicht_erreicht/wiedervorlage/qualifiziert)
+ * - "verloren": akquise_ergebnis='kein_interesse' bekommt eine eigene (hellere) Farbe statt im
+ *   generischen "verloren" zu verschwinden — deriveStage() in akquise-sync.ts setzt current_stage
+ *   für "Kein Interesse" direkt auf "verloren", ohne den Umweg über "erstkontakt".
+ * - sonst current_stage direkt (quali_call/closing_call/gewonnen).
+ */
+function leadNode(row: {
+  id: string
+  firmenname: string
+  lead_number: string
+  current_stage: string
+  akquise_ergebnis: string
+}): GraphNode {
+  const status =
+    row.current_stage === 'erstkontakt'
+      ? row.akquise_ergebnis
+      : row.current_stage === 'verloren' && row.akquise_ergebnis === 'kein_interesse'
+        ? 'kein_interesse'
+        : row.current_stage
   return {
     id: `lead:${row.id}`,
     type: 'lead',
     label: row.firmenname,
-    status: row.current_stage,
+    status,
     number: row.lead_number,
     url: `/admin/akquise/${row.id}`,
   }
@@ -292,7 +313,7 @@ async function fetchGraph(admin: SupabaseAdminClient): Promise<GraphPayload> {
     leadBudget > 0
       ? await admin
           .from('leads')
-          .select('id, firmenname, lead_number, current_stage, client_id')
+          .select('id, firmenname, lead_number, current_stage, akquise_ergebnis, client_id')
           .order('updated_at', { ascending: false })
           .limit(leadBudget)
       : { data: [] }
@@ -375,7 +396,7 @@ async function fetchNeighborhood(admin: SupabaseAdminClient, graphId: string): P
       admin.from('projects').select('id, title, project_number, status, client_id').eq('client_id', id),
       admin.from('invoices').select('id, invoice_number, status, client_id, project_id').eq('client_id', id),
       admin.from('offers').select('id, offer_number, status, lead_id, client_id').eq('client_id', id),
-      admin.from('leads').select('id, firmenname, lead_number, current_stage, client_id').eq('client_id', id),
+      admin.from('leads').select('id, firmenname, lead_number, current_stage, akquise_ergebnis, client_id').eq('client_id', id),
       admin.from('documents').select('id, name, category, project_id, client_id').eq('client_id', id).is('project_id', null),
     ])
     for (const p of projects ?? []) {
@@ -438,7 +459,7 @@ async function fetchNeighborhood(admin: SupabaseAdminClient, graphId: string): P
   } else if (type === 'lead') {
     const { data: lead } = await admin
       .from('leads')
-      .select('id, firmenname, lead_number, current_stage, client_id')
+      .select('id, firmenname, lead_number, current_stage, akquise_ergebnis, client_id')
       .eq('id', id)
       .maybeSingle()
     if (!lead) return { nodes, edges }

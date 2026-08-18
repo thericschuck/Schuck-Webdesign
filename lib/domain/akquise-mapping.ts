@@ -131,6 +131,10 @@ export interface ParsedLead {
 
 export interface ParsedQualiCall {
   sourceLeadId: string
+  /** Firmenname aus der Quali-Calls-Zeile selbst — Plausibilitätscheck gegen den per
+   * sourceLeadId gematchten Akquise-Lead (siehe akquise-sync.ts). Die ID-Spalte kann im
+   * Sheet veraltet/verrutscht sein, ohne dass das sofort auffällt. */
+  firmenname: string | null
   quali_call_am: string | null
   quali_ergebnis: QualiErgebnis
   wiedervorlage: string | null
@@ -140,6 +144,8 @@ export interface ParsedQualiCall {
 
 export interface ParsedSalesCall {
   sourceLeadId: string
+  /** Firmenname aus der Sales-Calls-Zeile selbst — siehe ParsedQualiCall.firmenname. */
+  firmenname: string | null
   closing_call_am: string | null
   leistungen: string | null
   angebotsvolumen: number | null
@@ -234,6 +240,7 @@ export function parseQualiCalls(rows: unknown[][], report: MappingReport): Parse
 
     calls.push({
       sourceLeadId,
+      firmenname: str(cell(row, 2)),
       quali_call_am: parseDate(cell(row, 6)),
       quali_ergebnis: ergebnis.value,
       wiedervorlage: parseDate(cell(row, 8)),
@@ -264,6 +271,7 @@ export function parseSalesCalls(rows: unknown[][], report: MappingReport): Parse
 
     calls.push({
       sourceLeadId,
+      firmenname: str(cell(row, 2)),
       closing_call_am: parseDate(cell(row, 6)),
       leistungen: str(cell(row, 7)),
       angebotsvolumen: toNumber(cell(row, 8)),

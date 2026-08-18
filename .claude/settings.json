@@ -18,7 +18,8 @@
       "Bash(cmd.exe /c \"wmic process where \\\\\"ProcessId=25588 or ProcessId=13508 or ProcessId=19796 or ProcessId=20956\\\\\" get ProcessId,CommandLine /format:list\")",
       "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId=25588 or ProcessId=13508 or ProcessId=19796 or ProcessId=20956\")",
       "PowerShell(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\")",
-      "PowerShell(Get-MpPreference)"
+      "PowerShell(Get-MpPreference)",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue)"
     ]
   }
 }

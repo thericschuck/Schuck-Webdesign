@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import * as THREE from 'three'
 import { FilterPanel, type RenderMode, type TypeCount } from './FilterPanel'
 import { NodePanel } from './NodePanel'
-import { colorForType, hexToRgba, type GraphEdge, type GraphNode, type GraphPayload } from './types'
+import { colorForNode, hexToRgba, type GraphEdge, type GraphNode, type GraphPayload } from './types'
 
 // Beide greifen auf window/Canvas bzw. WebGL zu — müssen client-only geladen werden.
 // Nur die gerade aktive Variante wird tatsächlich als Chunk nachgeladen (siehe renderMode unten).
@@ -343,7 +343,7 @@ export function GraphExplorer() {
   const selectedConnections = useMemo(() => {
     if (!selectedNode) return []
     const seen = new Set<string>()
-    const result: { id: string; label: string; type: string }[] = []
+    const result: { id: string; label: string; type: string; status?: string | null }[] = []
     for (const e of edges) {
       let otherId: string | null = null
       if (e.source === selectedNode.id) otherId = e.target
@@ -352,7 +352,7 @@ export function GraphExplorer() {
       const other = nodesById.get(otherId)
       if (!other) continue
       seen.add(otherId)
-      result.push({ id: other.id, label: other.label, type: other.type })
+      result.push({ id: other.id, label: other.label, type: other.type, status: other.status })
     }
     return result.sort((a, b) => a.label.localeCompare(b.label))
   }, [selectedNode, edges, nodesById])
@@ -563,8 +563,8 @@ export function GraphExplorer() {
 
       if (renderMode === '3d') {
         if (isDimmed) return '#3a3a3a'
-        const sourceColor = colorForType(nodesById.get(sourceId)?.type ?? 'other')
-        const targetColor = colorForType(nodesById.get(targetId)?.type ?? 'other')
+        const sourceColor = colorForNode(nodesById.get(sourceId) ?? { type: 'other' })
+        const targetColor = colorForNode(nodesById.get(targetId) ?? { type: 'other' })
         return sourceColor === targetColor ? sourceColor : mixHexColors(sourceColor, targetColor)
       }
       return isDimmed ? 'rgba(255,255,255,0.06)' : 'rgba(155,144,245,0.75)'
@@ -581,7 +581,7 @@ export function GraphExplorer() {
       const targetId = typeof l.target === 'string' ? l.target : (l.target as GraphNode).id
       const isDimmed = connectedToHover != null && !(connectedToHover.has(sourceId) && connectedToHover.has(targetId))
       if (isDimmed) return renderMode === '3d' ? '#0a0a0a' : 'rgba(0,0,0,0)'
-      if (renderMode === '3d') return colorForType(nodesById.get(targetId)?.type ?? 'other')
+      if (renderMode === '3d') return colorForNode(nodesById.get(targetId) ?? { type: 'other' })
       return '#b0a8f0'
     },
     [connectedToHover, renderMode, nodesById]
@@ -596,7 +596,7 @@ export function GraphExplorer() {
       if (n.x == null || n.y == null) return
 
       const isDimmed = connectedToHover != null && !connectedToHover.has(n.id)
-      const color = colorForType(n.type)
+      const color = colorForNode(n)
       const baseR = radiusForType(n.type, NODE_RADIUS_2D)
 
       if (!isDimmed) {
@@ -639,12 +639,12 @@ export function GraphExplorer() {
   /** Baut pro Knoten eine Kern-Kugel + eine additive Glow-Hülle. Größe nach Entitäts-Typ (Kunden
    * am größten, Projekte kleiner, Rest am kleinsten) statt nach Grad — im 3D-Raum mit
    * Kamera-Perspektive wirken kleine Kugeln sonst wie Staubkörner. Farbe/Gruppierung bleiben
-   * unverändert über `colorForType`. */
+   * unverändert über `colorForNode`. */
   const nodeThreeObject = useCallback(
     (node: unknown) => {
       const n = node as SimNode
       simNodeRegistryRef.current.set(n.id, n)
-      const color = colorForType(n.type)
+      const color = colorForNode(n)
       const baseR = radiusForType(n.type, NODE_RADIUS_3D)
 
       const group = new THREE.Group()

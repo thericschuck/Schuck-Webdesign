@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { colorForType, labelForType, type GraphNode } from './types'
+import { colorForNode, labelForLeadStatus, labelForType, type GraphNode } from './types'
 
 export interface NodeConnection {
   id: string
   label: string
   type: string
+  status?: string | null
 }
 
 export function NodePanel({
@@ -30,7 +31,7 @@ export function NodePanel({
     <div className="fixed inset-y-0 right-0 z-70 w-full sm:w-96 bg-white border-l border-gray-100 shadow-2xl flex flex-col">
       <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorForType(node.type) }} />
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colorForNode(node) }} />
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'var(--font-dm-sans)' }}>
             {labelForType(node.type)}
           </h2>
@@ -68,7 +69,7 @@ export function NodePanel({
                 Status
               </dt>
               <dd className="text-sm text-gray-800" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                {node.status}
+                {node.type === 'lead' ? labelForLeadStatus(node.status) : node.status}
               </dd>
             </div>
           )}
@@ -111,7 +112,7 @@ export function NodePanel({
                   onClick={() => onSelectConnection(c.id)}
                   className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-left hover:bg-gray-50 transition-colors"
                 >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorForType(c.type) }} />
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorForNode(c) }} />
                   <span className="flex-1 min-w-0 text-sm text-gray-800 truncate" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                     {c.label}
                   </span>
