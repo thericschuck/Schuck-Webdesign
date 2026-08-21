@@ -19,6 +19,8 @@ export const CLIENT_STATUS_VALUES: ClientStatus[] = [
 const UPDATABLE_CLIENT_FIELDS = [
   'company_name',
   'contact_name',
+  'first_name',
+  'last_name',
   'contact_email',
   'website',
   'phone',
@@ -89,6 +91,9 @@ export interface CreateClientInput {
   profileId?: string | null
   /** Ansprechpartner-Name, auch ohne Portal-Zugang gepflegt — Fallback-Anzeigename vor profiles.full_name. */
   contactName?: string | null
+  /** Vorname/Nachname sind reine Zusatzinfo neben dem freien Anzeigenamen (contactName/full_name). */
+  firstName?: string | null
+  lastName?: string | null
   /** Fallback-E-Mail für Versand-Flows, solange kein Portal-Zugang (profiles.email) existiert. */
   contactEmail?: string | null
   /** Firmenname ist optionale Zusatzinfo — der primäre Kundenname liegt auf profiles.full_name/contactName. */
@@ -115,6 +120,8 @@ export interface CreateClientInput {
 export async function createClient(input: CreateClientInput): Promise<Client> {
   const companyName = input.companyName?.trim() || null
   const contactName = input.contactName?.trim() || null
+  const firstName = input.firstName?.trim() || null
+  const lastName = input.lastName?.trim() || null
   const contactEmail = input.contactEmail?.trim() || null
 
   const status = input.status ?? 'pending'
@@ -137,6 +144,8 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
       profile_id: input.profileId ?? null,
       company_name: companyName,
       contact_name: contactName,
+      first_name: firstName,
+      last_name: lastName,
       contact_email: contactEmail,
       client_number: clientNumber,
       status,
@@ -203,6 +212,8 @@ export async function attachClientProfile(clientId: string, profileId: string): 
 export interface UpdateClientInput {
   company_name?: string | null
   contact_name?: string | null
+  first_name?: string | null
+  last_name?: string | null
   contact_email?: string | null
   website?: string | null
   phone?: string | null

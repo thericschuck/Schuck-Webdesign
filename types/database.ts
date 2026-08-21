@@ -46,6 +46,8 @@ export type Database = {
           profile_id: string | null
           company_name: string | null
           contact_name: string | null
+          first_name: string | null
+          last_name: string | null
           contact_email: string | null
           client_number: string | null
           website: string | null
@@ -64,6 +66,8 @@ export type Database = {
           profile_id?: string | null
           company_name?: string | null
           contact_name?: string | null
+          first_name?: string | null
+          last_name?: string | null
           contact_email?: string | null
           client_number?: string | null
           website?: string | null
@@ -82,6 +86,8 @@ export type Database = {
           profile_id?: string | null
           company_name?: string | null
           contact_name?: string | null
+          first_name?: string | null
+          last_name?: string | null
           contact_email?: string | null
           client_number?: string | null
           website?: string | null
@@ -397,6 +403,7 @@ export type Database = {
           due_date: string | null
           created_at: string
           completed_at: string | null
+          reminder_sent_at: string | null
         }
         Insert: {
           id?: string
@@ -408,6 +415,7 @@ export type Database = {
           due_date?: string | null
           created_at?: string
           completed_at?: string | null
+          reminder_sent_at?: string | null
         }
         Update: {
           id?: string
@@ -419,6 +427,7 @@ export type Database = {
           due_date?: string | null
           created_at?: string
           completed_at?: string | null
+          reminder_sent_at?: string | null
         }
         Relationships: [
           {
@@ -426,6 +435,70 @@ export type Database = {
             columns: ['project_id']
             isOneToOne: false
             referencedRelation: 'projects'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      notification_preferences: {
+        Row: {
+          user_id: string
+          push_enabled: boolean
+          email_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          push_enabled?: boolean
+          email_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          push_enabled?: boolean
+          email_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'notification_preferences_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: true
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'push_subscriptions_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
             referencedColumns: ['id']
           }
         ]

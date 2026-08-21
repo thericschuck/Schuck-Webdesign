@@ -35,7 +35,8 @@
     "resend": "^6.12.4",
     "sharp": "^0.35.3",
     "supabase": "^2.91.1",
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -44,6 +45,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.185.0",
+    "@types/web-push": "^3.6.4",
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",

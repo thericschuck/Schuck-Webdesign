@@ -14,6 +14,8 @@ type Props = {
   defaultValues: {
     company_name: string
     full_name: string
+    first_name: string
+    last_name: string
     email: string
     phone: string
     website: string
@@ -63,10 +65,22 @@ export function EditClientForm({ clientId, hasProfile, defaultValues }: Props) {
           Kontakt
         </h2>
 
-        <Field label="Name" id="full_name" required>
+        <Field label="Name (Anzeigename)" id="full_name" required>
           <input id="full_name" name="full_name" type="text" required
             defaultValue={defaultValues.full_name} disabled={pending} className={inputClass} />
         </Field>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Vorname" id="first_name">
+            <input id="first_name" name="first_name" type="text"
+              defaultValue={defaultValues.first_name} disabled={pending} className={inputClass} />
+          </Field>
+
+          <Field label="Nachname" id="last_name">
+            <input id="last_name" name="last_name" type="text"
+              defaultValue={defaultValues.last_name} disabled={pending} className={inputClass} />
+          </Field>
+        </div>
 
         {!hasProfile && (
           <Field label="E-Mail" id="email">

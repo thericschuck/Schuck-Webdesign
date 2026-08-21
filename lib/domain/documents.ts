@@ -12,6 +12,7 @@ import { clientDisplayName } from '@/lib/client-name'
 import { gatherCareReportData } from './care'
 import { compressImageIfPossible, compressPdfIfPossible } from '@/lib/uploadCompression'
 import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB, formatMb } from '@/lib/uploadLimits'
+import * as notificationsDomain from './notifications'
 import type { Document, DocumentCategory } from '@/types/database'
 
 export const DOCUMENT_TEMPLATES = ['angebot', 'vertrag', 'briefing', 'uebergabe', 'care_report'] as const
@@ -390,6 +391,17 @@ export async function uploadDocumentFile(input: UploadDocumentFileInput): Promis
   if (dbError) {
     await adminClient.storage.from('documents').remove([storagePath])
     throw new DomainError(`Datenbankfehler: ${dbError.message}`)
+  }
+
+  // Nur benachrichtigen, wenn der ADMIN für den Kunden hochgeladen hat — lädt der Kunde selbst
+  // hoch (Portal-Upload nutzt dieselbe Funktion), wäre eine Benachrichtigung über die eigene Aktion sinnlos.
+  const { data: client } = await adminClient.from('clients').select('profile_id').eq('id', input.clientId).maybeSingle()
+  if (client?.profile_id && client.profile_id !== input.uploadedBy) {
+    await notificationsDomain.notifyUser(client.profile_id, {
+      title: 'Neue Datei hochgeladen',
+      body: `"${finalName}" wurde zu deinem Projekt hinzugefügt.`,
+      url: '/portal/documents',
+    })
   }
 
   return doc

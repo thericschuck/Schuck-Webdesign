@@ -19,6 +19,8 @@ export async function updateClient(
   const website        = formData.get('website')
   const status         = formData.get('status')
   const fullName       = formData.get('full_name')
+  const firstName      = formData.get('first_name')
+  const lastName       = formData.get('last_name')
   const email          = formData.get('email')
   const addressStreet  = formData.get('address_street')
   const addressCity    = formData.get('address_city')
@@ -48,6 +50,8 @@ export async function updateClient(
       // Ohne Portal-Profil ist "Name"/E-Mail hier die Quelle (contact_name/contact_email).
       // Mit Profil bleibt profiles.full_name die einzige Namensquelle (siehe unten).
       contact_name: hasProfile ? undefined : fullName.trim(),
+      first_name: str(firstName),
+      last_name: str(lastName),
       contact_email: hasProfile ? undefined : str(email),
       phone: str(phone),
       website: str(website),

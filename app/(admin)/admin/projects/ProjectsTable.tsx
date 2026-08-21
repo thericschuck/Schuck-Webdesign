@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { ProjectStatus } from '@/types/database'
 
 export interface ProjectRow {
@@ -89,7 +90,18 @@ function Th({
   )
 }
 
+/** Zeilenklick navigiert zur Detailseite, außer der Nutzer wollte gerade Text markieren
+ * (z.B. um Nr./Kunde kopieren) oder hat direkt auf einen Link/Button geklickt. */
+function handleRowClick(router: ReturnType<typeof useRouter>, href: string) {
+  return (e: React.MouseEvent<HTMLTableRowElement>) => {
+    if (window.getSelection()?.toString()) return
+    if ((e.target as HTMLElement).closest('a, button')) return
+    router.push(href)
+  }
+}
+
 export function ProjectsTable({ rows }: { rows: ProjectRow[] }) {
+  const router = useRouter()
   // Kein aktiver Standard-Sort — die Reihenfolge kommt initial von der Server-Query
   // (neueste zuerst); erst ein Klick auf eine Spalte aktiviert eine explizite Sortierung.
   const [sortKey, setSortKey] = useState<SortKey | null>(null)
@@ -180,7 +192,11 @@ export function ProjectsTable({ rows }: { rows: ProjectRow[] }) {
         </thead>
         <tbody className="divide-y divide-gray-100">
           {sorted.map((project) => (
-            <tr key={project.id} className="hover:bg-gray-50 transition-colors">
+            <tr
+              key={project.id}
+              onClick={handleRowClick(router, `/admin/projects/${project.id}`)}
+              className="hover:bg-gray-50 transition-colors cursor-pointer"
+            >
               <td className="px-6 py-4">
                 <span className="text-xs text-gray-400 font-mono" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                   {project.number ?? '—'}

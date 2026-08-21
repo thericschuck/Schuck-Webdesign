@@ -355,29 +355,24 @@ async function runSync(adminClient: AdminClient): Promise<SyncResult> {
         continue
       }
       changeLogCandidates.push(...diffLeadFields(existing.id, existing, fields))
-      toUpdate.push({ id: existing.id, lead_number: existing.lead_number, ...fields })
+      // lead_number wird bei jedem Sync neu auf sheet_lead_id gesetzt (statt den alten Wert
+      // beizubehalten) — self-healing, falls er je manuell abweichen sollte.
+      toUpdate.push({ id: existing.id, lead_number: lead.sourceId, ...fields })
       continue
     }
 
     pendingInserts.push({ lead, fields })
   }
 
-  // ── Phase 2: neue Leads — Nummernvergabe darf parallel laufen (get_next_number ist
-  // per Row-Lock atomar, siehe Migration 0002), dann EIN Bulk-Insert statt N Einzel-Inserts. ──
+  // ── Phase 2: neue Leads — lead_number ist einfach sheet_lead_id (die Sheet-ID ist schon
+  // eindeutig), kein eigener Zähler mehr nötig. Dadurch auch kein RPC-Call mehr pro neuem
+  // Lead — reine Berechnung, direkt ein Bulk-Insert statt N Einzel-Inserts. ──
 
-  const insertCandidates = (
-    await Promise.all(
-      pendingInserts.map(async ({ lead, fields }) => {
-        const { data: seq, error: seqError } = await adminClient.rpc('get_next_number', { p_typ: 'L', p_scope: '' })
-        if (seqError) {
-          errors.push(`Lead ${lead.sourceId} (${lead.firmenname}): Nummernvergabe fehlgeschlagen — ${seqError.message}`)
-          return null
-        }
-        const leadNumber = `L-${String(seq).padStart(3, '0')}`
-        return { sourceId: lead.sourceId, firmenname: lead.firmenname, row: { lead_number: leadNumber, ...fields } }
-      })
-    )
-  ).filter((v): v is NonNullable<typeof v> => v !== null)
+  const insertCandidates = pendingInserts.map(({ lead, fields }) => ({
+    sourceId: lead.sourceId,
+    firmenname: lead.firmenname,
+    row: { lead_number: lead.sourceId, ...fields },
+  }))
 
   let leadsInserted = 0
   if (insertCandidates.length > 0) {

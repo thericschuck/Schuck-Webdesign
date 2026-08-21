@@ -15,7 +15,7 @@ export default async function EditClientPage({
   const { data: client } = await supabase
     .from('clients')
     .select(`
-      id, company_name, contact_name, contact_email, website, phone, status,
+      id, company_name, contact_name, first_name, last_name, contact_email, website, phone, status,
       address_street, address_city, address_zip, address_country,
       notes,
       profile:profiles(full_name, email)
@@ -49,6 +49,8 @@ export default async function EditClientPage({
         defaultValues={{
           company_name:    client.company_name ?? '',
           full_name:       profile?.full_name ?? client.contact_name ?? '',
+          first_name:      client.first_name ?? '',
+          last_name:       client.last_name ?? '',
           email:           client.contact_email ?? '',
           phone:           client.phone ?? '',
           website:         client.website ?? '',

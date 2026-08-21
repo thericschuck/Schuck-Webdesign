@@ -71,6 +71,7 @@ export default function NewClientPage() {
           <div className="flex flex-col gap-1.5">
             <label htmlFor="name" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
               Name <span className="text-red-500">*</span>
+              <span className="text-gray-400 font-normal"> (Anzeigename)</span>
             </label>
             <input
               id="name"
@@ -81,6 +82,35 @@ export default function NewClientPage() {
               disabled={pending}
               className="rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50 transition-colors"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="first_name" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Vorname <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                id="first_name"
+                name="first_name"
+                type="text"
+                placeholder="Max"
+                disabled={pending}
+                className="rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50 transition-colors"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="last_name" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Nachname <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                id="last_name"
+                name="last_name"
+                type="text"
+                placeholder="Mustermann"
+                disabled={pending}
+                className="rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 disabled:opacity-50 transition-colors"
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">

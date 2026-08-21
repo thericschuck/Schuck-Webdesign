@@ -59,6 +59,8 @@ export default async function ClientDetailPage({
       client_number,
       company_name,
       contact_name,
+      first_name,
+      last_name,
       contact_email,
       website,
       phone,
@@ -170,6 +172,14 @@ export default async function ClientDetailPage({
                   {profile?.full_name ?? client.contact_name ?? '—'}
                 </dd>
               </div>
+              {(client.first_name || client.last_name) && (
+                <div>
+                  <dt className="text-xs text-gray-400 mb-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>Vor-/Nachname</dt>
+                  <dd className="text-sm text-gray-800" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                    {[client.first_name, client.last_name].filter(Boolean).join(' ')}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="text-xs text-gray-400 mb-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>E-Mail</dt>
                 <dd className="text-sm text-gray-800 break-all" style={{ fontFamily: 'var(--font-dm-sans)' }}>

@@ -169,15 +169,22 @@ export interface CreateLeadInput {
   notizen?: string | null
 }
 
+/**
+ * Nur noch der Pfad für manuell angelegte Leads (aktuell: convertContactSubmissionToLead) —
+ * Sheet-Leads bekommen ihre lead_number direkt von sheet_lead_id zugewiesen (siehe
+ * akquise-sync.ts), ohne diesen Zähler zu berühren. Eigener Nummernkreis ("LM"/"M-")
+ * statt des alten "L"-Kreises, damit eine manuell erzeugte Nummer nie mit einer
+ * Sheet-ID kollidieren kann, egal wie groß das Sheet noch wird.
+ */
 export async function createLead(input: CreateLeadInput): Promise<Lead> {
   const firmenname = input.firmenname.trim()
   if (!firmenname) throw new DomainError('Firmenname ist erforderlich.')
 
   const adminClient = createAdminClient()
 
-  const { data: seq, error: seqError } = await adminClient.rpc('get_next_number', { p_typ: 'L', p_scope: '' })
+  const { data: seq, error: seqError } = await adminClient.rpc('get_next_number', { p_typ: 'LM', p_scope: '' })
   if (seqError) throw new DomainError(seqError.message)
-  const leadNumber = `L-${String(seq).padStart(3, '0')}`
+  const leadNumber = `M-${String(seq).padStart(3, '0')}`
 
   const { data, error } = await adminClient
     .from('leads')

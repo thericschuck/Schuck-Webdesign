@@ -12,6 +12,15 @@ import {
 } from '@/lib/domain/projects'
 import * as documentsDomain from '@/lib/domain/documents'
 import type { DocumentTemplate } from '@/lib/domain/documents'
+import * as notificationsDomain from '@/lib/domain/notifications'
+
+const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
+  briefing: 'Briefing',
+  design: 'Design',
+  development: 'Entwicklung',
+  review: 'Review',
+  live: 'Live',
+}
 
 // ── Update Status ────────────────────────────────────────────────────────────
 
@@ -20,7 +29,17 @@ export async function updateProjectStatus(
   status: ProjectStatus
 ): Promise<void> {
   await assertAdmin()
-  await updateProjectRecord(projectId, { status })
+  const project = await updateProjectRecord(projectId, { status })
+
+  const adminClient = createAdminClient()
+  const { data: client } = await adminClient.from('clients').select('profile_id').eq('id', project.client_id).maybeSingle()
+  if (client?.profile_id) {
+    await notificationsDomain.notifyUser(client.profile_id, {
+      title: 'Projekt-Update',
+      body: `"${project.title}" hat einen neuen Status: ${PROJECT_STATUS_LABEL[status]}`,
+      url: '/portal/project',
+    })
+  }
 
   revalidatePath(`/admin/projects/${projectId}`)
   revalidatePath('/admin/projects')
