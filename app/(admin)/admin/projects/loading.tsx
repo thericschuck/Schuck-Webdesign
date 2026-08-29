@@ -1,5 +1,5 @@
-import { AdminListSkeleton } from '@/components/admin/AdminListSkeleton'
+import { AdminBoardSkeleton } from '@/components/admin/AdminBoardSkeleton'
 
 export default function ProjectsLoading() {
-  return <AdminListSkeleton rows={7} />
+  return <AdminBoardSkeleton cards={6} railItems={6} />
 }

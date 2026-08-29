@@ -4,7 +4,10 @@ import { useMemo, useState, useOptimistic, useTransition } from 'react'
 import Link from 'next/link'
 import { toggleTodo, deleteTodo } from '@/app/(admin)/admin/projects/[id]/actions'
 import { clientDisplayName } from '@/lib/client-name'
+import { AddTodoGlobalForm } from './AddTodoGlobalForm'
 import type { ProjectGroup, RawTodo } from './types'
+
+type ProjectOption = { id: string; title: string }
 
 const PRIORITY_LABEL = { high: 'Hoch', medium: 'Mittel', low: 'Niedrig' } as const
 const PRIORITY_COLOR = {
@@ -310,7 +313,7 @@ function RailItem({
 
 // ── Board ─────────────────────────────────────────────────────────────────────
 
-export function TodosBoard({ todos }: { todos: RawTodo[] }) {
+export function TodosBoard({ todos, projects }: { todos: RawTodo[]; projects: ProjectOption[] }) {
   // Todos werden optimistisch aktualisiert — Checkbox/Löschen reagieren sofort,
   // ohne auf die Server-Antwort zu warten; useOptimistic verwirft den lokalen
   // Override automatisch, sobald die revalidierten `todos` aus dem Server-Component ankommen.
@@ -406,6 +409,9 @@ export function TodosBoard({ todos }: { todos: RawTodo[] }) {
   }, [searching, query, allGroups])
 
   const activeGroup = allGroups.find((g) => groupKey(g) === activeKey) ?? null
+  // "+" soll das gerade aktive Projekt vorschlagen (z.B. "We Rock"-Filter → We Rock vorausgewählt),
+  // aber frei änderbar bleiben. In "Allgemein" oder "Alle Kategorien" bleibt es bei "kein Projekt".
+  const defaultProjectId = activeGroup?.id ?? null
 
   // Flat cross-category view for "Alle Kategorien" — one simple list, category shown as a tag per row
   const flatAll = useMemo(() => {
@@ -422,30 +428,46 @@ export function TodosBoard({ todos }: { todos: RawTodo[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Stats */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
-          <span className="w-2 h-2 rounded-full bg-gray-900 shrink-0" />
-          <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            {totalOpen} offen
-          </span>
-        </div>
-        {overdueCount > 0 && (
-          <div className="bg-white rounded-xl border border-red-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
-            <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-            <span className="text-sm font-medium text-red-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              {overdueCount} überfällig
+      {/* Stats + Add */}
+      <div className="flex items-center gap-3 flex-wrap justify-between">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-gray-900 shrink-0" />
+            <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              {totalOpen} offen
             </span>
           </div>
-        )}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
-          <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-          <span className="text-sm font-medium text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            {totalDone} erledigt
-          </span>
+          {overdueCount > 0 && (
+            <div className="bg-white rounded-xl border border-red-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+              <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+              <span className="text-sm font-medium text-red-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                {overdueCount} überfällig
+              </span>
+            </div>
+          )}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+            <span className="text-sm font-medium text-gray-500" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              {totalDone} erledigt
+            </span>
+          </div>
         </div>
+        <AddTodoGlobalForm projects={projects} defaultProjectId={defaultProjectId} />
       </div>
 
+      {todos.length === 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-16 text-center">
+          <p className="text-gray-400 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            Noch keine Aufgaben vorhanden.
+          </p>
+          <p className="text-gray-400 text-xs mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+            Klicke oben auf „Aufgabe hinzufügen" um loszulegen.
+          </p>
+        </div>
+      )}
+
+      {todos.length > 0 && (
+      <>
       {/* Search — finds a task no matter which category it lives in, without any scrolling */}
       <div className="relative">
         <svg className="w-4 h-4 text-gray-300 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -556,6 +578,8 @@ export function TodosBoard({ todos }: { todos: RawTodo[] }) {
             )}
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   )

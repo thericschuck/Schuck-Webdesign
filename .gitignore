@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Ausgabeordner von scripts/render-document-stresstest.ts
+.stresstest/

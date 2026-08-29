@@ -73,7 +73,15 @@ type DocRow = {
 type ClientProject = {
   id: string
   title: string
-  documents: DocRow[]
+}
+
+/** Dokument-Zeile für den Datei-Explorer — trägt zusätzlich die Ebene (project_id). */
+type ExplorerDocRow = DocRow & { project_id: string | null }
+
+type FolderRow = {
+  id: string
+  project_id: string | null
+  path: string
 }
 
 type Props = {
@@ -88,6 +96,9 @@ type Props = {
   reviews: Review[]
   todos: Todo[]
   documents: DocRow[]
+  /** ALLE Dokumente des Kunden — der Explorer arbeitet kundenweit, nicht projektweise. */
+  clientDocuments: ExplorerDocRow[]
+  folders: FolderRow[]
   clientProjects: ClientProject[]
 }
 
@@ -399,7 +410,7 @@ function EditTodoForm({
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function AdminProjectTabs({
-  projectId, clientId, clientEmail, offers, adminId, updates, meetings, changeRequests, reviews, todos, documents, clientProjects,
+  projectId, clientId, clientEmail, offers, adminId, updates, meetings, changeRequests, reviews, todos, documents, clientDocuments, folders, clientProjects,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('updates')
   const [showMeetingForm, setShowMeetingForm] = useState(false)
@@ -1101,7 +1112,8 @@ export function AdminProjectTabs({
         <AdminFileExplorer
           projectId={projectId}
           clientId={clientId}
-          documents={documents}
+          clientDocuments={clientDocuments}
+          folders={folders}
           clientProjects={clientProjects}
         />
       )}

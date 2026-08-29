@@ -1,16 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { ChangePasswordForm } from './ChangePasswordForm'
-import { NotificationSettingsForm } from '@/components/notifications/NotificationSettingsForm'
-import * as notificationsDomain from '@/lib/domain/notifications'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: profile }, prefs] = await Promise.all([
-    supabase.from('profiles').select('full_name, email').eq('id', user!.id).single(),
-    notificationsDomain.getPreferences(user!.id),
-  ])
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, email')
+    .eq('id', user!.id)
+    .single()
 
   const { data: client } = await supabase
     .from('clients')
@@ -60,17 +59,6 @@ export default async function SettingsPage() {
             </div>
           )}
         </dl>
-      </div>
-
-      {/* Benachrichtigungen */}
-      <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900">Benachrichtigungen</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Änderungen an deinem Projekt, neue Dateien und Updates.</p>
-        </div>
-        <div className="px-6 py-5">
-          <NotificationSettingsForm initialPushEnabled={prefs.pushEnabled} initialEmailEnabled={prefs.emailEnabled} />
-        </div>
       </div>
 
       {/* Passwort ändern */}

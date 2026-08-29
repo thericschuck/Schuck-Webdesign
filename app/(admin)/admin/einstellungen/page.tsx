@@ -7,7 +7,10 @@ export default async function AdminEinstellungenPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  const prefs = await notificationsDomain.getPreferences(user!.id)
+  const [prefs, devices] = await Promise.all([
+    notificationsDomain.getPreferences(user!.id),
+    notificationsDomain.listPushDevices(user!.id),
+  ])
 
   return (
     <div className="flex flex-col gap-6">
@@ -27,7 +30,7 @@ export default async function AdminEinstellungenPage() {
         <p className="text-xs text-gray-400 mb-5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
           Erinnerungen von JARVIS zu fälligen To-Dos und wichtigen Ereignissen.
         </p>
-        <NotificationSettingsForm initialPushEnabled={prefs.pushEnabled} initialEmailEnabled={prefs.emailEnabled} />
+        <NotificationSettingsForm initialDevices={devices} initialEmailEnabled={prefs.emailEnabled} />
       </div>
     </div>
   )

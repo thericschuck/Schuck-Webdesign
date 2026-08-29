@@ -1,5 +1,19 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
+/**
+ * Supabase akzeptiert als `redirectTo` nur absolute URLs MIT Schema. Steht in
+ * NEXT_PUBLIC_SITE_URL nur die nackte Domain ("schuck-webdesign.de"), verwirft GoTrue
+ * den Wert stillschweigend und schickt den Kunden stattdessen an die im Supabase-
+ * Dashboard hinterlegte Site-URL — der Einladungslink zeigt dann z.B. auf localhost.
+ * Deshalb hier defensiv normalisieren statt sich auf das Env-Format zu verlassen.
+ */
+function callbackUrl(): string {
+  const raw = (process.env.NEXT_PUBLIC_SITE_URL ?? '').trim().replace(/\/+$/, '')
+  if (!raw) throw new Error('NEXT_PUBLIC_SITE_URL fehlt in der Umgebung.')
+  const base = /^https?:\/\//.test(raw) ? raw : `https://${raw}`
+  return `${base}/auth/callback`
+}
+
 export interface InviteClientUserInput {
   email: string
   fullName?: string | null
@@ -27,7 +41,7 @@ export async function inviteClientUser(input: InviteClientUserInput): Promise<In
 
   const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
     data: { full_name: fullName, role: 'client' },
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+    redirectTo: callbackUrl(),
   })
 
   if (inviteError) {
@@ -51,7 +65,7 @@ export async function inviteClientUser(input: InviteClientUserInput): Promise<In
 export async function resendClientInvite(email: string): Promise<void> {
   const adminClient = createAdminClient()
   const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+    redirectTo: callbackUrl(),
   })
   if (error) throw new Error(`Einladung konnte nicht erneut gesendet werden: ${error.message}`)
 }

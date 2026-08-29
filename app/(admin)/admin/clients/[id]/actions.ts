@@ -7,6 +7,8 @@ import { deleteClient as deleteClientRecord, attachClientProfile } from '@/lib/d
 import * as documentsDomain from '@/lib/domain/documents'
 import type { DocumentTemplate } from '@/lib/domain/documents'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import { beginImpersonation, type StartImpersonationResult } from '@/lib/auth/impersonation'
 
 type DeleteResult = { status: 'error'; message: string } | { status: 'success' }
 type ResendResult = { status: 'error'; message: string } | { status: 'success' }
@@ -116,4 +118,14 @@ export async function sendClientDocumentAction(
 
   revalidatePath(`/admin/clients/${clientId}`)
   return { status: 'success' }
+}
+
+/** Öffnet das Kundenportal in der echten Session des Kunden — siehe lib/auth/impersonation.ts. */
+export async function openClientView(clientId: string): Promise<StartImpersonationResult> {
+  await assertAdmin()
+
+  const result = await beginImpersonation(clientId)
+  if (result.status === 'error') return result
+
+  redirect('/portal')
 }

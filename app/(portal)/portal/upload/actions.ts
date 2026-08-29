@@ -3,59 +3,69 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import * as documentsDomain from '@/lib/domain/documents'
+import type { RegisterResult, TicketResult } from '@/lib/use-direct-upload'
 
-type UploadResult =
-  | { status: 'success'; fileName: string }
-  | { status: 'error'; message: string }
+/**
+ * Portal-Upload in zwei Schritten (siehe lib/use-direct-upload.ts): erst ein Ticket für
+ * den Direkt-Upload in den Storage, danach das Registrieren der fertigen Datei. Die
+ * Datei selbst läuft nie durch eine Server Action — deshalb gibt es hier auch kein
+ * Größenlimit mehr.
+ */
 
-export async function uploadFile(
-  _prev: UploadResult | null,
-  formData: FormData
-): Promise<UploadResult> {
+/** Kunden-ID der aktuellen Portal-Session. */
+async function currentClientId(): Promise<{ clientId: string; userId: string } | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { status: 'error', message: 'Nicht eingeloggt.' }
+  if (!user) return null
 
-  const { data: client } = await supabase
-    .from('clients')
-    .select('id')
-    .eq('profile_id', user.id)
-    .single()
+  const { data: client } = await supabase.from('clients').select('id').eq('profile_id', user.id).single()
+  if (!client) return null
 
-  if (!client) {
-    return { status: 'error', message: 'Kein Kundeneintrag gefunden.' }
+  return { clientId: client.id, userId: user.id }
+}
+
+export async function createPortalUploadTicket(fileName: string): Promise<TicketResult> {
+  const session = await currentClientId()
+  if (!session) return { status: 'error', message: 'Kein Kundeneintrag gefunden.' }
+
+  try {
+    const ticket = await documentsDomain.createUploadTicket(session.clientId, fileName)
+    return { status: 'ok', path: ticket.path, token: ticket.token }
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Upload konnte nicht vorbereitet werden.' }
   }
+}
 
-  const file       = formData.get('file') as File | null
-  const projectId  = formData.get('project_id') as string | null
-  const folderRaw  = formData.get('folder') as string | null
-  const folder     = folderRaw?.trim() || null
-
-  if (!file || file.size === 0) {
-    return { status: 'error', message: 'Bitte eine Datei auswählen.' }
-  }
+export async function registerPortalUpload(
+  path: string,
+  fileName: string,
+  projectId: string | null,
+  folder: string | null
+): Promise<RegisterResult> {
+  const session = await currentClientId()
+  if (!session) return { status: 'error', message: 'Kein Kundeneintrag gefunden.' }
 
   // Wenn project_id angegeben, prüfen ob das Projekt dem Client gehört
   if (projectId) {
+    const supabase = await createClient()
     const { data: project } = await supabase
       .from('projects')
       .select('id')
       .eq('id', projectId)
-      .eq('client_id', client.id)
+      .eq('client_id', session.clientId)
       .single()
 
-    if (!project) {
-      return { status: 'error', message: 'Ungültiges Projekt.' }
-    }
+    if (!project) return { status: 'error', message: 'Ungültiges Projekt.' }
   }
 
   try {
-    const doc = await documentsDomain.uploadDocumentFile({
-      file,
-      clientId: client.id,
+    const doc = await documentsDomain.registerUploadedFile({
+      path,
+      clientId: session.clientId,
       projectId,
-      folder,
-      uploadedBy: user.id,
+      folder: folder?.trim() || null,
+      name: fileName,
+      uploadedBy: session.userId,
     })
 
     revalidatePath('/portal/documents')

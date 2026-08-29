@@ -6,6 +6,7 @@ import { ProjectStatusControl } from './ProjectStatusControl'
 import { AdminProjectTabs } from './AdminProjectTabs'
 import { DeleteProjectButton } from './DeleteProjectButton'
 import { LaunchDateEditor } from './LaunchDateEditor'
+import { LiveUrlEditor } from './LiveUrlEditor'
 import { clientDisplayName } from '@/lib/client-name'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -46,6 +47,7 @@ export default async function ProjectDetailPage({
       status,
       start_date,
       launch_date,
+      live_url,
       created_at,
       client:clients(id, company_name, contact_name, contact_email, profiles(email, full_name)),
       documents(id, name, file_url, folder, created_at)
@@ -94,18 +96,32 @@ export default async function ProjectDetailPage({
   const documents = project.documents ?? []
   const clientProfile = client ? (Array.isArray(client.profiles) ? client.profiles[0] : client.profiles) : null
 
-  const [{ data: allClientProjects }, { data: offers }] = await Promise.all([
-    supabase
-      .from('projects')
-      .select('id, title, documents(id, name, file_url, folder, created_at)')
-      .eq('client_id', client!.id)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('offers')
-      .select('id, offer_number')
-      .eq('client_id', client!.id)
-      .order('created_at', { ascending: false }),
-  ])
+  // Der Datei-Explorer arbeitet kundenweit: alle Dokumente dieses Kunden, inklusive der
+  // ohne Projektzuordnung (project_id is null). Die frühere Abfrage lief über
+  // projects → documents und konnte projektlose Dateien deshalb prinzipiell nie anzeigen.
+  const [{ data: allClientProjects }, { data: offers }, { data: clientDocuments }, { data: folders }] =
+    await Promise.all([
+      supabase
+        .from('projects')
+        .select('id, title')
+        .eq('client_id', client!.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('offers')
+        .select('id, offer_number')
+        .eq('client_id', client!.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('documents')
+        .select('id, name, file_url, folder, project_id, created_at')
+        .eq('client_id', client!.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('folders')
+        .select('id, project_id, path')
+        .eq('client_id', client!.id)
+        .order('path'),
+    ])
 
   return (
     <div className="flex flex-col gap-6">
@@ -176,6 +192,12 @@ export default async function ProjectDetailPage({
                   <LaunchDateEditor projectId={project.id} launchDate={project.launch_date ?? null} />
                 </dd>
               </div>
+              <div>
+                <dt className="text-xs text-gray-400 mb-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>Website-Link</dt>
+                <dd>
+                  <LiveUrlEditor projectId={project.id} liveUrl={project.live_url ?? null} />
+                </dd>
+              </div>
             </dl>
           </div>
 
@@ -216,11 +238,9 @@ export default async function ProjectDetailPage({
             reviews={reviews ?? []}
             todos={todos ?? []}
             documents={documents}
-            clientProjects={(allClientProjects ?? []).map((p) => ({
-              id: p.id,
-              title: p.title,
-              documents: Array.isArray(p.documents) ? p.documents : [],
-            }))}
+            clientDocuments={clientDocuments ?? []}
+            folders={folders ?? []}
+            clientProjects={allClientProjects ?? []}
           />
         </div>
       </div>

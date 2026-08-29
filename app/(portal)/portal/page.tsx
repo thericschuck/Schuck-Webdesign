@@ -105,12 +105,6 @@ export default async function PortalDashboardPage() {
         className="relative overflow-hidden rounded-4xl border border-white/6 bg-[#080808] px-7 py-8 md:px-10 md:py-10"
         style={{ boxShadow: '0 14px 48px rgba(0,0,0,0.18)' }}
       >
-        <style>{`
-          @keyframes star-twinkle {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50%       { opacity: 0.15; transform: scale(0.5); }
-          }
-        `}</style>
         <div className="absolute -top-10 -right-10 h-52 w-52 rounded-full bg-[#7F77DD]/14 blur-2xl pointer-events-none" />
         <div className="absolute -bottom-12 left-1/3 h-64 w-64 rounded-full bg-[#7F77DD]/10 blur-3xl pointer-events-none" />
         <div

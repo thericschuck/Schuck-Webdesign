@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link, { useLinkStatus } from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { motion, LayoutGroup } from 'framer-motion'
@@ -12,6 +12,23 @@ const NAV_LINKS = [
   { href: '/portal/bewertung', label: 'Bewertung' },
   { href: '/portal/settings',  label: 'Einstellungen' },
 ]
+
+/**
+ * Kleiner Punkt, solange die angeklickte Route noch lädt. `useLinkStatus()` funktioniert
+ * nur INNERHALB eines <Link>, deshalb die eigene Komponente. Absolut positioniert, damit
+ * beim Erscheinen nichts verrutscht — der Klick soll sich sofort quittiert anfühlen,
+ * nicht das Layout verschieben.
+ */
+function NavPendingDot({ className }: { className: string }) {
+  const { pending } = useLinkStatus()
+  if (!pending) return null
+  return (
+    <span
+      aria-hidden
+      className={`pointer-events-none absolute h-1.5 w-1.5 animate-ping rounded-full bg-[#7F77DD] ${className}`}
+    />
+  )
+}
 
 interface PortalNavProps {
   fullName: string | null
@@ -76,6 +93,7 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
                     >
                       {link.label}
                     </span>
+                    <NavPendingDot className="right-1.5 top-1.5 z-10" />
                   </Link>
                 )
               })}
@@ -133,7 +151,7 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
                 className={[
-                  'px-3 py-2.5 rounded-xl text-sm transition-colors',
+                  'relative px-3 py-2.5 rounded-xl text-sm transition-colors',
                   active
                     ? 'bg-[#F5F5F0] text-[#080808] font-medium'
                     : 'text-white/50 hover:text-white hover:bg-white/5',
@@ -141,6 +159,7 @@ export function PortalNav({ fullName, email }: PortalNavProps) {
                 style={{ fontFamily: 'var(--font-dm-sans)' }}
               >
                 {link.label}
+                <NavPendingDot className="right-3 top-1/2 -translate-y-1/2" />
               </Link>
             )
           })}

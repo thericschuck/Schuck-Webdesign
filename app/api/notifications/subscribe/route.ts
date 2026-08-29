@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { deviceLabelFromUserAgent } from '@/lib/device-label'
 import * as notificationsDomain from '@/lib/domain/notifications'
 
-/** Wird vom Browser aufgerufen, nachdem pushManager.subscribe() erfolgreich war. */
+/**
+ * Wird vom Browser aufgerufen, nachdem pushManager.subscribe() erfolgreich war.
+ * Legt das Abo für GENAU DIESES Gerät an — bestehende Abos anderer Geräte bleiben
+ * unberührt. Der Gerätename kommt aus dem User-Agent, damit die Einstellungen später
+ * "Chrome auf Windows" statt einer 188 Zeichen langen Endpoint-URL anzeigen können.
+ */
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const {
@@ -18,8 +24,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Ungültiges Push-Abo.' }, { status: 400 })
   }
 
-  await notificationsDomain.savePushSubscription(user.id, { endpoint, p256dh, auth })
-  await notificationsDomain.updatePreferences(user.id, { pushEnabled: true })
+  await notificationsDomain.savePushSubscription(user.id, {
+    endpoint,
+    p256dh,
+    auth,
+    label: deviceLabelFromUserAgent(request.headers.get('user-agent')),
+  })
 
   return NextResponse.json({ status: 'ok' })
 }

@@ -19,6 +19,7 @@ const UPDATABLE_PROJECT_FIELDS = [
   'status',
   'start_date',
   'launch_date',
+  'live_url',
   'internal_notes',
 ] as const
 
@@ -160,6 +161,7 @@ export interface UpdateProjectInput {
   status?: ProjectStatus
   start_date?: string | null
   launch_date?: string | null
+  live_url?: string | null
   internal_notes?: string | null
 }
 

@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import type { RegisterResult, TicketResult } from '@/lib/use-direct-upload'
 import type { ProjectStatus } from '@/types/database'
 import { assertAdmin } from '@/lib/auth/assert-admin'
 import {
@@ -12,15 +13,7 @@ import {
 } from '@/lib/domain/projects'
 import * as documentsDomain from '@/lib/domain/documents'
 import type { DocumentTemplate } from '@/lib/domain/documents'
-import * as notificationsDomain from '@/lib/domain/notifications'
-
-const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
-  briefing: 'Briefing',
-  design: 'Design',
-  development: 'Entwicklung',
-  review: 'Review',
-  live: 'Live',
-}
+import * as foldersDomain from '@/lib/domain/folders'
 
 // ── Update Status ────────────────────────────────────────────────────────────
 
@@ -29,17 +22,7 @@ export async function updateProjectStatus(
   status: ProjectStatus
 ): Promise<void> {
   await assertAdmin()
-  const project = await updateProjectRecord(projectId, { status })
-
-  const adminClient = createAdminClient()
-  const { data: client } = await adminClient.from('clients').select('profile_id').eq('id', project.client_id).maybeSingle()
-  if (client?.profile_id) {
-    await notificationsDomain.notifyUser(client.profile_id, {
-      title: 'Projekt-Update',
-      body: `"${project.title}" hat einen neuen Status: ${PROJECT_STATUS_LABEL[status]}`,
-      url: '/portal/project',
-    })
-  }
+  await updateProjectRecord(projectId, { status })
 
   revalidatePath(`/admin/projects/${projectId}`)
   revalidatePath('/admin/projects')
@@ -247,33 +230,42 @@ export async function deleteProject(projectId: string): Promise<DeleteProjectRes
 }
 
 // ── Admin File Upload ────────────────────────────────────────────────────────
+// Zweistufig wie im Portal (siehe lib/use-direct-upload.ts): Ticket holen, Browser lädt
+// direkt in den Storage, danach die documents-Zeile registrieren. Kein Dateibody geht
+// mehr durch eine Server Action.
 
-type UploadResult = { status: 'success'; fileName: string } | { status: 'error'; message: string }
+export async function createAdminUploadTicket(clientId: string, fileName: string): Promise<TicketResult> {
+  await assertAdmin()
+  try {
+    const ticket = await documentsDomain.createUploadTicket(clientId, fileName)
+    return { status: 'ok', path: ticket.path, token: ticket.token }
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : 'Upload konnte nicht vorbereitet werden.' }
+  }
+}
 
-export async function adminUploadFile(
-  _prev: UploadResult | null,
-  formData: FormData
-): Promise<UploadResult> {
+export async function registerAdminUpload(
+  path: string,
+  fileName: string,
+  clientId: string,
+  /** `null` = kundenweite Datei ohne Projektzuordnung ("Alle Projekte"-Ebene). */
+  projectId: string | null,
+  folder: string | null
+): Promise<RegisterResult> {
   const supabase = await assertAdmin()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const file = formData.get('file') as File | null
-  const projectId = formData.get('project_id') as string
-  const clientId = formData.get('client_id') as string
-  const folder = (formData.get('folder') as string | null)?.trim() || null
-
-  if (!file || file.size === 0) return { status: 'error', message: 'Bitte eine Datei auswählen.' }
-
   try {
-    const doc = await documentsDomain.uploadDocumentFile({
-      file,
+    const doc = await documentsDomain.registerUploadedFile({
+      path,
       clientId,
       projectId,
-      folder,
+      folder: folder?.trim() || null,
+      name: fileName,
       uploadedBy: user!.id,
     })
 
-    revalidatePath(`/admin/projects/${projectId}`)
+    revalidateFileViews(clientId)
     return { status: 'success', fileName: doc.name }
   } catch (error) {
     return { status: 'error', message: error instanceof Error ? error.message : 'Upload fehlgeschlagen.' }
@@ -362,41 +354,129 @@ export async function editMeeting(
   return { status: 'success' }
 }
 
-export async function moveDocument(formData: FormData): Promise<void> {
-  await assertAdmin()
-  const adminClient = createAdminClient()
-  const documentId = formData.get('document_id') as string
-  const projectId = formData.get('project_id') as string
-  const targetFolder = (formData.get('target_folder') as string | null)?.trim() || null
-
-  await adminClient
-    .from('documents')
-    .update({ folder: targetFolder })
-    .eq('id', documentId)
-
-  revalidatePath(`/admin/projects/${projectId}`)
+// ── Dateien & Ordner ─────────────────────────────────────────────────────────
+// Der Datei-Explorer ist auf /admin/projects/[id] eingebettet, zeigt aber alle Dateien
+// des Kunden — quer über dessen Projekte und die kundenweite Ebene. Eine einzelne
+// revalidatePath('/admin/projects/<id>')-Zeile trifft deshalb regelmäßig die falsche
+// Seite (genau der Grund, warum Verschieben "nicht funktioniert" hat: die Quellseite
+// blieb im Cache stehen). Segment-Revalidierung der ganzen Bereiche ist hier korrekt
+// und für ein internes Backoffice mit einem Nutzer billig genug.
+function revalidateFileViews(clientId?: string | null) {
+  revalidatePath('/admin/projects', 'layout')
+  revalidatePath('/admin/clients', 'layout')
+  if (clientId) revalidatePath(`/admin/clients/${clientId}`)
+  revalidatePath('/portal', 'layout')
 }
 
-export async function getAdminDownloadUrl(fileUrl: string): Promise<string | null> {
+export type FileOpResult = { status: 'success' } | { status: 'error'; message: string }
+
+function failure(error: unknown, fallback: string): FileOpResult {
+  return { status: 'error', message: error instanceof Error ? error.message : fallback }
+}
+
+/** `''` aus einem Select/Hidden-Feld bedeutet "kundenweit", nicht "unverändert". */
+function optionalId(value: FormDataEntryValue | null): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+/**
+ * Verschiebt ein Dokument in eine andere Ebene (Projekt oder kundenweit) und/oder einen
+ * anderen Ordner. Bewusst keine FormData-Variante: der Explorer ruft das sowohl aus dem
+ * Auswahlfeld als auch aus Drag & Drop heraus auf, und ein Formular kann nur eines davon.
+ */
+export async function moveDocumentTo(
+  documentId: string,
+  targetProjectId: string | null,
+  targetFolder: string | null
+): Promise<FileOpResult> {
+  await assertAdmin()
+
+  try {
+    const result = await foldersDomain.moveDocument({ documentId, targetProjectId, targetFolder })
+    revalidateFileViews(result.clientId)
+    return { status: 'success' }
+  } catch (error) {
+    return failure(error, 'Verschieben fehlgeschlagen.')
+  }
+}
+
+export async function adminCreateFolder(
+  clientId: string,
+  projectId: string | null,
+  parent: string | null,
+  name: string
+): Promise<FileOpResult> {
+  const supabase = await assertAdmin()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  try {
+    await foldersDomain.createFolder({ clientId, projectId, parent, name, createdBy: user?.id ?? null })
+    revalidateFileViews(clientId)
+    return { status: 'success' }
+  } catch (error) {
+    return failure(error, 'Ordner konnte nicht erstellt werden.')
+  }
+}
+
+export async function adminRenameFolder(
+  clientId: string,
+  projectId: string | null,
+  path: string,
+  newName: string
+): Promise<FileOpResult> {
+  await assertAdmin()
+
+  try {
+    await foldersDomain.renameFolder({ clientId, projectId, path, newName })
+    revalidateFileViews(clientId)
+    return { status: 'success' }
+  } catch (error) {
+    return failure(error, 'Ordner konnte nicht umbenannt werden.')
+  }
+}
+
+export async function adminDeleteFolder(
+  clientId: string,
+  projectId: string | null,
+  path: string
+): Promise<FileOpResult> {
+  await assertAdmin()
+
+  try {
+    await foldersDomain.deleteFolder({ clientId, projectId, path })
+    revalidateFileViews(clientId)
+    return { status: 'success' }
+  } catch (error) {
+    return failure(error, 'Ordner konnte nicht gelöscht werden.')
+  }
+}
+
+/** Mit `downloadName` liefert Supabase die Datei als Download aus (Content-Disposition),
+ * ohne als anzeigbare Preview — siehe lib/download-file.ts. */
+export async function getAdminDownloadUrl(fileUrl: string, downloadName?: string): Promise<string | null> {
   const supabase = await assertAdmin()
   const { data } = await supabase.storage
     .from('documents')
-    .createSignedUrl(fileUrl, 3600)
+    .createSignedUrl(fileUrl, 3600, downloadName ? { download: downloadName } : undefined)
   return data?.signedUrl ?? null
 }
 
-export async function adminDeleteFile(formData: FormData): Promise<void> {
+export async function adminDeleteFile(formData: FormData): Promise<FileOpResult> {
   await assertAdmin()
   const adminClient = createAdminClient()
 
   const fileUrl = formData.get('file_url') as string
   const documentId = formData.get('document_id') as string
-  const projectId = formData.get('project_id') as string
+  const clientId = optionalId(formData.get('client_id'))
 
-  await adminClient.storage.from('documents').remove([fileUrl])
-  await adminClient.from('documents').delete().eq('id', documentId)
+  const { error: storageError } = await adminClient.storage.from('documents').remove([fileUrl])
+  if (storageError) return { status: 'error', message: `Datei konnte nicht gelöscht werden: ${storageError.message}` }
 
-  revalidatePath(`/admin/projects/${projectId}`)
+  const { error } = await adminClient.from('documents').delete().eq('id', documentId)
+  if (error) return { status: 'error', message: `Datenbankfehler: ${error.message}` }
+
+  revalidateFileViews(clientId)
+  return { status: 'success' }
 }
 
 // ── Update Project Meta ──────────────────────────────────────────────────────
@@ -448,6 +528,31 @@ export async function updateLaunchDate(
 
   try {
     await updateProjectRecord(projectId, { launch_date: launchDate })
+  } catch {
+    return { status: 'error', message: 'Fehler beim Speichern.' }
+  }
+
+  revalidatePath(`/admin/projects/${projectId}`)
+  return { status: 'success' }
+}
+
+// ── Update Live-URL only ──────────────────────────────────────────────────────
+
+export async function updateLiveUrl(
+  projectId: string,
+  _prev: { status: 'success' } | { status: 'error'; message: string } | null,
+  formData: FormData
+): Promise<{ status: 'success' } | { status: 'error'; message: string }> {
+  await assertAdmin()
+
+  const raw = formData.get('live_url')
+  let liveUrl = typeof raw === 'string' ? raw.trim() : ''
+  if (liveUrl && !/^https?:\/\//i.test(liveUrl)) {
+    liveUrl = `https://${liveUrl}`
+  }
+
+  try {
+    await updateProjectRecord(projectId, { live_url: liveUrl || null })
   } catch {
     return { status: 'error', message: 'Fehler beim Speichern.' }
   }

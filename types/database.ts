@@ -121,6 +121,7 @@ export type Database = {
           status: ProjectStatus
           start_date: string | null
           launch_date: string | null
+          live_url: string | null
           internal_notes: string | null
           milestones: Json
           created_at: string
@@ -134,6 +135,7 @@ export type Database = {
           status?: ProjectStatus
           start_date?: string | null
           launch_date?: string | null
+          live_url?: string | null
           internal_notes?: string | null
           milestones?: Json
           created_at?: string
@@ -147,6 +149,7 @@ export type Database = {
           status?: ProjectStatus
           start_date?: string | null
           launch_date?: string | null
+          live_url?: string | null
           internal_notes?: string | null
           milestones?: Json
           created_at?: string
@@ -213,6 +216,55 @@ export type Database = {
           {
             foreignKeyName: 'documents_uploaded_by_fkey'
             columns: ['uploaded_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      folders: {
+        Row: {
+          id: string
+          client_id: string
+          project_id: string | null
+          path: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          project_id?: string | null
+          path: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          project_id?: string | null
+          path?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'folders_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: false
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'folders_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'folders_created_by_fkey'
+            columns: ['created_by']
             isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']
@@ -475,6 +527,8 @@ export type Database = {
           endpoint: string
           p256dh: string
           auth: string
+          label: string | null
+          last_used_at: string | null
           created_at: string
         }
         Insert: {
@@ -483,6 +537,8 @@ export type Database = {
           endpoint: string
           p256dh: string
           auth: string
+          label?: string | null
+          last_used_at?: string | null
           created_at?: string
         }
         Update: {
@@ -491,6 +547,8 @@ export type Database = {
           endpoint?: string
           p256dh?: string
           auth?: string
+          label?: string | null
+          last_used_at?: string | null
           created_at?: string
         }
         Relationships: [

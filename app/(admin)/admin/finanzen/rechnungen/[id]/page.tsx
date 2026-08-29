@@ -6,6 +6,8 @@ import * as productsDomain from '@/lib/domain/products'
 import { InvoiceEditForm } from './InvoiceEditForm'
 import { InvoiceActions } from './InvoiceActions'
 import { FinanzenTabs } from '../../FinanzenTabs'
+import { DocumentPreview } from '@/components/documents/DocumentPreview'
+import { ladeDokument } from '@/lib/domain/document-render'
 import type { InvoiceStatus } from '@/types/database'
 import { clientDisplayName } from '@/lib/client-name'
 
@@ -39,11 +41,14 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   const isDraft = invoice.status === 'entwurf'
 
-  const [projects, articles, packages, pdfUrl] = await Promise.all([
+  const [projects, articles, packages, pdfUrl, dokument] = await Promise.all([
     isDraft ? projectsDomain.listProjects({ clientId: invoice.client_id }) : Promise.resolve([]),
     isDraft ? productsDomain.listArticles().catch(() => []) : Promise.resolve([]),
     isDraft ? productsDomain.listPackages().catch(() => []) : Promise.resolve([]),
     invoice.pdf_url ? financeDomain.getInvoicePdfUrl(invoice.pdf_url) : Promise.resolve(null),
+    // Seitengenaue Vorschau desselben Renderers, der auch das PDF erzeugt.
+    // Schlägt sie fehl (z.B. fehlende Kundenadresse), bleibt die Seite nutzbar.
+    ladeDokument('rechnung', id).catch(() => null),
   ])
 
   const invoiceClientProfile = invoice.client
@@ -216,6 +221,22 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {dokument && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <h2
+                className="text-sm font-semibold text-gray-900 mb-4"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                Vorschau
+              </h2>
+              <DocumentPreview
+                data={dokument.data}
+                theme={dokument.theme}
+                pdfUrl={`/api/admin/documents/pdf?typ=rechnung&id=${invoice.id}`}
+              />
             </div>
           )}
         </div>

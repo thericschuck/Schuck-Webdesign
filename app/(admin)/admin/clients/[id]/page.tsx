@@ -6,6 +6,7 @@ import { clientDisplayName, clientDisplaySubtitle } from '@/lib/client-name'
 import { DeleteClientButton } from './DeleteClientButton'
 import { ResendInviteButton } from './ResendInviteButton'
 import { ClientDocuments } from './ClientDocuments'
+import { OpenClientViewButton } from './OpenClientViewButton'
 import { inviteExistingClient } from './actions'
 
 const INVITE_EXPIRY_HOURS = 24
@@ -52,7 +53,7 @@ export default async function ClientDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: client } = await supabase
+  const { data: client, error: clientError } = await supabase
     .from('clients')
     .select(`
       id,
@@ -77,6 +78,18 @@ export default async function ClientDetailPage({
     `)
     .eq('id', id)
     .single()
+
+  // Ohne dieses Log wird JEDER Fehler (RLS, abgelaufene Session, PostgREST) still zu einem
+  // 404 — genau die Situation, die auf Vercel nicht mehr diagnostizierbar war.
+  if (clientError) {
+    console.error('[admin/clients/:id] Query fehlgeschlagen:', {
+      id,
+      code: clientError.code,
+      message: clientError.message,
+      details: clientError.details,
+      hint: clientError.hint,
+    })
+  }
 
   if (!client) notFound()
 
@@ -138,6 +151,7 @@ export default async function ClientDetailPage({
           </div>
         </div>
         <div className="flex gap-2 sm:shrink-0">
+          <OpenClientViewButton clientId={client.id} disabled={!profile} />
           <Link
             href={`/admin/projects/new?client_id=${client.id}`}
             className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"

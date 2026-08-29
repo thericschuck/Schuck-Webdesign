@@ -1,11 +1,22 @@
-// Geteilte Konstante zwischen Server (lib/domain/documents.ts) und Client (Upload-Formulare) —
-// damit Client-seitig VOR dem Absenden geprüft werden kann, statt eine zu große Datei erst an
-// die Server Action zu schicken. Next.js bricht das Multipart-Parsing einer Server Action bei
-// Überschreiten von next.config.ts' `experimental.serverActions.bodySizeLimit` mitten im Stream
-// ab — das äußert sich nicht als handhabbarer Form-Fehler, sondern als harter Absturz
-// ("Unexpected end of form"), den die Server Action selbst nicht abfangen kann. Die
-// Client-seitige Vorabprüfung verhindert, dass eine zu große Datei überhaupt abgeschickt wird.
-export const MAX_UPLOAD_SIZE_MB = 80
+// Geteilte Upload-Konstanten zwischen Client (Upload-Formulare, lib/resizeImage.ts,
+// lib/use-direct-upload.ts) und Server (lib/domain/documents.ts).
+//
+// Dateien gehen NICHT mehr durch eine Server Action, sondern per signierter URL direkt
+// vom Browser in den Supabase-Storage (siehe lib/use-direct-upload.ts). Damit fallen
+// beide bisherigen Deckel weg: Next.js' `serverActions.bodySizeLimit` und – deutlich
+// härter – Vercels 4,5-MB-Grenze für Request-Bodies, an der in Produktion vorher jeder
+// größere Upload gescheitert wäre.
+
+/** Zielgröße, auf die Bilder im Browser heruntergerechnet werden, bevor sie hochgeladen
+ *  werden. Kein Fehler-Limit: wird sie nicht erreicht, geht die Datei trotzdem raus. */
+export const IMAGE_TARGET_BYTES = 8 * 1024 * 1024
+
+/** Längste Kante nach der Verkleinerung — reicht für Druck-Vorschau und Web allemal. */
+export const IMAGE_MAX_DIMENSION = 2500
+
+/** Harte Obergrenze, rein als Missbrauchs-/Vertipper-Schutz. Alles darunter lädt hoch,
+ *  egal welcher Dateityp — Bilder werden vorher automatisch verkleinert. */
+export const MAX_UPLOAD_SIZE_MB = 500
 export const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
 export function formatMb(bytes: number): string {

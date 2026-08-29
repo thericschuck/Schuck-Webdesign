@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
     // damit Tailwind CSS v4 aus dem richtigen node_modules aufgelöst wird.
     root: path.resolve(__dirname),
   },
+  // Chromium und puppeteer-core dürfen NICHT gebündelt werden — der Bundler
+  // würde sonst versuchen, die Browser-Binary mitzuziehen. Sie werden zur
+  // Laufzeit aus node_modules geladen (lib/documents/pdf.ts).
+  // Auf Vercel braucht das Projekt zusätzlich VERCEL_SUPPORT_LARGE_FUNCTIONS=1:
+  // das volle @sparticuz/chromium liegt über dem 250-MB-Standardlimit und
+  // benötigt "Large Functions" (bis 5 GB, setzt Fluid Compute voraus).
+  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
   images: {
     // 75 ist der Next.js-Default; 95 wird für die Projekt-Vorschaubilder auf der
     // Startseite explizit angefordert (app/(public)/page.tsx) und muss deshalb hier freigegeben sein.
@@ -14,14 +21,12 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      // Next.js' Default (1 MB) wäre für Datei-Uploads (Server Actions in
-      // app/(portal)/portal/upload/actions.ts und app/(admin)/admin/projects/[id]/actions.ts)
-      // längst vor dem eigenen App-Limit (lib/uploadLimits.ts) dichtgemacht — etwas Puffer
-      // über dem App-Limit für Multipart-Overhead. Wird dieses Limit überschritten, bricht
-      // Next.js das Parsing der Server Action mitten im Stream ab (kein handhabbarer Fehler,
-      // sondern ein Absturz "Unexpected end of form") — deshalb zusätzlich die Client-seitige
-      // Vorabprüfung in den Upload-Formularen, die eine zu große Datei gar nicht erst abschickt.
-      bodySizeLimit: '90mb',
+      // Dateien laufen NICHT mehr durch Server Actions, sondern gehen per signierter URL
+      // direkt vom Browser in den Supabase-Storage (lib/use-direct-upload.ts). Deshalb hier
+      // bewusst ein kleines Limit UNTERHALB von Vercels harter 4,5-MB-Grenze für
+      // Request-Bodies: so verhält sich lokal alles wie in Produktion, statt dass ein
+      // großer Body erst auf Vercel scheitert.
+      bodySizeLimit: '4mb',
     },
   },
   async redirects() {

@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const TABS = [
-  { href: '/admin/finanzen', label: 'Dashboard' },
+  { href: '/admin/finanzen', label: 'Übersicht' },
   { href: '/admin/finanzen/rechnungen', label: 'Rechnungen' },
+  { href: '/admin/finanzen/vorlagen', label: 'Vorlagen' },
   { href: '/admin/finanzen/einstellungen', label: 'Einstellungen' },
 ]
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { triggerDownload } from '@/lib/download-file'
 
 const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp'])
 
@@ -16,7 +17,7 @@ export function DocumentPreviewPanel({
 }: {
   fileName: string
   fileUrl: string
-  getSignedUrl: (fileUrl: string) => Promise<string | null>
+  getSignedUrl: (fileUrl: string, downloadName?: string) => Promise<string | null>
   onClose: () => void
 }) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null)
@@ -49,18 +50,7 @@ export function DocumentPreviewPanel({
   async function handleDownload() {
     setDownloading(true)
     try {
-      const url = signedUrl ?? await getSignedUrl(fileUrl)
-      if (!url) return
-      const response = await fetch(url)
-      const blob = await response.blob()
-      const blobUrl = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = blobUrl
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(blobUrl)
+      await triggerDownload(getSignedUrl, fileUrl, fileName)
     } finally {
       setDownloading(false)
     }

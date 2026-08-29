@@ -1,24 +1,9 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { StatusTimeline } from '@/components/portal/StatusTimeline'
 import { ProjectTabs } from './ProjectTabs'
+import { ProjectSwitcher } from './ProjectSwitcher'
+import { STATUS_DOT, STATUS_LABELS } from './status-constants'
 import type { ProjectStatus } from '@/types/database'
-
-const STATUS_LABELS: Record<ProjectStatus, string> = {
-  briefing:    'Briefing',
-  design:      'Design',
-  development: 'Entwicklung',
-  review:      'Review',
-  live:        'Live',
-}
-
-const STATUS_DOT: Record<ProjectStatus, string> = {
-  briefing:    'bg-gray-400',
-  design:      'bg-blue-500',
-  development: 'bg-amber-500',
-  review:      'bg-purple-500',
-  live:        'bg-green-500',
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('de-DE', {
@@ -112,42 +97,7 @@ export default async function ProjectPage({
     <div className="space-y-8">
 
       {/* Projekt-Switcher — nur bei mehreren Projekten */}
-      {projects.length > 1 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Link
-            href="/portal"
-            className="inline-flex items-center gap-1.5 mr-1 text-xs text-[#8A847B] hover:text-[#1C1C1E] transition-colors"
-            style={{ fontFamily: 'var(--font-dm-sans)' }}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Alle Projekte
-          </Link>
-
-          <div className="h-4 w-px bg-black/[0.08]" />
-
-          {projects.map((p) => {
-            const isActive = p.id === selected.id
-            return (
-              <Link
-                key={p.id}
-                href={`/portal/project?id=${p.id}`}
-                className={[
-                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors',
-                  isActive
-                    ? 'bg-[#1C1C1E] text-[#F5F5F0]'
-                    : 'bg-[#ECE7DD] text-[#6B655D] hover:bg-[#E2DDD5]',
-                ].join(' ')}
-                style={{ fontFamily: 'var(--font-dm-sans)' }}
-              >
-                <span className={`w-2 h-2 rounded-full shrink-0 ${isActive ? 'bg-white/60' : STATUS_DOT[p.status as ProjectStatus]}`} />
-                <span className="truncate max-w-40">{p.title}</span>
-              </Link>
-            )
-          })}
-        </div>
-      )}
+      {projects.length > 1 && <ProjectSwitcher projects={projects} selectedId={selected.id} />}
 
       {/* Header */}
       <div>

@@ -15,27 +15,35 @@ export default async function DocumentsPage() {
     return <p className="text-sm text-gray-500">Kein Kundeneintrag gefunden.</p>
   }
 
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('id, title, status, documents(id, name, file_url, folder, created_at, uploaded_by)')
-    .eq('client_id', client.id)
-    .order('created_at', { ascending: false })
+  // Dokumente kundenweit laden statt über projects → documents: Uploads mit
+  // "— Kein Projekt —" (siehe /portal/upload) haben project_id = null und wären über den
+  // Projekt-Join unsichtbar gewesen — hochgeladen, aber nirgends mehr auffindbar.
+  const [{ data: projects }, { data: documents }, { data: folders }] = await Promise.all([
+    supabase
+      .from('projects')
+      .select('id, title, status')
+      .eq('client_id', client.id)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('documents')
+      .select('id, name, file_url, folder, project_id, created_at, uploaded_by')
+      .eq('client_id', client.id)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('folders')
+      .select('id, project_id, path')
+      .eq('client_id', client.id)
+      .order('path'),
+  ])
 
   const projectsData = (projects ?? []).map((p) => ({
     id: p.id,
     title: p.title,
     status: p.status as string,
-    documents: (p.documents ?? []) as {
-      id: string
-      name: string
-      file_url: string
-      folder: string | null
-      created_at: string
-      uploaded_by: string
-    }[],
   }))
 
-  const totalCount = projectsData.reduce((s, p) => s + p.documents.length, 0)
+  const documentsData = documents ?? []
+  const totalCount = documentsData.length
 
   return (
     <div className="space-y-5">
@@ -49,7 +57,12 @@ export default async function DocumentsPage() {
         </p>
       </div>
 
-      <FileExplorer projects={projectsData} currentUserId={user!.id} />
+      <FileExplorer
+        projects={projectsData}
+        documents={documentsData}
+        folders={folders ?? []}
+        currentUserId={user!.id}
+      />
     </div>
   )
 }

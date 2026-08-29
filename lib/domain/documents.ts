@@ -10,9 +10,7 @@ import { generateUebergabePdf } from '@/lib/pdf/templates/uebergabe'
 import { generateCareReportPdf } from '@/lib/pdf/templates/care-report'
 import { clientDisplayName } from '@/lib/client-name'
 import { gatherCareReportData } from './care'
-import { compressImageIfPossible, compressPdfIfPossible } from '@/lib/uploadCompression'
-import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB, formatMb } from '@/lib/uploadLimits'
-import * as notificationsDomain from './notifications'
+import { ensureFolderPath } from './folders'
 import type { Document, DocumentCategory } from '@/types/database'
 
 export const DOCUMENT_TEMPLATES = ['angebot', 'vertrag', 'briefing', 'uebergabe', 'care_report'] as const
@@ -214,6 +212,15 @@ export async function generateDocument(input: GenerateDocumentInput): Promise<Do
     .upload(storagePath, pdfBytes, { contentType: 'application/pdf', upsert: false })
   if (uploadError) throw new DomainError(`PDF konnte nicht gespeichert werden: ${uploadError.message}`)
 
+  // Der Template-Ordner muss als folders-Zeile existieren, sonst taucht er im Explorer
+  // erst auf, wenn zufällig ein Dokument darin liegt (Migration 0035).
+  await ensureFolderPath({
+    clientId: input.clientId,
+    projectId: input.projectId ?? null,
+    path: TEMPLATE_FOLDER[input.template],
+    createdBy: uploadedBy,
+  })
+
   const { data: doc, error: dbError } = await adminClient
     .from('documents')
     .insert({
@@ -308,12 +315,15 @@ export async function deleteDocument(documentId: string): Promise<void> {
   if (deleteError) throw new DomainError(deleteError.message)
 }
 
-// ── upload ────────────────────────────────────────────────────────────────
-// Gemeinsame Logik für Portal- (app/(portal)/portal/upload/actions.ts) und
-// Admin-Upload (app/(admin)/admin/projects/[id]/actions.ts) — beide Server Actions
-// übernehmen nur noch Auth/Ownership-Check und rufen diese Funktion auf.
+// ── Direkt-Upload (Browser -> Storage) ────────────────────────────────────
+// Die Datei geht NICHT durch den Next.js-Server: der Client holt sich hier ein Ticket
+// (signierte Upload-URL für genau einen Pfad), lädt direkt in den Supabase-Storage und
+// meldet den fertigen Pfad danach über registerUploadedFile() zurück. Grund: sowohl
+// Next.js' serverActions.bodySizeLimit als auch Vercels harte 4,5-MB-Grenze für
+// Request-Bodies haben größere Uploads vorher mitten im Multipart-Stream abgebrochen
+// ("Unexpected end of form"). Verkleinert wird jetzt im Browser (lib/resizeImage.ts).
 
-/** Eindeutig gefährliche ausführbare Formate — alles andere ist erlaubt (Schriftarten,
+/** Eindeutig gefährliche ausfuehrbare Formate — alles andere ist erlaubt (Schriftarten,
  * Design-Dateien, Archive, Office, Audio/Video, …). Endung statt MIME-Type, weil Browser
  * für exotischere Typen oft nur "application/octet-stream" oder gar nichts liefern. */
 const DANGEROUS_EXTENSIONS = new Set([
@@ -325,54 +335,74 @@ function getExtension(filename: string): string {
   return filename.split('.').pop()?.toLowerCase() ?? ''
 }
 
-export interface UploadDocumentFileInput {
-  file: File
-  clientId: string
-  projectId?: string | null
-  folder?: string | null
-  uploadedBy: string
+export interface UploadTicket {
+  /** Vom Server bestimmter Zielpfad — immer `<clientId>/<timestamp>_<name>`. */
+  path: string
+  token: string
 }
 
-export async function uploadDocumentFile(input: UploadDocumentFileInput): Promise<Document> {
-  const { file } = input
-
-  if (!file || file.size === 0) throw new DomainError('Bitte eine Datei auswählen.')
-
-  const originalExtension = getExtension(file.name)
-  if (DANGEROUS_EXTENSIONS.has(originalExtension)) {
+/**
+ * Erzeugt eine signierte Upload-URL. Der Pfad wird ausschliesslich hier gebildet, der
+ * Client kann ihn nicht beeinflussen — das Ticket ist damit auf genau eine Datei im
+ * Ordner genau dieses Kunden beschränkt.
+ */
+export async function createUploadTicket(clientId: string, fileName: string): Promise<UploadTicket> {
+  if (!fileName?.trim()) throw new DomainError('Kein Dateiname angegeben.')
+  if (DANGEROUS_EXTENSIONS.has(getExtension(fileName))) {
     throw new DomainError('Dieser Dateityp ist aus Sicherheitsgründen nicht erlaubt.')
   }
 
-  let bytes: Buffer = Buffer.from(await file.arrayBuffer())
-  let contentType = file.type || 'application/octet-stream'
-  let finalName = file.name
-
-  if (bytes.length > MAX_UPLOAD_SIZE_BYTES) {
-    const imageResult = await compressImageIfPossible(bytes, contentType)
-    if (imageResult) {
-      bytes = imageResult.buffer
-      contentType = imageResult.mimeType
-      finalName = file.name.replace(/\.[^./]+$/, `.${imageResult.extension}`)
-    } else if (contentType === 'application/pdf') {
-      const pdfResult = await compressPdfIfPossible(bytes)
-      if (pdfResult) bytes = pdfResult
-    }
-  }
-
-  if (bytes.length > MAX_UPLOAD_SIZE_BYTES) {
-    throw new DomainError(
-      `Datei zu groß (${formatMb(bytes.length)} MB) — auch nach Komprimierung über dem Limit von ${MAX_UPLOAD_SIZE_MB} MB.`
-    )
-  }
-
   const adminClient = createAdminClient()
-  const safeName = finalName.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const storagePath = `${input.clientId}/${Date.now()}_${safeName}`
+  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = `${clientId}/${Date.now()}_${safeName}`
 
-  const { error: uploadError } = await adminClient.storage
+  const { data, error } = await adminClient.storage.from('documents').createSignedUploadUrl(path)
+  if (error || !data) throw new DomainError(`Upload konnte nicht vorbereitet werden: ${error?.message}`)
+
+  return { path: data.path, token: data.token }
+}
+
+export interface RegisterUploadedFileInput {
+  /** Pfad aus dem Ticket — wird gegen `clientId` geprüft, nicht blind übernommen. */
+  path: string
+  clientId: string
+  projectId?: string | null
+  folder?: string | null
+  name: string
+  uploadedBy: string
+}
+
+/**
+ * Legt nach einem erfolgreichen Direkt-Upload die `documents`-Zeile an. Prüft vorher,
+ * dass der Pfad wirklich im Ordner dieses Kunden liegt und die Datei im Storage
+ * existiert — sonst könnte ein manipulierter Aufruf eine Zeile auf eine fremde bzw.
+ * gar nicht vorhandene Datei zeigen lassen.
+ */
+export async function registerUploadedFile(input: RegisterUploadedFileInput): Promise<Document> {
+  const adminClient = createAdminClient()
+
+  if (!input.path.startsWith(`${input.clientId}/`) || input.path.includes('..')) {
+    throw new DomainError('Ungültiger Upload-Pfad.')
+  }
+
+  const { data: info, error: infoError } = await adminClient.storage.from('documents').info(input.path)
+  if (infoError || !info) throw new DomainError('Die hochgeladene Datei wurde im Speicher nicht gefunden.')
+
+  const { data: existing } = await adminClient
     .from('documents')
-    .upload(storagePath, bytes, { contentType, upsert: false })
-  if (uploadError) throw new DomainError(`Upload fehlgeschlagen: ${uploadError.message}`)
+    .select('id')
+    .eq('file_url', input.path)
+    .maybeSingle()
+  if (existing) throw new DomainError('Diese Datei wurde bereits registriert.')
+
+  if (input.folder) {
+    await ensureFolderPath({
+      clientId: input.clientId,
+      projectId: input.projectId ?? null,
+      path: input.folder,
+      createdBy: input.uploadedBy,
+    })
+  }
 
   const { data: doc, error: dbError } = await adminClient
     .from('documents')
@@ -380,8 +410,8 @@ export async function uploadDocumentFile(input: UploadDocumentFileInput): Promis
       client_id: input.clientId,
       project_id: input.projectId ?? null,
       folder: input.folder ?? null,
-      name: finalName,
-      file_url: storagePath,
+      name: input.name,
+      file_url: input.path,
       category: 'other',
       uploaded_by: input.uploadedBy,
     })
@@ -389,19 +419,8 @@ export async function uploadDocumentFile(input: UploadDocumentFileInput): Promis
     .single()
 
   if (dbError) {
-    await adminClient.storage.from('documents').remove([storagePath])
+    await adminClient.storage.from('documents').remove([input.path])
     throw new DomainError(`Datenbankfehler: ${dbError.message}`)
-  }
-
-  // Nur benachrichtigen, wenn der ADMIN für den Kunden hochgeladen hat — lädt der Kunde selbst
-  // hoch (Portal-Upload nutzt dieselbe Funktion), wäre eine Benachrichtigung über die eigene Aktion sinnlos.
-  const { data: client } = await adminClient.from('clients').select('profile_id').eq('id', input.clientId).maybeSingle()
-  if (client?.profile_id && client.profile_id !== input.uploadedBy) {
-    await notificationsDomain.notifyUser(client.profile_id, {
-      title: 'Neue Datei hochgeladen',
-      body: `"${finalName}" wurde zu deinem Projekt hinzugefügt.`,
-      url: '/portal/documents',
-    })
   }
 
   return doc

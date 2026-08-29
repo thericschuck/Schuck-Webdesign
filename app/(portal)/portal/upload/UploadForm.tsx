@@ -1,8 +1,9 @@
 'use client'
 
-import { useActionState, useState, useRef } from 'react'
-import { uploadFile } from './actions'
-import { resizeIfNeeded } from '@/lib/resizeImage'
+import { useCallback, useState, useRef } from 'react'
+import { createPortalUploadTicket, registerPortalUpload } from './actions'
+import { useDirectUpload } from '@/lib/use-direct-upload'
+import { formatMb } from '@/lib/uploadLimits'
 import type { ProjectStatus } from '@/types/database'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -13,56 +14,48 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
   live:        'Live',
 }
 
-type State =
-  | { status: 'success'; fileName: string }
-  | { status: 'error'; message: string }
-  | null
-
 type Props = {
   projects: Array<{ id: string; title: string; status: string }>
   foldersByProject: Record<string, string[]>
 }
 
 export function UploadForm({ projects, foldersByProject }: Props) {
-  const [state, action, pending] = useActionState<State, FormData>(uploadFile, null)
-  const formRef    = useRef<HTMLFormElement>(null)
+  const formRef      = useRef<HTMLFormElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [selectedProject, setSelectedProject] = useState('')
   const [folderInput, setFolderInput]         = useState('')
-  const [fileName, setFileName]               = useState<string | null>(null)
-  const [resizing, setResizing]               = useState(false)
+  const [file, setFile]                       = useState<File | null>(null)
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) { setFileName(null); return }
-    setFileName(file.name)
-    setResizing(true)
-    try {
-      const resized = await resizeIfNeeded(file)
-      if (resized !== file && fileInputRef.current) {
-        const dt = new DataTransfer()
-        dt.items.add(resized)
-        fileInputRef.current.files = dt.files
-        setFileName(resized.name)
-      }
-    } finally {
-      setResizing(false)
+  const requestTicket = useCallback((name: string) => createPortalUploadTicket(name), [])
+  const register = useCallback(
+    (path: string, name: string) =>
+      registerPortalUpload(path, name, selectedProject || null, folderInput.trim() || null),
+    [selectedProject, folderInput]
+  )
+
+  const { upload, phase, pending, phaseLabel, error, notice, uploadedName } = useDirectUpload({
+    requestTicket,
+    register,
+  })
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!file) return
+    const ok = await upload(file)
+    if (ok) {
+      setFile(null)
+      formRef.current?.reset()
     }
   }
 
   const existingFolders = selectedProject ? (foldersByProject[selectedProject] ?? []) : []
   const suggestId = 'folder-suggestions'
 
-  // Reset nach Erfolg
-  if (state?.status === 'success' && fileName) {
-    // Verzögertes Reset damit der User die Erfolgsmeldung sieht
-  }
-
   return (
     <form
       ref={formRef}
-      action={action}
+      onSubmit={handleSubmit}
       className="space-y-5"
     >
       {/* Projekt auswählen */}
@@ -147,27 +140,19 @@ export function UploadForm({ projects, foldersByProject }: Props) {
             'flex flex-col items-center justify-center w-full h-36 rounded-xl border-2 border-dashed cursor-pointer transition-colors',
             pending
               ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-              : fileName
+              : file
                 ? 'border-green-300 bg-green-50'
                 : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50',
           ].join(' ')}
         >
           <div className="flex flex-col items-center gap-2 text-center px-4">
-            {resizing ? (
-              <>
-                <svg className="w-7 h-7 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                <p className="text-sm text-blue-500">Bild wird optimiert…</p>
-              </>
-            ) : fileName ? (
+            {file ? (
               <>
                 <svg className="w-7 h-7 text-green-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-sm font-medium text-green-700 truncate max-w-xs">{fileName}</p>
-                <p className="text-xs text-gray-400">Klicken um andere Datei wählen</p>
+                <p className="text-sm font-medium text-green-700 truncate max-w-xs">{file.name}</p>
+                <p className="text-xs text-gray-400">{formatMb(file.size)} MB · Klicken um andere Datei wählen</p>
               </>
             ) : (
               <>
@@ -176,7 +161,7 @@ export function UploadForm({ projects, foldersByProject }: Props) {
                 </svg>
                 <div>
                   <p className="text-sm font-medium text-gray-700">Datei auswählen</p>
-                  <p className="text-xs text-gray-400">PDF, Bilder, ZIP, Word – max. 10 MB</p>
+                  <p className="text-xs text-gray-400">Alle gängigen Dateitypen – große Bilder werden automatisch verkleinert</p>
                 </div>
               </>
             )}
@@ -187,9 +172,8 @@ export function UploadForm({ projects, foldersByProject }: Props) {
             name="file"
             type="file"
             className="hidden"
-            disabled={pending || resizing}
-            accept=".pdf,.jpg,.jpeg,.png,.webp,.svg,.zip,.txt,.doc,.docx"
-            onChange={handleFileChange}
+            disabled={pending}
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
         </label>
 
@@ -212,27 +196,28 @@ export function UploadForm({ projects, foldersByProject }: Props) {
       </div>
 
       {/* Feedback */}
-      {state?.status === 'success' && (
+      {notice && <p className="text-sm text-gray-500">{notice}</p>}
+      {uploadedName && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          ✓ <strong>{state.fileName}</strong> erfolgreich hochgeladen.
+          ✓ <strong>{uploadedName}</strong> erfolgreich hochgeladen.
         </div>
       )}
-      {state?.status === 'error' && (
-        <p className="text-sm text-red-600">{state.message}</p>
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
       )}
 
       <button
         type="submit"
-        disabled={pending || resizing || !fileName}
+        disabled={pending || !file}
         className="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
-        {pending ? (
+        {phase !== 'idle' ? (
           <span className="flex items-center justify-center gap-2">
             <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Wird hochgeladen…
+            {phaseLabel}
           </span>
         ) : 'Hochladen'}
       </button>

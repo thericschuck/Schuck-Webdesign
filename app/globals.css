@@ -220,3 +220,14 @@ html.custom-cursor button {
     display: none !important;
   }
 }
+
+/* ─── Portal-Banner: funkelnde Sterne ─────────────────────────
+   Bewusst hier statt in einem <style>-Block in app/(portal)/portal/page.tsx:
+   ein im React-Baum gerendertes <style>-Element ist ein Hydration-Ziel — Browser-
+   Erweiterungen (Dark-Mode-Addons o.ä.) hängen Attribute daran, bevor React
+   hydriert, und React meldet dann einen Hydration-Mismatch. Als globales CSS
+   liegt die Regel außerhalb des React-Baums und kann nicht mehr abweichen. */
+@keyframes star-twinkle {
+  0%, 100% { opacity: 1;    transform: scale(1); }
+  50%      { opacity: 0.15; transform: scale(0.5); }
+}

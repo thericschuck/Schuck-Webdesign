@@ -11,7 +11,15 @@ const selectClass =
   'w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 bg-white disabled:opacity-50'
 const labelClass = 'text-xs font-medium text-gray-500 block mb-1'
 
-export function AddTodoGlobalForm({ projects }: { projects: ProjectOption[] }) {
+export function AddTodoGlobalForm({
+  projects,
+  defaultProjectId = null,
+}: {
+  projects: ProjectOption[]
+  /** Vorauswahl für den Projekt-Select — z.B. das gerade in der Kategorie-Rail aktive Projekt.
+   * Bleibt frei änderbar, da nur `defaultValue` (uncontrolled) statt `value` gesetzt wird. */
+  defaultProjectId?: string | null
+}) {
   const [open, setOpen] = useState(false)
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(addTodo, null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -53,7 +61,13 @@ export function AddTodoGlobalForm({ projects }: { projects: ProjectOption[] }) {
               <label className={labelClass} style={{ fontFamily: 'var(--font-dm-sans)' }}>
                 Projekt
               </label>
-              <select name="project_id" disabled={pending} className={selectClass} style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              <select
+                name="project_id"
+                disabled={pending}
+                defaultValue={defaultProjectId ?? ''}
+                className={selectClass}
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
                 <option value="">Allgemein (kein Projekt)</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
