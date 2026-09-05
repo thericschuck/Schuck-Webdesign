@@ -157,7 +157,7 @@ function leadNode(row: {
 
 function offerNode(row: {
   id: string
-  offer_number: string
+  offer_number: string | null
   status: string
   lead_id: string | null
   client_id: string | null
@@ -165,7 +165,7 @@ function offerNode(row: {
   return {
     id: `offer:${row.id}`,
     type: 'offer',
-    label: row.offer_number,
+    label: row.offer_number ?? 'Angebot (Entwurf)',
     status: row.status,
     number: row.offer_number,
     url: row.lead_id ? `/admin/akquise/${row.lead_id}` : row.client_id ? `/admin/clients/${row.client_id}` : '/admin/akquise',

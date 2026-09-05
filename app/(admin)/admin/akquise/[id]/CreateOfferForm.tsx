@@ -17,7 +17,7 @@ interface Item {
   ep: number
 }
 
-type State = { status: 'error'; message: string } | { status: 'success'; offerNumber: string } | null
+type State = { status: 'error'; message: string } | { status: 'success'; offerId: string } | null
 
 const inputClass =
   'rounded-lg border border-gray-200 px-2.5 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 bg-white disabled:opacity-50 w-full'
@@ -144,7 +144,7 @@ export function CreateOfferForm({ leadId, articles }: { leadId: string; articles
       )}
       {state?.status === 'success' && (
         <p className="text-sm text-green-600" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          Angebot {state.offerNumber} erstellt.
+          Angebotsentwurf erstellt — die Nummer wird beim Stellen vergeben.
         </p>
       )}
 

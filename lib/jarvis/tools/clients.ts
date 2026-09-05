@@ -1,6 +1,6 @@
 import type { JarvisTool } from '../tool-types'
 import { optionalString, requireString } from './helpers'
-import { inviteClientUser } from '@/lib/auth/invite-client'
+import { inviteClientUser, rollbackInvitedUser } from '@/lib/auth/invite-client'
 import * as clientsDomain from '@/lib/domain/clients'
 import { DomainError } from '@/lib/domain/errors'
 import type { ClientStatus } from '@/types/database'
@@ -109,20 +109,25 @@ const createClientTool: JarvisTool = {
       ;({ profileId } = await inviteClientUser({ email, fullName }))
     }
 
-    return clientsDomain.createClient({
-      profileId,
-      contactName: fullName,
-      contactEmail: email,
-      companyName: optionalString(args, 'company_name'),
-      status: (optionalString(args, 'status') as ClientStatus | null) ?? undefined,
-      website: optionalString(args, 'website'),
-      phone: optionalString(args, 'phone'),
-      addressStreet: optionalString(args, 'address_street'),
-      addressCity: optionalString(args, 'address_city'),
-      addressZip: optionalString(args, 'address_zip'),
-      addressCountry: optionalString(args, 'address_country'),
-      notes: optionalString(args, 'notes'),
-    })
+    try {
+      return await clientsDomain.createClient({
+        profileId,
+        contactName: fullName,
+        contactEmail: email,
+        companyName: optionalString(args, 'company_name'),
+        status: (optionalString(args, 'status') as ClientStatus | null) ?? undefined,
+        website: optionalString(args, 'website'),
+        phone: optionalString(args, 'phone'),
+        addressStreet: optionalString(args, 'address_street'),
+        addressCity: optionalString(args, 'address_city'),
+        addressZip: optionalString(args, 'address_zip'),
+        addressCountry: optionalString(args, 'address_country'),
+        notes: optionalString(args, 'notes'),
+      })
+    } catch (error) {
+      if (profileId) await rollbackInvitedUser(profileId)
+      throw error
+    }
   },
 }
 

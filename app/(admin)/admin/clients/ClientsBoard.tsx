@@ -124,12 +124,20 @@ function ContactLink({ href: to, icon, label }: { href: string; icon: React.Reac
       href={to}
       target={to.startsWith('http') ? '_blank' : undefined}
       rel={to.startsWith('http') ? 'noreferrer noopener' : undefined}
-      className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-900 transition-colors min-w-0"
+      // max-w-full ist der eigentliche Fix: in einer flex-wrap-Zeile schrumpft
+      // ein einzelnes Item nicht automatisch mit — eine sehr lange E-Mail ohne
+      // Umbruchpunkt lief bislang trotz `truncate` auf der Innenspan über den
+      // Kartenrand hinaus, weil dem <a> selbst keine Breitenobergrenze gesetzt
+      // war (truncate braucht eine tatsächliche Breite, um kürzen zu können).
+      className="inline-flex items-center gap-1.5 max-w-full text-xs text-gray-400 hover:text-gray-900 transition-colors min-w-0"
       style={FONT}
       title={label}
     >
       <span className="shrink-0">{icon}</span>
-      <span className="truncate">{label}</span>
+      {/* min-w-0 hier zusätzlich zum max-w-full oben am <a>: als Flex-Kind von
+          <a> hätte dieser Span sonst "min-width: auto" und würde sich auf
+          seine Textbreite bestehen, statt für die Ellipse zu schrumpfen. */}
+      <span className="truncate min-w-0">{label}</span>
     </a>
   )
 }
@@ -395,7 +403,7 @@ export function ClientsBoard({ rows }: { rows: ClientRow[] }) {
       <div className="flex flex-col lg:flex-row gap-4 items-start">
         {/* Status-Leiste — ein Klick auf "Lead" oder "Aktiv" statt Sortieren und Scrollen */}
         <nav
-          className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible custom-scrollbar pb-1 lg:pb-0 -mx-1 px-1 lg:mx-0 lg:px-0 lg:w-56 lg:shrink-0 lg:sticky lg:top-8"
+          className="flex w-full lg:w-56 lg:flex-col gap-2 overflow-x-auto lg:overflow-visible custom-scrollbar pb-1 lg:pb-0 -mx-1 px-1 lg:mx-0 lg:px-0 lg:shrink-0 lg:sticky lg:top-8"
           aria-label="Kundenstatus"
         >
           <RailItem active={activeKey === ALL_KEY} onClick={() => setActiveKey(ALL_KEY)} title="Alle Kunden" count={visible.length} />
@@ -411,8 +419,13 @@ export function ClientsBoard({ rows }: { rows: ClientRow[] }) {
           ))}
         </nav>
 
-        {/* Kartenraster */}
-        <div className="flex-1 min-w-0">
+        {/* Kartenraster
+            w-full zusätzlich zu min-w-0: der Elternflex steht mobil auf
+            flex-col mit items-start statt align-items:stretch — ohne w-full
+            richtet sich dieses Kind an seinem Karteninhalt aus statt auf
+            Containerbreite gestreckt zu werden (gleiches Muster wie
+            ProductsBoard.tsx/ProjectsBoard.tsx). */}
+        <div className="flex-1 min-w-0 w-full">
           {current.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
               <p className="text-gray-400 text-sm" style={FONT}>
@@ -420,7 +433,7 @@ export function ClientsBoard({ rows }: { rows: ClientRow[] }) {
               </p>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
               {current.map((client) => (
                 <ClientCard key={client.id} client={client} />
               ))}

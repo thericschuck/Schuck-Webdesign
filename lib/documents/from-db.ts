@@ -1,6 +1,6 @@
-import type { CompanySettings } from '@/types/database'
+import type { CompanySettings, DocumentRecipient } from '@/types/database'
 import { clientDisplayName, clientDisplaySubtitle } from '@/lib/client-name'
-import type { DocumentData, DocumentPosition, DocumentSender, DocumentSumme } from './types'
+import type { DocumentData, DocumentParty, DocumentPosition, DocumentSender, DocumentSumme } from './types'
 import { addDays, fmtDate } from './format'
 
 /**
@@ -52,14 +52,60 @@ export interface ClientLike {
   address_country?: string | null
 }
 
-function empfaengerFromClient(client: ClientLike) {
+/**
+ * Ermittelt den Empfängerblock.
+ *
+ * Vorrang hat der gespeicherte `recipient`-Snapshot (Migration 0036): er ist
+ * entweder der frei eingetragene Empfänger ohne Kundendatensatz — oder die beim
+ * Stellen eingefrorene Anschrift eines Kunden. Nur wenn er fehlt (Altbestand,
+ * frischer Entwurf mit ausgewähltem Kunden), wird aus dem Kunden abgeleitet.
+ */
+function empfaengerFrom(recipient?: DocumentRecipient | null, client?: ClientLike | null): DocumentParty {
+  if (recipient?.name?.trim()) {
+    return {
+      name: recipient.name,
+      zusatz: recipient.zusatz ?? null,
+      strasse: recipient.strasse ?? null,
+      plz: recipient.plz ?? null,
+      ort: recipient.ort ?? null,
+      land: recipient.land ?? null,
+    }
+  }
+
+  if (client) {
+    return {
+      name: clientDisplayName(client.full_name, client.contact_name, client.company_name),
+      zusatz: clientDisplaySubtitle(client.full_name, client.contact_name, client.company_name),
+      strasse: client.address_street,
+      plz: client.address_zip,
+      ort: client.address_city,
+      land: client.address_country,
+    }
+  }
+
+  // Kann nur im noch unvollständigen Editor-Entwurf auftreten — das Dokument
+  // soll trotzdem rendern, statt die Vorschau abstürzen zu lassen.
+  return { name: 'Empfänger fehlt' }
+}
+
+/** Kundennummer aus Snapshot oder Kundendatensatz. */
+function kundennummerFrom(recipient?: DocumentRecipient | null, client?: ClientLike | null): string | null {
+  return recipient?.kundennummer?.trim() || client?.client_number || null
+}
+
+/**
+ * Baut den Snapshot, der beim Stellen auf dem Dokument eingefroren wird.
+ * Aufrufer ist der Domain-Layer, nicht der Renderer.
+ */
+export function recipientFromClient(client: ClientLike): DocumentRecipient {
   return {
     name: clientDisplayName(client.full_name, client.contact_name, client.company_name),
     zusatz: clientDisplaySubtitle(client.full_name, client.contact_name, client.company_name),
-    strasse: client.address_street,
-    plz: client.address_zip,
-    ort: client.address_city,
-    land: client.address_country,
+    strasse: client.address_street ?? null,
+    plz: client.address_zip ?? null,
+    ort: client.address_city ?? null,
+    land: client.address_country ?? null,
+    kundennummer: client.client_number ?? null,
   }
 }
 
@@ -122,10 +168,11 @@ export interface InvoiceDocumentInput {
     ust_pflichtig: boolean
     total_net: number
     status?: string | null
+    recipient?: DocumentRecipient | null
     einleitungstext?: string | null
     schlusstext?: string | null
   }
-  client: ClientLike
+  client?: ClientLike | null
   items: ItemLike[]
   companySettings: CompanySettings
 }
@@ -136,12 +183,13 @@ export function documentFromInvoice(input: InvoiceDocumentInput): DocumentData {
   // Für den Entwurf gibt es noch kein Rechnungsdatum — fürs Layout wird das
   // heutige Datum eingesetzt, damit die Vorschau nicht mit Lücken rechnet.
   const datum = invoice.invoice_date ?? new Date().toISOString().slice(0, 10)
+  const kundennummer = kundennummerFrom(invoice.recipient, client)
 
   const meta = [
     { label: 'Rechnungsdatum', value: fmtDate(datum) },
     ...(invoice.service_date ? [{ label: 'Leistungsdatum', value: fmtDate(invoice.service_date) }] : []),
     { label: 'Fälligkeitsdatum', value: fmtDate(addDays(datum, ZAHLUNGSZIEL_TAGE)) },
-    ...(client.client_number ? [{ label: 'Kundennummer', value: client.client_number }] : []),
+    ...(kundennummer ? [{ label: 'Kundennummer', value: kundennummer }] : []),
   ]
 
   const hinweise = [
@@ -155,7 +203,7 @@ export function documentFromInvoice(input: InvoiceDocumentInput): DocumentData {
     titel: 'Rechnung',
     nummer: invoice.invoice_number ?? null,
     entwurf,
-    empfaenger: empfaengerFromClient(client),
+    empfaenger: empfaengerFrom(invoice.recipient, client),
     absender: senderFromCompanySettings(companySettings),
     meta,
     anrede: 'Sehr geehrte Damen und Herren,',
@@ -177,10 +225,11 @@ export interface OfferDocumentInput {
     created_at?: string | null
     valid_until?: string | null
     total_net?: number | null
+    recipient?: DocumentRecipient | null
     einleitungstext?: string | null
     schlusstext?: string | null
   }
-  client: ClientLike
+  client?: ClientLike | null
   items: ItemLike[]
   companySettings: CompanySettings
 }
@@ -188,11 +237,12 @@ export interface OfferDocumentInput {
 export function documentFromOffer(input: OfferDocumentInput): DocumentData {
   const { offer, client, items, companySettings } = input
   const datum = offer.created_at ?? new Date().toISOString()
+  const kundennummer = kundennummerFrom(offer.recipient, client)
 
   const meta = [
     { label: 'Angebotsdatum', value: fmtDate(datum) },
     ...(offer.valid_until ? [{ label: 'Gültig bis', value: fmtDate(offer.valid_until) }] : []),
-    ...(client.client_number ? [{ label: 'Kundennummer', value: client.client_number }] : []),
+    ...(kundennummer ? [{ label: 'Kundennummer', value: kundennummer }] : []),
   ]
 
   const hinweise = [
@@ -207,7 +257,7 @@ export function documentFromOffer(input: OfferDocumentInput): DocumentData {
     titel: 'Angebot',
     nummer: offer.offer_number ?? null,
     entwurf: !offer.offer_number,
-    empfaenger: empfaengerFromClient(client),
+    empfaenger: empfaengerFrom(offer.recipient, client),
     absender: senderFromCompanySettings(companySettings),
     meta,
     anrede: 'Sehr geehrte Damen und Herren,',

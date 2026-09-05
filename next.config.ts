@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // Erlaubt den Cloudflare-Quick-Tunnel als Dev-Origin — sonst blockt Next.js
+  // HMR-Requests (/_next/webpack-hmr) von fremden Hosts und die Seite bleibt
+  // clientseitig tot (kein Hydration, keine Navigation). Nur für lokale
+  // Tunnel-Sessions relevant, ändert nichts an Produktion/Vercel.
+  allowedDevOrigins: ['dust-patch-tampa-stevens.trycloudflare.com'],
   turbopack: {
     // Explizit den Projektordner als Workspace-Root setzen,
     // damit Tailwind CSS v4 aus dem richtigen node_modules aufgelöst wird.

@@ -3,7 +3,9 @@ import { DomainError } from './errors'
 import { getCompanySettings } from './finance'
 import { addProjectUpdate } from './projects'
 import { sendEmail } from '@/lib/email/send'
-import { generateAngebotPdf } from '@/lib/pdf/templates/angebot'
+import { documentFromOffer } from '@/lib/documents/from-db'
+import { renderDocumentToPdf } from '@/lib/documents/pdf'
+import { DEFAULT_THEME } from '@/lib/documents/theme'
 import { generateVertragPdf } from '@/lib/pdf/templates/vertrag'
 import { generateBriefingPdf } from '@/lib/pdf/templates/briefing'
 import { generateUebergabePdf } from '@/lib/pdf/templates/uebergabe'
@@ -134,16 +136,14 @@ export async function generateDocument(input: GenerateDocumentInput): Promise<Do
       throw new DomainError('Das Angebot gehört zu einem anderen Kunden.')
     }
 
-    pdfBytes = await generateAngebotPdf({
-      offerNumber: offer.offer_number,
-      createdAt: offer.created_at,
-      validUntil: offer.valid_until,
-      totalNet: offer.total_net ?? 0,
-      items: items ?? [],
-      client,
-      companySettings,
-    })
-    name = `Angebot-${offer.offer_number}.pdf`
+    // Läuft über den gemeinsamen Renderer (lib/documents/) statt über das alte
+    // pdf-lib-Template — damit sieht das hier erzeugte Angebots-PDF exakt so
+    // aus wie die Live-Vorschau im Finanzen-Editor.
+    pdfBytes = await renderDocumentToPdf(
+      documentFromOffer({ offer, client, items: items ?? [], companySettings }),
+      DEFAULT_THEME
+    )
+    name = `Angebot-${offer.offer_number ?? 'Entwurf'}.pdf`
   } else if (input.template === 'vertrag') {
     let offerNumber: string | null = null
     let totalNet: number | null = null

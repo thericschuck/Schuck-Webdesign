@@ -11,11 +11,15 @@ import { redirect } from 'next/navigation'
 import { beginImpersonation, type StartImpersonationResult } from '@/lib/auth/impersonation'
 
 type DeleteResult = { status: 'error'; message: string } | { status: 'success' }
-type ResendResult = { status: 'error'; message: string } | { status: 'success' }
-type InviteExistingResult = { status: 'error'; message: string } | { status: 'success' }
+type ResendResult = { status: 'error'; message: string } | { status: 'success'; message: string }
+type InviteExistingResult = { status: 'error'; message: string } | { status: 'success'; message: string }
 
 /** Lädt einen bereits bestehenden, profillosen Kunden nachträglich zum Portal ein — Gegenstück zu resendInvite (dort existiert das Profil schon). */
-export async function inviteExistingClient(clientId: string, formData: FormData): Promise<InviteExistingResult> {
+export async function inviteExistingClient(
+  clientId: string,
+  _prev: InviteExistingResult | null,
+  formData: FormData
+): Promise<InviteExistingResult> {
   await assertAdmin()
 
   const email = String(formData.get('email') ?? '').trim()
@@ -31,7 +35,7 @@ export async function inviteExistingClient(clientId: string, formData: FormData)
   }
 
   revalidatePath(`/admin/clients/${clientId}`)
-  return { status: 'success' }
+  return { status: 'success', message: `Einladung an ${email} verschickt.` }
 }
 
 export async function resendInvite(clientId: string): Promise<ResendResult> {
@@ -41,28 +45,41 @@ export async function resendInvite(clientId: string): Promise<ResendResult> {
 
   const { data: client } = await adminClient
     .from('clients')
-    .select('profile_id, profiles(email)')
+    .select('profile_id, contact_email, profiles(email)')
     .eq('id', clientId)
     .single()
 
   if (!client) return { status: 'error', message: 'Kunde nicht gefunden.' }
 
   const profileArr = Array.isArray(client.profiles) ? client.profiles : [client.profiles]
-  const email = profileArr[0]?.email
+  // Der Link muss an die Adresse des auth-Users gehen — eine andere Adresse würde
+  // einen zweiten Account anlegen statt den bestehenden einzuladen. contact_email
+  // dient nur als Fallback für Kunden ohne verknüpftes Profil.
+  const email = profileArr[0]?.email ?? client.contact_email
 
   if (!email) return { status: 'error', message: 'Keine E-Mail-Adresse hinterlegt.' }
 
+  let kind: 'invite' | 'recovery'
   try {
-    await resendClientInvite(email)
+    kind = await resendClientInvite(email)
   } catch (error) {
     console.error('[resendInvite] error:', error instanceof Error ? error.message : error)
-    return { status: 'error', message: 'Einladung konnte nicht erneut gesendet werden.' }
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Einladung konnte nicht erneut gesendet werden.',
+    }
   }
 
   await adminClient.from('clients').update({ invite_sent_at: new Date().toISOString() }).eq('id', clientId)
 
   revalidatePath(`/admin/clients/${clientId}`)
-  return { status: 'success' }
+  return {
+    status: 'success',
+    message:
+      kind === 'invite'
+        ? `Neue Einladung an ${email} verschickt.`
+        : `${email} hat bereits einen Zugang — stattdessen wurde ein Link zum Passwort-Zurücksetzen verschickt.`,
+  }
 }
 
 export async function deleteClient(clientId: string): Promise<DeleteResult> {

@@ -51,7 +51,7 @@ export function FilterPanel({
   onClose?: () => void
 }) {
   return (
-    <div className="w-full md:w-72 shrink-0 min-h-0 flex flex-col gap-5 bg-white/3 backdrop-blur-xl border border-white/8 border-t-white/12 rounded-t-2xl md:rounded-2xl shadow-2xl shadow-black/60 p-5 max-h-full overflow-y-auto">
+    <div className="w-full lg:w-72 shrink-0 min-h-0 flex flex-col gap-5 bg-white/3 backdrop-blur-xl border border-white/8 border-t-white/12 rounded-t-2xl lg:rounded-2xl shadow-2xl shadow-black/60 p-5 max-h-full overflow-y-auto">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--font-playfair)' }}>

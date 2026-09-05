@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { inviteClientUser } from '@/lib/auth/invite-client'
+import { inviteClientUser, rollbackInvitedUser } from '@/lib/auth/invite-client'
 import { sendEmail } from '@/lib/email/send'
 import { DomainError } from './errors'
 import { createClient as createClientRecord } from './clients'
@@ -346,16 +346,24 @@ export async function convertLeadToClient(leadId: string, input: ConvertLeadToCl
     ;({ profileId } = await inviteClientUser({ email: input.email, fullName: lead.ansprechpartner }))
   }
 
-  const client = await createClientRecord({
-    profileId,
-    contactName: lead.ansprechpartner,
-    contactEmail: input.email ?? lead.email,
-    companyName: lead.firmenname,
-    status: input.status,
-    website: lead.website,
-    phone: lead.phone,
-    addressCity: lead.stadt,
-  })
+  let client
+  try {
+    client = await createClientRecord({
+      profileId,
+      contactName: lead.ansprechpartner,
+      contactEmail: input.email ?? lead.email,
+      companyName: lead.firmenname,
+      status: input.status,
+      website: lead.website,
+      phone: lead.phone,
+      addressCity: lead.stadt,
+    })
+  } catch (error) {
+    // Invite ist schon raus — ohne Rollback bliebe ein auth-User ohne Kunde zurueck
+    // und jeder weitere Einladungsversuch fuer dieselbe Adresse scheitert.
+    if (profileId) await rollbackInvitedUser(profileId)
+    throw error
+  }
 
   const { error: updateError } = await adminClient
     .from('leads')
@@ -445,16 +453,14 @@ export async function createOffer(input: CreateOfferInput) {
   }
 
   const totalNet = Math.round(resolvedItems.reduce((sum, i) => sum + i.gesamt, 0) * 100) / 100
-  const year = String(new Date().getFullYear())
 
-  const { data: seq, error: seqError } = await adminClient.rpc('get_next_number', { p_typ: 'AN', p_scope: year })
-  if (seqError) throw new DomainError(seqError.message)
-  const offerNumber = `AN-${year}-${String(seq).padStart(3, '0')}`
-
+  // Seit Migration 0036 wird die AN-Nummer erst beim Stellen vergeben
+  // (offersDomain.issueOffer → Postgres issue_offer()). Ein Entwurf, der wieder
+  // verworfen wird, verbrennt so keine Nummer mehr.
   const { data: offer, error: offerError } = await adminClient
     .from('offers')
     .insert({
-      offer_number: offerNumber,
+      offer_number: null,
       lead_id: input.leadId ?? null,
       client_id: input.clientId ?? null,
       status: 'entwurf',
@@ -470,7 +476,7 @@ export async function createOffer(input: CreateOfferInput) {
     .from('offer_items')
     .insert(resolvedItems.map((i) => ({ ...i, offer_id: offer.id })))
   if (itemsError) {
-    throw new DomainError(`Angebot ${offerNumber} angelegt, aber Positionen konnten nicht gespeichert werden: ${itemsError.message}`)
+    throw new DomainError(`Angebotsentwurf angelegt, aber Positionen konnten nicht gespeichert werden: ${itemsError.message}`)
   }
 
   return { ...offer, items: resolvedItems }

@@ -1,18 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-
-/**
- * Supabase akzeptiert als `redirectTo` nur absolute URLs MIT Schema. Steht in
- * NEXT_PUBLIC_SITE_URL nur die nackte Domain ("schuck-webdesign.de"), verwirft GoTrue
- * den Wert stillschweigend und schickt den Kunden stattdessen an die im Supabase-
- * Dashboard hinterlegte Site-URL — der Einladungslink zeigt dann z.B. auf localhost.
- * Deshalb hier defensiv normalisieren statt sich auf das Env-Format zu verlassen.
- */
-function callbackUrl(): string {
-  const raw = (process.env.NEXT_PUBLIC_SITE_URL ?? '').trim().replace(/\/+$/, '')
-  if (!raw) throw new Error('NEXT_PUBLIC_SITE_URL fehlt in der Umgebung.')
-  const base = /^https?:\/\//.test(raw) ? raw : `https://${raw}`
-  return `${base}/auth/callback`
-}
+import { authCallbackUrl } from './site-url'
 
 export interface InviteClientUserInput {
   email: string
@@ -41,12 +28,15 @@ export async function inviteClientUser(input: InviteClientUserInput): Promise<In
 
   const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
     data: { full_name: fullName, role: 'client' },
-    redirectTo: callbackUrl(),
+    redirectTo: authCallbackUrl(),
   })
 
   if (inviteError) {
     if (inviteError.message.includes('already been registered')) {
-      throw new Error('Diese E-Mail ist bereits registriert.')
+      throw new Error(
+        `Für ${email} existiert bereits ein Portal-Zugang. Nutze beim betreffenden Kunden ` +
+          '"Erneut einladen" statt einer neuen Einladung.'
+      )
     }
     throw new Error(`Einladung fehlgeschlagen: ${inviteError.message}`)
   }
@@ -61,11 +51,50 @@ export async function inviteClientUser(input: InviteClientUserInput): Promise<In
   return { profileId }
 }
 
-/** Erneut einladen (z.B. abgelaufener Link) — sendet nur die E-Mail, ohne neuen Profil-Eintrag. */
-export async function resendClientInvite(email: string): Promise<void> {
+/**
+ * Macht einen bereits verschickten Invite rückgängig, wenn das Anlegen des Kunden
+ * danach fehlschlägt. Ohne diesen Rollback bliebe ein auth-User ohne Kundendatensatz
+ * zurück und JEDER weitere Einladungsversuch für dieselbe Adresse liefe in
+ * "bereits registriert" — eine Sackgasse, die nur per Supabase-Dashboard auflösbar wäre.
+ */
+export async function rollbackInvitedUser(profileId: string): Promise<void> {
+  try {
+    const adminClient = createAdminClient()
+    await adminClient.from('profiles').delete().eq('id', profileId)
+    await adminClient.auth.admin.deleteUser(profileId)
+  } catch (error) {
+    console.error('[invite-client] Rollback fehlgeschlagen:', error instanceof Error ? error.message : error)
+  }
+}
+
+export type ResendKind = 'invite' | 'recovery'
+
+/**
+ * Erneut einladen (z.B. abgelaufener Link) — sendet nur die E-Mail, ohne neuen Profil-Eintrag.
+ *
+ * GoTrue lehnt `inviteUserByEmail` ab, sobald der Account bestätigt ist ("already been
+ * registered"). Genau dann braucht der Kunde aber keinen Invite, sondern einen
+ * Passwort-Reset. Statt in eine Sackgasse zu laufen, wird hier automatisch umgeschaltet
+ * und dem Aufrufer zurückgegeben, was tatsächlich verschickt wurde.
+ */
+export async function resendClientInvite(rawEmail: string): Promise<ResendKind> {
+  const email = rawEmail.trim().toLowerCase()
   const adminClient = createAdminClient()
-  const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-    redirectTo: callbackUrl(),
-  })
-  if (error) throw new Error(`Einladung konnte nicht erneut gesendet werden: ${error.message}`)
+  const redirectTo = authCallbackUrl()
+
+  const { error } = await adminClient.auth.admin.inviteUserByEmail(email, { redirectTo })
+  if (!error) return 'invite'
+
+  const alreadyActive =
+    error.message.includes('already been registered') || error.message.includes('already registered')
+
+  if (!alreadyActive) {
+    throw new Error(`Einladung konnte nicht erneut gesendet werden: ${error.message}`)
+  }
+
+  const { error: resetError } = await adminClient.auth.resetPasswordForEmail(email, { redirectTo })
+  if (resetError) {
+    throw new Error(`Passwort-Link konnte nicht gesendet werden: ${resetError.message}`)
+  }
+  return 'recovery'
 }

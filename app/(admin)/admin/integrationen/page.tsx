@@ -35,6 +35,11 @@ export default async function IntegrationenPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* overflow-hidden oben bleibt für die runden Ecken; das horizontale
+            Scrollen passiert in diesem inneren Wrapper — sonst waren die
+            rechten Spalten (Ablauf, Status) auf schmalen Screens weder
+            sichtbar noch per Scroll erreichbar. */}
+        <div className="overflow-x-auto">
         <table className="w-full text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs text-gray-400 uppercase tracking-wider">
@@ -130,6 +135,7 @@ export default async function IntegrationenPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

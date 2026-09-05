@@ -25,48 +25,7 @@ function revalidateInvoice(invoiceId: string) {
   revalidatePath('/admin/finanzen')
 }
 
-interface ItemFormValue {
-  art_nr?: string
-  pkt_nr?: string
-  bezeichnung?: string
-  menge?: number
-  ep: number
-}
-
 // ── Entwurf bearbeiten ────────────────────────────────────────────────────
-
-export async function updateInvoiceDraftAction(
-  invoiceId: string,
-  _prev: ActionResult | null,
-  formData: FormData
-): Promise<ActionResult> {
-  await assertAdmin()
-
-  const itemsRaw = str(formData, 'items_json')
-  if (!itemsRaw) return { status: 'error', message: 'Mindestens eine Position ist erforderlich.' }
-
-  let items: ItemFormValue[]
-  try {
-    items = JSON.parse(itemsRaw)
-  } catch {
-    return { status: 'error', message: 'Positionen konnten nicht gelesen werden.' }
-  }
-
-  try {
-    await financeDomain.updateInvoiceDraft(invoiceId, {
-      projectId: str(formData, 'project_id'),
-      serviceDate: str(formData, 'service_date'),
-      items: items.map((item) => ({ artNr: item.art_nr, pktNr: item.pkt_nr, bezeichnung: item.bezeichnung, menge: item.menge, ep: item.ep })),
-    })
-  } catch (error) {
-    return { status: 'error', message: error instanceof Error ? error.message : 'Entwurf konnte nicht gespeichert werden.' }
-  }
-
-  revalidateInvoice(invoiceId)
-  return { status: 'success' }
-}
-
-// ── Stellen (Nummer + PDF) ────────────────────────────────────────────────
 
 export async function issueInvoiceAction(invoiceId: string): Promise<ActionResult> {
   await assertAdmin()

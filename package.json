@@ -15,7 +15,8 @@
     "import:backfill-graph:dry": "tsx scripts/import/backfill-graph.ts --dry-run",
     "build:document-assets": "tsx scripts/build-document-assets.ts",
     "doc:stresstest": "tsx scripts/render-document-stresstest.ts",
-    "doc:verify-preview": "tsx scripts/verify-preview-iframe.ts"
+    "doc:verify-preview": "tsx scripts/verify-preview-iframe.ts",
+    "doc:verify-editor": "tsx scripts/verify-document-editor.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

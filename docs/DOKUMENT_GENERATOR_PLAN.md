@@ -290,12 +290,37 @@ alter table public.offers   add column if not exists schlusstext     text;
 
 ```
 /admin/finanzen
-├── Übersicht      → Kacheln, Umsatzchart, offene Posten, Fälligkeiten   (= heutiges Dashboard)
-├── Angebote       → alle offers, kunden- UND leadbasiert                (NEU, aus Akquise gespiegelt)
-├── Rechnungen     → Liste + Filter                                       (= heute)
-├── Vorlagen       → Theme-Editor mit Live-Vorschau                       (NEU)
-└── Einstellungen  → Firmenstammdaten                                     (= heute)
+├── Übersicht      → Kennzahlen, Umsatzverlauf, offene Posten
+└── Belege         → Angebote UND Rechnungen in einer Liste, Typ-/Status-/Jahresfilter
+    ⚙ Einstellungen → Firmenstammdaten + Dokumentvorlage (aus der Tab-Leiste heraus)
 ```
+
+**Zwei Tabs statt fünf.** Angebot und Rechnung sind aus Listensicht dasselbe — Nummer, Empfänger,
+Betrag, Status, Datum. `lib/domain/belege.ts` führt beide zusammen (bewusst in TypeScript und nicht
+per SQL-UNION, weil beide Domänen eigene Anzeige-Namensregeln haben: Snapshot > Kunde > Lead). Die
+Detailseiten bleiben getrennt, weil sich die Lebenszyklen unterscheiden — GoBD-Unveränderlichkeit
+gilt nur für Rechnungen.
+
+`/admin/finanzen/rechnungen` und `/admin/finanzen/angebote` leiten auf `/belege` um, damit alte
+Links und Lesezeichen nicht ins Leere laufen. Die Unterrouten (`/[id]`, `/new`, `/nachtragen`)
+bleiben unverändert.
+
+**Firmenstammdaten und Vorlage liegen hinter dem Zahnrad.** Grund: `company_settings` wurde am
+05.07.2026 einmal gesetzt und seitdem nie geändert — gleichzeitig hängen 12 Aufrufstellen daran
+(Absenderzeile, Fußzeile, Signatur, §19-Hinweis). Essenzielle Daten, aber nichts, was
+gleichrangig neben der täglichen Arbeit stehen muss.
+
+### Designentscheidungen
+
+- **Weniger Kartenrahmen.** Vorher saß jeder Abschnitt in einer eigenen Karte mit Rand und Schatten,
+  und in der Positionsliste steckte zusätzlich jede Position in einer eigenen grauen Box. Jetzt:
+  Abschnittsüberschriften und Trennlinien als Gliederung, gerahmt ist nur der Listencontainer.
+- **Kennzahlen mit Hierarchie.** Der Jahresumsatz ist die Leitzahl (3xl), die anderen drei sind
+  Nebenzahlen. „Überfällig“ färbt sich nur rot, wenn dort tatsächlich etwas steht — bei 0 € tritt es
+  grau zurück. Vorher sahen alle vier Kacheln gleich aus.
+- **Verteilungslisten mit Anteilsbalken** statt reiner Zahlenspalten (Umsatz nach Kunde/Kategorie).
+- **Kompakterer Editor.** Empfänger und Datumsfeld liegen in einem 6-Spalten-Raster statt
+  untereinander; Einleitungs- und Schlusstext sind eingeklappt (aufgeklappt, sobald sie gefüllt sind).
 
 Konkrete Änderungen:
 1. **Angebote in Finanzen ziehen.** Gleiche Tabelle `offers`, gleicher Domain-Layer. Akquise verlinkt nur
@@ -365,25 +390,45 @@ Speichern → `document_themes.tokens` (JSONB). Kein Deploy nötig, um das Layou
 |---|-------|--------|--------|
 | **1** | **Renderer-Kern** | `lib/documents/` + `from-db.ts`. Rechnung + Angebot nach der aktuellen Vorlage. | ✅ **fertig** |
 | **2** | **PDF-Route** | `puppeteer-core` + `@sparticuz/chromium@149`, `serverExternalPackages`, `/api/admin/documents/pdf` | ✅ **fertig** |
-| **3** | **Live-Vorschau** | Paged.js im iframe, `DocumentPreview.tsx`, Stresstest + Verify-Skript, eingebunden auf `/admin/finanzen/vorlagen` und der Rechnungsdetailseite | ✅ **fertig** |
-| **4** | **Migration 0036** | Spalten + `document_themes` + Trigger-Erweiterung + `total_net`-Logik | offen |
-| **5** | **Dokument-Editor** | `DocumentEditor.tsx`, `ItemsEditor` erweitert, Rechnung + Angebot | offen |
-| **6** | **Navigation + Angebote in Finanzen** | `/admin/finanzen/angebote`, „nachtragen" als Modus, Akquise verlinkt | teilweise (Tabs umbenannt, „Vorlagen" ergänzt) |
-| **7** | **Vorlagen-Editor** | Theme-Regler auf `/admin/finanzen/vorlagen`, Snapshot beim Stellen | offen (Seite existiert als reine Ansicht) |
-| **8** | **Aufräumen** | `lib/pdf/**` auf den neuen Renderer umstellen (Vertrag, Briefing, Übergabe, Care-Report) | offen |
+| **3** | **Live-Vorschau** | Paged.js im iframe, `DocumentPreview.tsx`, Stresstest + Verify-Skript | ✅ **fertig** |
+| **4** | **Migration 0036** | Positionsfelder, Freitexte, `recipient`-Snapshot, `client_id` optional, `issue_offer()`, GoBD-Trigger erweitert | ✅ **fertig, eingespielt** |
+| **5** | **Dokument-Editor** | `DocumentEditor.tsx` + `PositionsEditor.tsx`, geteilt von Rechnung und Angebot, neu und Bearbeiten | ✅ **fertig** |
+| **6** | **Angebote in Finanzen + Navigation** | `/admin/finanzen/angebote` (Liste/neu/Detail), `lib/domain/offers.ts`, Segment-Tabs | ✅ **fertig** |
+| **7** | **Vorlagen-Editor** | Theme-Regler auf `/admin/finanzen/vorlagen`, `document_themes`, Snapshot beim Stellen | offen (Seite existiert als reine Ansicht) |
+| **8** | **Aufräumen** | Vertrag, Briefing, Übergabe, Care-Report auf den neuen Renderer umstellen | teilweise — Rechnung und Angebot laufen darüber, die vier übrigen noch über pdf-lib |
 | **9** | *optional, später* | ZUGFeRD: CII-XML + PDF/A-3-Veredelung via pdf-lib | offen |
 
-### Verifikation der fertigen Phasen
+### Verifikation
 
 | Kommando | Prüft |
 |----------|-------|
 | `npm run doc:stresstest` | Rendert 4 Fälle zu HTML + PDF + PNG pro Seite. **Ergebnis: Paged.js-Vorschau und Puppeteer-PDF paginieren identisch (2/2/1/2 Seiten), Seitenformat exakt 210×297 mm.** |
-| `npm run doc:verify-preview` | Braucht laufenden Dev-Server. Prüft, dass Paged.js im sandboxed iframe paginiert und genau eine (nicht flackernde) Maßmeldung per postMessage schickt. |
+| `npm run doc:verify-preview` | Braucht laufenden Dev-Server. Prüft, dass Paged.js im sandboxed iframe paginiert und genau eine (nicht flackernde) Maßmeldung schickt. |
+| `npm run doc:verify-editor` | End-to-End gegen die echte DB: Entwurf ohne Kundendatensatz, Positionsfelder, Summenausschluss, PDF-Erzeugung, Update, Aufräumen. Legt nur Entwürfe an und löscht sie wieder — **zieht bewusst keine Nummer**, damit im RE-/AN-Nummernkreis keine Lücke entsteht. |
 | `npm run build:document-assets` | Lädt Fonts neu und regeneriert `assets.generated.ts`. Nur nötig, wenn Logo oder Schriften wechseln. |
 
 **Noch nicht verifiziert:** der Puppeteer-Pfad auf Vercel. Lokal läuft er über das installierte Chrome;
 in der Cloud greift `@sparticuz/chromium`, was erst ein Deploy zeigt. Dafür muss vorher
 `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` als Environment-Variable im Projekt gesetzt sein.
+
+Ebenfalls nicht automatisiert geprüft: das tatsächliche **Stellen** von Rechnung und Angebot
+(`issueInvoice` / `issueOffer`). Beide ziehen eine echte Nummer und laden ins Storage — das lässt
+sich nicht testen, ohne eine Nummer zu verbrauchen. Für Rechnungen gibt es dafür den
+Testrechnungs-Nummernkreis (`is_test`), für Angebote nicht.
+
+### Was sich gegenüber dem ursprünglichen Plan geändert hat
+
+- **`invoices.client_id` ist jetzt optional.** Der Plan sah nur einen Empfänger-Snapshot vor; für
+  „Rechnung ohne Kunden anlegen" musste die Spalte zusätzlich nullable werden. Ein DB-Check stellt
+  sicher, dass entweder ein Kunde oder ein `recipient` vorhanden ist.
+- **`recipient` friert die Anschrift beim Stellen ein** — auch dann, wenn ein Kunde ausgewählt war.
+  Damit ist ein Altfehler behoben: bisher hätte ein Umzug des Kunden dazu geführt, dass
+  `regenerateInvoicePdf()` eine alte Rechnung mit der NEUEN Anschrift erzeugt.
+- **Angebotsnummern fallen erst beim Stellen** (`issue_offer()`), vorher zog `createOffer` sie schon
+  beim Anlegen. Verworfene Entwürfe verbrennen dadurch keine Nummer mehr. Betrifft auch den
+  Akquise-Pfad, der mit umgestellt wurde.
+- **`document_themes` ist noch nicht angelegt** — kommt erst mit Phase 7, wenn es Regler gibt, die
+  darauf schreiben. Bis dahin bleibt `DEFAULT_THEME` die einzige Quelle.
 
 ---
 

@@ -7,7 +7,7 @@ import { DeleteClientButton } from './DeleteClientButton'
 import { ResendInviteButton } from './ResendInviteButton'
 import { ClientDocuments } from './ClientDocuments'
 import { OpenClientViewButton } from './OpenClientViewButton'
-import { inviteExistingClient } from './actions'
+import { InviteExistingClientForm } from './InviteExistingClientForm'
 
 const INVITE_EXPIRY_HOURS = 24
 
@@ -150,7 +150,11 @@ export default async function ClientDetailPage({
             </div>
           </div>
         </div>
-        <div className="flex gap-2 sm:shrink-0">
+        {/* flex-wrap: drei Buttons nebeneinander (Portal öffnen/Projekt anlegen/
+            Bearbeiten) liefen auf schmalen Screens ohne Umbruch über den Rand —
+            hier ist explizit KEIN horizontales Scrollen gewollt, Umbruch ist
+            die richtige Antwort bei einer kurzen, festen Aktionsleiste. */}
+        <div className="flex flex-wrap gap-2 sm:shrink-0">
           <OpenClientViewButton clientId={client.id} disabled={!profile} />
           <Link
             href={`/admin/projects/new?client_id=${client.id}`}
@@ -270,41 +274,11 @@ export default async function ClientDetailPage({
               <p className="text-xs text-gray-400 mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                 Dieser Kunde wurde ohne Einladung angelegt. Hier kannst du den Portal-Zugang jederzeit nachholen.
               </p>
-              <form
-                action={async (formData: FormData) => {
-                  'use server'
-                  await inviteExistingClient(client.id, formData)
-                }}
-                className="flex flex-col gap-3"
-              >
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block" style={{ fontFamily: 'var(--font-dm-sans)' }}>Name</label>
-                  <input
-                    type="text"
-                    name="full_name"
-                    defaultValue={client.contact_name ?? ''}
-                    required
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400 mb-1 block" style={{ fontFamily: 'var(--font-dm-sans)' }}>E-Mail</label>
-                  <input
-                    type="email"
-                    name="email"
-                    defaultValue={client.contact_email ?? ''}
-                    required
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-gray-900 text-white text-sm font-medium rounded-xl py-2.5 hover:bg-gray-700 transition-colors"
-                  style={{ fontFamily: 'var(--font-dm-sans)' }}
-                >
-                  Einladen
-                </button>
-              </form>
+              <InviteExistingClientForm
+                clientId={client.id}
+                defaultName={client.contact_name ?? ''}
+                defaultEmail={client.contact_email ?? ''}
+              />
             </div>
           )}
 

@@ -177,7 +177,7 @@ interface OfferItemFormValue {
   ep: number
 }
 
-type CreateOfferResult = { status: 'error'; message: string } | { status: 'success'; offerNumber: string }
+type CreateOfferResult = { status: 'error'; message: string } | { status: 'success'; offerId: string }
 
 export async function createOfferAction(
   leadId: string,
@@ -208,7 +208,9 @@ export async function createOfferAction(
       })),
     })
     revalidatePath(`/admin/akquise/${leadId}`)
-    return { status: 'success', offerNumber: offer.offer_number }
+    // Seit 0036 hat ein frischer Entwurf noch keine AN-Nummer — die faellt
+    // erst beim Stellen. Zurueck kommt deshalb die ID.
+    return { status: 'success', offerId: offer.id }
   } catch (error) {
     return { status: 'error', message: error instanceof Error ? error.message : 'Angebot konnte nicht erstellt werden.' }
   }

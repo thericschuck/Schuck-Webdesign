@@ -4,7 +4,6 @@ import * as projectsDomain from '@/lib/domain/projects'
 import * as productsDomain from '@/lib/domain/products'
 import * as financeDomain from '@/lib/domain/finance'
 import { NachtragenForm } from './NachtragenForm'
-import { FinanzenTabs } from '../../FinanzenTabs'
 import { clientDisplayName } from '@/lib/client-name'
 
 export default async function NachtragenPage() {
@@ -28,8 +27,8 @@ export default async function NachtragenPage() {
   return (
     <div className="flex flex-col gap-6">
       <nav className="flex items-center gap-2 text-sm text-gray-400" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-        <Link href="/admin/finanzen/rechnungen" className="hover:text-gray-600 transition-colors">
-          Rechnungen
+        <Link href="/admin/finanzen/belege" className="hover:text-gray-600 transition-colors">
+          Belege
         </Link>
         <span>/</span>
         <span className="text-gray-700">Rechnung nachtragen</span>
@@ -43,8 +42,6 @@ export default async function NachtragenPage() {
           Für bereits gestellte Rechnungen aus der Zeit vor diesem System — mit ihrer ursprünglichen Nummer.
         </p>
       </div>
-
-      <FinanzenTabs />
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-3xl">
         <NachtragenForm

@@ -45,14 +45,7 @@ export function VorlagenVorschau() {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
       <aside className="flex flex-col gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2
-            className="text-sm font-semibold text-gray-900 mb-3"
-            style={{ fontFamily: 'var(--font-dm-sans)' }}
-          >
-            Beispiel
-          </h2>
-          <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1">
             {VORLAGEN.map((v) => (
               <button
                 key={v.key}
@@ -69,26 +62,17 @@ export function VorlagenVorschau() {
               </button>
             ))}
           </div>
-        </div>
-
-        <div
-          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-sm text-gray-500 leading-relaxed"
-          style={{ fontFamily: 'var(--font-dm-sans)' }}
-        >
-          <p className="font-semibold text-gray-900 mb-2">Warum diese Beispieldaten?</p>
-          <p>
-            Überlange Firmennamen, mehrzeilige Positionen und ein mehrseitiger Schlusstext — genau die
-            Fälle, an denen die Word-Vorlage verrutscht ist. Bricht es hier sauber um, hält es auch echte
-            Kundendaten aus.
-          </p>
-          <p className="mt-3">
-            Die Vorschau benutzt exakt dieselbe Render-Funktion wie der PDF-Export. Was hier steht, steht
-            auch im PDF.
-          </p>
-        </div>
       </aside>
 
-      <DocumentPreview data={vorlage.data} theme={DEFAULT_THEME} />
+      {/* min-w-0 ist hier Pflicht: als Grid-Kind hätte dieser Slot sonst
+          "min-width: auto" — die feste 842px-Eigenbreite der Vorschau (siehe
+          DocumentPreview.tsx, A4_BREITE_PX) würde die Spalte aufblähen und auf
+          schmalen Screens unsichtbar über den Rand hinauslaufen, statt intern
+          herunterzuskalieren. DocumentEditor.tsx macht es an der Stelle richtig
+          vor (`xl:sticky xl:top-6 min-w-0`), hier fehlte es bislang. */}
+      <div className="min-w-0">
+        <DocumentPreview data={vorlage.data} theme={DEFAULT_THEME} />
+      </div>
     </div>
   )
 }

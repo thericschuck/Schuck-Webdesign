@@ -247,8 +247,43 @@ export async function updateClient(clientId: string, patch: UpdateClientInput): 
     .single()
 
   if (error) throw new DomainError(error.message)
+
+  if (updates.contact_email !== undefined && data.profile_id) {
+    await syncProfileEmail(data.profile_id, updates.contact_email as string | null)
+  }
+
   revalidateTag('admin-graph', 'max')
   return data
+}
+
+/**
+ * Hält die Login-Adresse mit der Kontaktadresse zusammen. Ohne das läuft eine
+ * "Erneut einladen"-Aktion nach einer E-Mail-Korrektur weiter an die ALTE Adresse:
+ * Einladungslinks gehören immer zum auth-User, nicht zu clients.contact_email —
+ * und ein Invite an eine abweichende Adresse würde einen zweiten Account anlegen.
+ *
+ * Bewusst nicht blockierend: die Kundendaten sind bereits gespeichert, ein
+ * Fehlschlag hier darf das Formular nicht scheitern lassen.
+ */
+async function syncProfileEmail(profileId: string, rawEmail: string | null): Promise<void> {
+  const email = rawEmail?.trim().toLowerCase()
+  if (!email) return
+
+  const adminClient = createAdminClient()
+
+  const { data: profile } = await adminClient.from('profiles').select('email').eq('id', profileId).single()
+  if (profile?.email === email) return
+
+  const { error: authError } = await adminClient.auth.admin.updateUserById(profileId, { email })
+  if (authError) {
+    console.error('[clients] Login-E-Mail konnte nicht aktualisiert werden:', authError.message)
+    return
+  }
+
+  const { error: profileError } = await adminClient.from('profiles').update({ email }).eq('id', profileId)
+  if (profileError) {
+    console.error('[clients] profiles.email konnte nicht aktualisiert werden:', profileError.message)
+  }
 }
 
 export interface DeleteClientResult {

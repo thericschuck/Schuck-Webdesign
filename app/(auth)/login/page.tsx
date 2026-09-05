@@ -98,9 +98,18 @@ export default function LoginPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="password" className="text-[10px] uppercase tracking-widest text-white/35" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                Passwort
-              </label>
+              <div className="flex items-baseline justify-between gap-3">
+                <label htmlFor="password" className="text-[10px] uppercase tracking-widest text-white/35" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                  Passwort
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-[11px] text-white/30 hover:text-[#7F77DD] transition-colors"
+                  style={{ fontFamily: 'var(--font-dm-sans)' }}
+                >
+                  Vergessen?
+                </Link>
+              </div>
               <input
                 id="password"
                 name="password"

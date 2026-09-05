@@ -346,7 +346,7 @@ export function ProjectsBoard({ rows, initialStatus = null }: { rows: ProjectRow
       <div className="flex flex-col lg:flex-row gap-4 items-start">
         {/* Phasen-Leiste in Pipeline-Reihenfolge — jede Phase ist einen Klick entfernt */}
         <nav
-          className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible custom-scrollbar pb-1 lg:pb-0 -mx-1 px-1 lg:mx-0 lg:px-0 lg:w-56 lg:shrink-0 lg:sticky lg:top-8"
+          className="flex w-full lg:w-56 lg:flex-col gap-2 overflow-x-auto lg:overflow-visible custom-scrollbar pb-1 lg:pb-0 -mx-1 px-1 lg:mx-0 lg:px-0 lg:shrink-0 lg:sticky lg:top-8"
           aria-label="Projektphasen"
         >
           <RailItem
@@ -369,8 +369,13 @@ export function ProjectsBoard({ rows, initialStatus = null }: { rows: ProjectRow
           ))}
         </nav>
 
-        {/* Kartenraster */}
-        <div className="flex-1 min-w-0">
+        {/* Kartenraster
+            w-full zusätzlich zu min-w-0: der Elternflex steht mobil auf
+            flex-col mit items-start (Zeile oben) statt dem Default
+            align-items:stretch — ohne w-full richtet sich dieses Kind an
+            seinem Karteninhalt aus, statt auf Containerbreite gestreckt zu
+            werden (gleiches Muster wie ProductsBoard.tsx). */}
+        <div className="flex-1 min-w-0 w-full">
           {current.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
               <p className="text-gray-400 text-sm" style={FONT}>
@@ -378,7 +383,7 @@ export function ProjectsBoard({ rows, initialStatus = null }: { rows: ProjectRow
               </p>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
               {current.map((project) => (
                 <ProjectCard key={project.id} project={project} today={today} />
               ))}

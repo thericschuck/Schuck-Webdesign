@@ -1509,37 +1509,46 @@ export type Database = {
       offers: {
         Row: {
           id: string
-          offer_number: string
+          offer_number: string | null
           lead_id: string | null
           client_id: string | null
           status: OfferStatus
           total_net: number | null
           pdf_url: string | null
           valid_until: string | null
+          recipient: DocumentRecipient | null
+          einleitungstext: string | null
+          schlusstext: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          offer_number: string
+          offer_number: string | null
           lead_id?: string | null
           client_id?: string | null
           status?: OfferStatus
           total_net?: number | null
           pdf_url?: string | null
           valid_until?: string | null
+          recipient?: DocumentRecipient | null
+          einleitungstext?: string | null
+          schlusstext?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          offer_number?: string
+          offer_number?: string | null
           lead_id?: string | null
           client_id?: string | null
           status?: OfferStatus
           total_net?: number | null
           pdf_url?: string | null
           valid_until?: string | null
+          recipient?: DocumentRecipient | null
+          einleitungstext?: string | null
+          schlusstext?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1570,6 +1579,10 @@ export type Database = {
           menge: number
           ep: number
           gesamt: number
+          beschreibung: string | null
+          ep_label: string | null
+          betrag_label: string | null
+          exclude_from_sum: boolean
           created_at: string
         }
         Insert: {
@@ -1581,6 +1594,10 @@ export type Database = {
           menge?: number
           ep: number
           gesamt: number
+          beschreibung?: string | null
+          ep_label?: string | null
+          betrag_label?: string | null
+          exclude_from_sum?: boolean
           created_at?: string
         }
         Update: {
@@ -1592,6 +1609,10 @@ export type Database = {
           menge?: number
           ep?: number
           gesamt?: number
+          beschreibung?: string | null
+          ep_label?: string | null
+          betrag_label?: string | null
+          exclude_from_sum?: boolean
           created_at?: string
         }
         Relationships: [
@@ -1678,7 +1699,7 @@ export type Database = {
         Row: {
           id: string
           invoice_number: string | null
-          client_id: string
+          client_id: string | null
           project_id: string | null
           status: InvoiceStatus
           invoice_date: string | null
@@ -1689,6 +1710,9 @@ export type Database = {
           sent_at: string | null
           paid_at: string | null
           recurring_source: string | null
+          recipient: DocumentRecipient | null
+          einleitungstext: string | null
+          schlusstext: string | null
           is_test: boolean
           is_backfilled: boolean
           created_at: string
@@ -1697,7 +1721,7 @@ export type Database = {
         Insert: {
           id?: string
           invoice_number?: string | null
-          client_id: string
+          client_id: string | null
           project_id?: string | null
           status?: InvoiceStatus
           invoice_date?: string | null
@@ -1708,6 +1732,9 @@ export type Database = {
           sent_at?: string | null
           paid_at?: string | null
           recurring_source?: string | null
+          recipient?: DocumentRecipient | null
+          einleitungstext?: string | null
+          schlusstext?: string | null
           is_test?: boolean
           is_backfilled?: boolean
           created_at?: string
@@ -1716,7 +1743,7 @@ export type Database = {
         Update: {
           id?: string
           invoice_number?: string | null
-          client_id?: string
+          client_id?: string | null
           project_id?: string | null
           status?: InvoiceStatus
           invoice_date?: string | null
@@ -1727,6 +1754,9 @@ export type Database = {
           sent_at?: string | null
           paid_at?: string | null
           recurring_source?: string | null
+          recipient?: DocumentRecipient | null
+          einleitungstext?: string | null
+          schlusstext?: string | null
           is_test?: boolean
           is_backfilled?: boolean
           created_at?: string
@@ -1759,6 +1789,10 @@ export type Database = {
           menge: number
           ep: number
           gesamt: number
+          beschreibung: string | null
+          ep_label: string | null
+          betrag_label: string | null
+          exclude_from_sum: boolean
           created_at: string
         }
         Insert: {
@@ -1770,6 +1804,10 @@ export type Database = {
           menge?: number
           ep: number
           gesamt: number
+          beschreibung?: string | null
+          ep_label?: string | null
+          betrag_label?: string | null
+          exclude_from_sum?: boolean
           created_at?: string
         }
         Update: {
@@ -1781,6 +1819,10 @@ export type Database = {
           menge?: number
           ep?: number
           gesamt?: number
+          beschreibung?: string | null
+          ep_label?: string | null
+          betrag_label?: string | null
+          exclude_from_sum?: boolean
           created_at?: string
         }
         Relationships: [
@@ -2029,6 +2071,11 @@ export type Database = {
         Args: { p_id: string }
         Returns: Database['public']['Tables']['invoices']['Row']
       }
+      /** Migration 0036 — vergibt die AN-Nummer und setzt den Status in einer Transaktion. */
+      issue_offer: {
+        Args: { p_id: string }
+        Returns: Database['public']['Tables']['offers']['Row']
+      }
       create_credit_note: {
         Args: { p_invoice_id: string; p_reason: string | null; p_total_net: number }
         Returns: Database['public']['Tables']['credit_notes']['Row']
@@ -2050,6 +2097,32 @@ export type Database = {
     }
     CompositeTypes: Record<string, never>
   }
+}
+
+// ============================================================
+// JSON-SPALTEN
+// ============================================================
+
+/**
+ * Empfänger-Snapshot auf `invoices.recipient` / `offers.recipient` (Migration 0036).
+ *
+ * Zwei Zwecke:
+ *   * Dokumente für Empfänger, für die es keinen Kundendatensatz gibt
+ *     (einmalige Rechnung, Angebot an einen Interessenten).
+ *   * Einfrieren der Anschrift beim Stellen — sonst würde ein Umzug des Kunden
+ *     rückwirkend das Aussehen bereits gestellter Rechnungen ändern.
+ */
+export interface DocumentRecipient {
+  name: string
+  /** Zweite Zeile, z.B. die Firma, wenn `name` eine Person ist. */
+  zusatz?: string | null
+  strasse?: string | null
+  plz?: string | null
+  ort?: string | null
+  land?: string | null
+  kundennummer?: string | null
+  /** Für den Versand per Mail, wenn kein Kundendatensatz dahinterhängt. */
+  email?: string | null
 }
 
 // ============================================================

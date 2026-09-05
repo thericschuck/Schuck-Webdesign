@@ -1,10 +1,19 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DomainError } from './errors'
-import { generateInvoicePdf } from '@/lib/pdf/invoice'
 import { fmtEuro, OVERDUE_DAYS } from '@/lib/pdf/shared'
+import { documentFromInvoice, recipientFromClient } from '@/lib/documents/from-db'
+import { renderDocumentToPdf } from '@/lib/documents/pdf'
+import { DEFAULT_THEME } from '@/lib/documents/theme'
 import { sendEmail } from '@/lib/email/send'
 import { clientDisplayName } from '@/lib/client-name'
-import type { CompanySettings, CreditNote, Database, Invoice, InvoiceStatus } from '@/types/database'
+import type {
+  CompanySettings,
+  CreditNote,
+  Database,
+  DocumentRecipient,
+  Invoice,
+  InvoiceStatus,
+} from '@/types/database'
 
 type SupabaseAdminClient = ReturnType<typeof createAdminClient>
 type InvoiceUpdate = Database['public']['Tables']['invoices']['Update']
@@ -91,20 +100,41 @@ export interface InvoiceItemInput {
   artNr?: string
   pktNr?: string
   bezeichnung?: string
+  /** Mehrzeilige Leistungsbeschreibung unter der Bezeichnung. */
+  beschreibung?: string | null
   menge?: number
   ep: number
+  /** Überschreibt die Einzelpreis-Zelle, z.B. "25,00 € p.M.". */
+  epLabel?: string | null
+  /** Überschreibt die Betrags-Zelle, z.B. "–". */
+  betragLabel?: string | null
+  /** Zeile steht im Dokument, zählt aber nicht in die Summe (laufende Abos). */
+  excludeFromSum?: boolean
 }
 
 export interface ResolvedInvoiceItem {
   art_nr: string | null
   pos: number
   bezeichnung: string
+  beschreibung: string | null
   menge: number
   ep: number
   gesamt: number
+  ep_label: string | null
+  betrag_label: string | null
+  exclude_from_sum: boolean
 }
 
-async function resolveInvoiceItems(
+/**
+ * Nettosumme über die Positionen — `exclude_from_sum`-Zeilen bleiben außen vor.
+ * Zentral, weil `total_net` an drei Stellen berechnet wird (anlegen, ändern,
+ * nachtragen) und ein Auseinanderlaufen die Rechnung falsch machen würde.
+ */
+export function sumItems(items: ResolvedInvoiceItem[]): number {
+  return round2(items.filter((i) => !i.exclude_from_sum).reduce((sum, i) => sum + i.gesamt, 0))
+}
+
+export async function resolveDocumentItems(
   adminClient: SupabaseAdminClient,
   items: InvoiceItemInput[]
 ): Promise<ResolvedInvoiceItem[]> {
@@ -146,9 +176,13 @@ async function resolveInvoiceItems(
       art_nr: artNr,
       pos: index + 1,
       bezeichnung,
+      beschreibung: item.beschreibung?.trim() || null,
       menge,
       ep: item.ep,
       gesamt: round2(menge * item.ep),
+      ep_label: item.epLabel?.trim() || null,
+      betrag_label: item.betragLabel?.trim() || null,
+      exclude_from_sum: item.excludeFromSum ?? false,
     })
   }
 
@@ -226,38 +260,56 @@ export type InvoiceDetail = Awaited<ReturnType<typeof getInvoice>>
 // ── invoices: Entwurf anlegen/bearbeiten ─────────────────────────────────────
 
 export interface CreateInvoiceDraftInput {
-  clientId: string
+  /** Optional seit Migration 0036 — ohne Kunde muss `recipient` gesetzt sein. */
+  clientId?: string | null
+  /** Frei eingetragener Empfänger. Ohne `clientId` Pflicht. */
+  recipient?: DocumentRecipient | null
   projectId?: string | null
   serviceDate?: string | null
   recurringSource?: string | null
+  einleitungstext?: string | null
+  schlusstext?: string | null
   /** Testrechnung: eigener Nummernkreis (TEST-JJJJ-NNN) beim Stellen, aus Umsatzstatistik/Liste
    * ausgeblendet, frei löschbar (siehe issueInvoice()/deleteTestInvoice() unten). */
   isTest?: boolean
   items: InvoiceItemInput[]
 }
 
+/** Spiegelt den DB-Check `invoices_empfaenger_vorhanden` — hier, damit der
+ * Nutzer eine verständliche Meldung bekommt statt eines Constraint-Fehlers. */
+function assertEmpfaenger(clientId?: string | null, recipient?: DocumentRecipient | null) {
+  if (!clientId && !recipient?.name?.trim()) {
+    throw new DomainError('Empfänger fehlt — entweder einen Kunden auswählen oder einen Namen eintragen.')
+  }
+}
+
 export async function createInvoiceDraft(input: CreateInvoiceDraftInput) {
-  if (!input.clientId) throw new DomainError('client_id ist erforderlich.')
+  assertEmpfaenger(input.clientId, input.recipient)
 
   const adminClient = createAdminClient()
 
-  const { error: clientError } = await adminClient.from('clients').select('id').eq('id', input.clientId).single()
-  if (clientError) throw new DomainError('Kunde nicht gefunden.')
+  if (input.clientId) {
+    const { error: clientError } = await adminClient.from('clients').select('id').eq('id', input.clientId).single()
+    if (clientError) throw new DomainError('Kunde nicht gefunden.')
+  }
 
-  const resolvedItems = await resolveInvoiceItems(adminClient, input.items)
-  const totalNet = round2(resolvedItems.reduce((sum, i) => sum + i.gesamt, 0))
+  const resolvedItems = await resolveDocumentItems(adminClient, input.items)
+  const totalNet = sumItems(resolvedItems)
   const companySettings = await getCompanySettings()
 
   const { data: invoice, error: invoiceError } = await adminClient
     .from('invoices')
     .insert({
-      client_id: input.clientId,
+      client_id: input.clientId ?? null,
+      recipient: input.recipient ?? null,
       project_id: input.projectId ?? null,
       status: 'entwurf',
       service_date: input.serviceDate ?? null,
       ust_pflichtig: companySettings.ust_pflichtig,
       total_net: totalNet,
       recurring_source: input.recurringSource ?? null,
+      einleitungstext: input.einleitungstext ?? null,
+      schlusstext: input.schlusstext ?? null,
       is_test: input.isTest ?? false,
     })
     .select('*')
@@ -276,11 +328,14 @@ export async function createInvoiceDraft(input: CreateInvoiceDraftInput) {
 }
 
 export interface UpdateInvoiceDraftInput {
-  clientId?: string
+  clientId?: string | null
+  recipient?: DocumentRecipient | null
   projectId?: string | null
   serviceDate?: string | null
   ustPflichtig?: boolean
   recurringSource?: string | null
+  einleitungstext?: string | null
+  schlusstext?: string | null
   items?: InvoiceItemInput[]
 }
 
@@ -290,7 +345,7 @@ export async function updateInvoiceDraft(invoiceId: string, patch: UpdateInvoice
 
   const { data: existing, error: existingError } = await adminClient
     .from('invoices')
-    .select('status')
+    .select('status, client_id, recipient')
     .eq('id', invoiceId)
     .single()
   if (existingError) throw new DomainError('Rechnung nicht gefunden.')
@@ -298,17 +353,28 @@ export async function updateInvoiceDraft(invoiceId: string, patch: UpdateInvoice
     throw new DomainError('Nur Entwürfe können bearbeitet werden — gestellte Rechnungen sind unveränderlich (GoBD).')
   }
 
+  // Empfänger gegen den Stand NACH dem Patch prüfen, nicht gegen den Patch
+  // allein — sonst schlüge das Leeren des einen Feldes fehl, obwohl das andere
+  // noch gefüllt ist (bzw. andersherum liefe man in den DB-Constraint).
+  assertEmpfaenger(
+    patch.clientId !== undefined ? patch.clientId : existing.client_id,
+    patch.recipient !== undefined ? patch.recipient : existing.recipient
+  )
+
   const updates: Record<string, unknown> = {}
   if (patch.clientId !== undefined) updates.client_id = patch.clientId
+  if (patch.recipient !== undefined) updates.recipient = patch.recipient
   if (patch.projectId !== undefined) updates.project_id = patch.projectId
   if (patch.serviceDate !== undefined) updates.service_date = patch.serviceDate
   if (patch.ustPflichtig !== undefined) updates.ust_pflichtig = patch.ustPflichtig
   if (patch.recurringSource !== undefined) updates.recurring_source = patch.recurringSource
+  if (patch.einleitungstext !== undefined) updates.einleitungstext = patch.einleitungstext
+  if (patch.schlusstext !== undefined) updates.schlusstext = patch.schlusstext
 
   let resolvedItems: ResolvedInvoiceItem[] | null = null
   if (patch.items) {
-    resolvedItems = await resolveInvoiceItems(adminClient, patch.items)
-    updates.total_net = round2(resolvedItems.reduce((sum, i) => sum + i.gesamt, 0))
+    resolvedItems = await resolveDocumentItems(adminClient, patch.items)
+    updates.total_net = sumItems(resolvedItems)
   }
 
   if (Object.keys(updates).length === 0) {
@@ -333,25 +399,34 @@ export async function updateInvoiceDraft(invoiceId: string, patch: UpdateInvoice
 
 // ── invoices: PDF-Erzeugung (gemeinsam für Stellen/Nachtragen/Neu-Erzeugen) ──
 
+/**
+ * Erzeugt die PDF-Bytes einer Rechnung über den gemeinsamen Renderer
+ * (`lib/documents/`) — dieselbe Funktion, die auch die Live-Vorschau im Editor
+ * zeichnet. Das gespeicherte PDF sieht damit garantiert so aus wie die Vorschau.
+ *
+ * Löst seit Migration 0036 den alten pdf-lib-Pfad ab: der brauchte zwingend
+ * einen Kundendatensatz und kann Rechnungen mit frei eingetragenem Empfänger
+ * nicht darstellen.
+ */
 async function buildInvoicePdfBytes(invoice: InvoiceDetail, companySettings: CompanySettings): Promise<Uint8Array> {
-  if (!invoice.client) throw new DomainError('Kunde der Rechnung konnte nicht geladen werden.')
   if (!invoice.invoice_number || !invoice.invoice_date) {
     throw new DomainError('Rechnung hat keine Nummer/kein Datum — PDF kann nicht erzeugt werden.')
   }
 
-  const invoiceClientProfile = Array.isArray(invoice.client.profiles) ? invoice.client.profiles[0] : invoice.client.profiles
+  const profile = invoice.client
+    ? Array.isArray(invoice.client.profiles)
+      ? invoice.client.profiles[0]
+      : invoice.client.profiles
+    : null
 
-  return generateInvoicePdf({
-    invoiceNumber: invoice.invoice_number,
-    invoiceDate: invoice.invoice_date,
-    serviceDate: invoice.service_date,
-    ustPflichtig: invoice.ust_pflichtig,
-    totalNet: invoice.total_net,
+  const data = documentFromInvoice({
+    invoice,
+    client: invoice.client ? { ...invoice.client, full_name: profile?.full_name ?? null } : null,
     items: invoice.items,
-    client: { ...invoice.client, full_name: invoiceClientProfile?.full_name ?? null },
     companySettings,
-    projectTitle: invoice.project?.title ?? null,
   })
+
+  return renderDocumentToPdf(data, DEFAULT_THEME)
 }
 
 /** Erzeugt das PDF einer bereits gestellten Rechnung (Nummer + Datum vorhanden) und lädt es
@@ -362,7 +437,9 @@ async function generateAndStoreInvoicePdf(invoiceId: string, invoice: InvoiceDet
   const companySettings = await getCompanySettings()
   const pdfBytes = await buildInvoicePdfBytes(invoice, companySettings)
 
-  const path = `${invoice.client_id}/${invoice.invoice_number}.pdf`
+  // Rechnungen ohne Kundendatensatz (freier Empfänger, seit 0036) landen in
+  // einem eigenen Ordner statt unter "null/".
+  const path = `${invoice.client_id ?? 'ohne-kunde'}/${invoice.invoice_number}.pdf`
   const { error: uploadError } = await adminClient.storage
     .from('invoices')
     .upload(path, pdfBytes, { contentType: 'application/pdf', upsert: true })
@@ -426,6 +503,21 @@ export async function issueInvoice(invoiceId: string): Promise<InvoiceDetail> {
   let invoice = await getInvoice(invoiceId)
 
   if (invoice.status === 'entwurf') {
+    // Anschrift des Kunden auf der Rechnung einfrieren, BEVOR die Nummer fällt.
+    // Danach ist `recipient` durch den GoBD-Trigger gesperrt. Ohne diesen
+    // Schritt würde ein späterer Umzug des Kunden dazu führen, dass
+    // regenerateInvoicePdf() eine alte Rechnung mit neuer Anschrift erzeugt.
+    if (!invoice.recipient && invoice.client) {
+      const profile = Array.isArray(invoice.client.profiles) ? invoice.client.profiles[0] : invoice.client.profiles
+      const snapshot = recipientFromClient({ ...invoice.client, full_name: profile?.full_name ?? null })
+      const { error: snapshotError } = await adminClient
+        .from('invoices')
+        .update({ recipient: snapshot })
+        .eq('id', invoiceId)
+      if (snapshotError) throw new DomainError(`Empfängerdaten konnten nicht eingefroren werden: ${snapshotError.message}`)
+      invoice = { ...invoice, recipient: snapshot }
+    }
+
     if (invoice.is_test) {
       const year = String(new Date().getFullYear())
       const { data: seq, error: seqError } = await adminClient.rpc('get_next_number', { p_typ: 'TEST', p_scope: year })
@@ -504,7 +596,7 @@ export async function createBackfilledInvoice(input: CreateBackfilledInvoiceInpu
     .maybeSingle()
   if (duplicate) throw new DomainError(`Rechnungsnummer ${input.invoiceNumber} existiert bereits.`)
 
-  const resolvedItems = await resolveInvoiceItems(adminClient, input.items)
+  const resolvedItems = await resolveDocumentItems(adminClient, input.items)
   const totalNet = round2(resolvedItems.reduce((sum, i) => sum + i.gesamt, 0))
   const companySettings = await getCompanySettings()
 
@@ -759,7 +851,7 @@ export interface RevenueOverview {
   open_amount: number
   overdue_amount: number
   by_month: { month: string; total_net: number }[]
-  by_client: { client_id: string; display_name: string; total_net: number }[]
+  by_client: { client_id: string | null; display_name: string; total_net: number }[]
   by_category: { kategorie: string; total_net: number }[]
   /** Offene (versendete) Rechnungen, älteste zuerst — für die Dashboard-Übersicht. */
   open_invoices: {
@@ -827,16 +919,21 @@ export async function getRevenueOverview(filter: RevenueOverviewFilter = {}): Pr
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, total_net]) => ({ month, total_net }))
 
+  // Rechnungen ohne Kundendatensatz (freier Empfänger) laufen unter einem
+  // gemeinsamen Sammelschlüssel — sie sollen im Umsatz auftauchen, lassen sich
+  // aber nicht auf einen Kunden verlinken.
+  const OHNE_KUNDE = '__ohne_kunde__'
   const byClientMap = new Map<string, { display_name: string; total_net: number }>()
   for (const r of inRange) {
-    const existing = byClientMap.get(r.client_id)
-    byClientMap.set(r.client_id, {
-      display_name: r.display_name,
+    const key = r.client_id ?? OHNE_KUNDE
+    const existing = byClientMap.get(key)
+    byClientMap.set(key, {
+      display_name: r.client_id ? r.display_name : 'Ohne Kundendatensatz',
       total_net: round2((existing?.total_net ?? 0) + r.total_net),
     })
   }
   const byClient = [...byClientMap.entries()]
-    .map(([client_id, v]) => ({ client_id, ...v }))
+    .map(([client_id, v]) => ({ client_id: client_id === OHNE_KUNDE ? null : client_id, ...v }))
     .sort((a, b) => b.total_net - a.total_net)
 
   let byCategory: { kategorie: string; total_net: number }[] = []

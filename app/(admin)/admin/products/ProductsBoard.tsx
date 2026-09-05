@@ -229,7 +229,7 @@ export function ProductsBoard({ articles }: { articles: ArticleRow[] }) {
       <div className="flex flex-col lg:flex-row gap-4 items-start">
         {/* Kategorie-Leiste — jede Kategorie einen Klick entfernt, kein Scrollen durch die anderen */}
         <nav
-          className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible custom-scrollbar pb-1 lg:pb-0 -mx-1 px-1 lg:mx-0 lg:px-0 lg:w-56 lg:shrink-0 lg:sticky lg:top-8"
+          className="flex w-full lg:w-56 lg:flex-col gap-2 overflow-x-auto lg:overflow-visible custom-scrollbar pb-1 lg:pb-0 -mx-1 px-1 lg:mx-0 lg:px-0 lg:shrink-0 lg:sticky lg:top-8"
           aria-label="Kategorien"
         >
           <RailItem active={activeKey === ALL_KEY} onClick={() => setActiveKey(ALL_KEY)} title="Alle Kategorien" count={visible.length} />
@@ -244,8 +244,16 @@ export function ProductsBoard({ articles }: { articles: ArticleRow[] }) {
           ))}
         </nav>
 
-        {/* Tabelle */}
-        <div className="flex-1 min-w-0">
+        {/* Tabelle
+            w-full zusätzlich zu min-w-0 nötig: der Elternflex steht mobil auf
+            flex-col mit items-start (Zeile oben) — items-start ersetzt das
+            sonst übliche align-items:stretch, wodurch dieses Kind NICHT auf
+            die Containerbreite gestreckt wird, sondern sich an seinem Inhalt
+            orientiert. Die Tabelle darunter (7 Spalten, siehe ArticleTable)
+            wollte dadurch bis zu ~1300px breit sein — unsichtbar über den
+            Rand hinaus, weil der äußere Seiten-Wrapper overflow-x-hidden
+            trägt und das lautlos abschneidet, statt scrollbar zu machen. */}
+        <div className="flex-1 min-w-0 w-full">
           {(() => {
             const currentArticles = activeKey === ALL_KEY ? visible : byKategorie.get(activeKey) ?? []
             if (currentArticles.length === 0) {

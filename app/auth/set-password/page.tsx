@@ -47,11 +47,12 @@ function BrandMark() {
 export default async function SetPasswordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ expired?: string }>
+  searchParams: Promise<{ expired?: string; mode?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { expired } = await searchParams
+  const { expired, mode } = await searchParams
+  const isRecovery = mode === 'recovery'
 
   // Kein aktiver Session oder explizit abgelaufen → Fehlerseite
   if (!user || expired === '1') {
@@ -70,9 +71,19 @@ export default async function SetPasswordPage({
               Link abgelaufen
             </h1>
             <p className="text-white/40 text-sm leading-relaxed mb-6" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              Dieser Einladungslink ist nicht mehr gültig — er wurde bereits verwendet oder ist abgelaufen.
-              Bitte bitte Eric um einen neuen Einladungslink.
+              {isRecovery
+                ? 'Dieser Link zum Zurücksetzen ist nicht mehr gültig — er wurde bereits verwendet oder ist abgelaufen. Fordere einfach einen neuen an.'
+                : 'Dieser Einladungslink ist nicht mehr gültig — er wurde bereits verwendet oder ist abgelaufen. Einladungslinks sind 24 Stunden gültig. Bitte Eric um einen neuen Link.'}
             </p>
+            {isRecovery && (
+              <Link
+                href="/forgot-password"
+                className="inline-flex items-center justify-center w-full bg-[#F5F5F0] text-[#080808] text-sm font-semibold rounded-lg py-2.5 hover:bg-white transition-colors mb-6"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}
+              >
+                Neuen Link anfordern
+              </Link>
+            )}
             <div className="border-t border-white/8 pt-5 mb-6 flex flex-col gap-3 text-left">
               <a
                 href="mailto:info@schuck-webdesign.de"
@@ -133,13 +144,15 @@ export default async function SetPasswordPage({
             className="text-[11px] uppercase tracking-[0.14em] text-[#7F77DD] mb-1"
             style={{ fontFamily: 'var(--font-dm-sans)' }}
           >
-            Einladung
+            {isRecovery ? 'Passwort zurücksetzen' : 'Einladung'}
           </p>
           <h2
             className="text-white text-xl font-semibold mb-7"
             style={{ fontFamily: 'var(--font-playfair)' }}
           >
-            {firstName ? `Willkommen, ${firstName}.` : 'Willkommen.'}
+            {isRecovery
+              ? 'Neues Passwort wählen.'
+              : firstName ? `Willkommen, ${firstName}.` : 'Willkommen.'}
           </h2>
           <SetPasswordForm email={user.email ?? ''} />
         </div>

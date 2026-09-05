@@ -1,7 +1,7 @@
 'use server'
 
 import { assertAdmin } from '@/lib/auth/assert-admin'
-import { inviteClientUser } from '@/lib/auth/invite-client'
+import { inviteClientUser, rollbackInvitedUser } from '@/lib/auth/invite-client'
 import { createClient as createClientRecord } from '@/lib/domain/clients'
 
 type CreateResult =
@@ -36,8 +36,9 @@ export async function createClientAction(_prev: CreateResult | null, formData: F
     return { status: 'error', message: 'Für die Portal-Einladung ist eine E-Mail-Adresse erforderlich.' }
   }
 
+  let profileId: string | null = null
+
   try {
-    let profileId: string | null = null
     if (sendInvite && cleanEmail) {
       ;({ profileId } = await inviteClientUser({ email: cleanEmail, fullName: cleanName }))
     }
@@ -56,6 +57,9 @@ export async function createClientAction(_prev: CreateResult | null, formData: F
 
     return { status: 'success', clientId: client.id, invited: sendInvite, email: cleanEmail }
   } catch (error) {
+    // Invite ging raus, Kunde konnte nicht angelegt werden → Auth-User wieder entfernen,
+    // sonst blockiert er jeden weiteren Einladungsversuch für dieselbe Adresse.
+    if (profileId) await rollbackInvitedUser(profileId)
     console.error('[createClientAction] error:', error instanceof Error ? error.message : error)
     const message = error instanceof Error ? error.message : 'Kunde konnte nicht angelegt werden.'
     return { status: 'error', message }

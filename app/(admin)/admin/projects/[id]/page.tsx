@@ -224,8 +224,14 @@ export default async function ProjectDetailPage({
 
         </div>
 
-        {/* Right: Tabs */}
-        <div className="md:col-span-2">
+        {/* Right: Tabs
+            min-w-0 ist Pflicht: Grid-Items haben "min-width: auto", auch wenn
+            der Track selbst via Tailwinds grid-cols-N schon minmax(0,1fr) ist
+            — das begrenzt nur den TRACK, nicht das ITEM. Ohne min-w-0 hier
+            zwang die whitespace-nowrap-Tabbar (AdminProjectTabs) trotz ihres
+            eigenen overflow-x-auto die ganze Spalte in die Breite, statt
+            innerhalb ihrer Box zu scrollen. */}
+        <div className="md:col-span-2 min-w-0">
           <AdminProjectTabs
             projectId={project.id}
             clientId={client!.id}

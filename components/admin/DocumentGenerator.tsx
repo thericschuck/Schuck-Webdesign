@@ -19,7 +19,8 @@ export interface DocRow {
 
 export interface OfferOption {
   id: string
-  offer_number: string
+  /** null, solange das Angebot Entwurf ist — die AN-Nummer fällt erst beim Stellen. */
+  offer_number: string | null
 }
 
 type GenerateResult = { status: 'error'; message: string } | { status: 'success'; documentId: string; name: string }
@@ -126,7 +127,7 @@ export function DocumentGenerator({
                 <option value="">Angebot wählen…</option>
                 {offers.map((o) => (
                   <option key={o.id} value={o.id}>
-                    {o.offer_number}
+                    {o.offer_number ?? 'Entwurf (noch ohne Nummer)'}
                   </option>
                 ))}
               </select>
