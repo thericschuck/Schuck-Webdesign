@@ -2056,13 +2056,43 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_folders: {
+        Row: {
+          id: string
+          name: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'vault_folders_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       vault_entries: {
         Row: {
           id: string
           title: string
+          type: 'password' | 'env'
           username: string | null
           url: string | null
-          category: string | null
+          folder_id: string | null
           notes: string | null
           secret_encrypted: string
           created_by: string | null
@@ -2073,9 +2103,10 @@ export type Database = {
         Insert: {
           id?: string
           title: string
+          type?: 'password' | 'env'
           username?: string | null
           url?: string | null
-          category?: string | null
+          folder_id?: string | null
           notes?: string | null
           secret_encrypted: string
           created_by?: string | null
@@ -2086,9 +2117,10 @@ export type Database = {
         Update: {
           id?: string
           title?: string
+          type?: 'password' | 'env'
           username?: string | null
           url?: string | null
-          category?: string | null
+          folder_id?: string | null
           notes?: string | null
           secret_encrypted?: string
           created_by?: string | null
@@ -2109,6 +2141,13 @@ export type Database = {
             columns: ['updated_by']
             isOneToOne: false
             referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'vault_entries_folder_id_fkey'
+            columns: ['folder_id']
+            isOneToOne: false
+            referencedRelation: 'vault_folders'
             referencedColumns: ['id']
           }
         ]

@@ -1,16 +1,20 @@
 'use client'
 
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import type { VaultEntry, VaultAccessLogEntry } from '@/lib/domain/vault'
+import type { VaultEntry, VaultAccessLogEntry, VaultFolder, VaultEntryType } from '@/lib/domain/vault'
 import {
   createVaultEntryAction,
   updateVaultEntryAction,
   deleteVaultEntryAction,
   revealVaultSecretAction,
   loadVaultAccessLogAction,
+  createVaultFolderAction,
+  renameVaultFolderAction,
+  deleteVaultFolderAction,
 } from './actions'
 import { PasswordGenerator } from './PasswordGenerator'
 import { estimatePasswordStrength } from './password-strength'
+import { EnvVariablesEditor, EnvVariablesTable, type VariableRow } from './EnvVariables'
 
 type ActionResult = { status: 'error'; message: string } | { status: 'success' }
 
@@ -30,19 +34,15 @@ const ACTION_LABEL: Record<VaultAccessLogEntry['action'], string> = {
 
 const STRENGTH_COLOR = ['bg-red-400', 'bg-orange-400', 'bg-amber-400', 'bg-lime-500', 'bg-emerald-500']
 
+// Bewusst wenige, ruhige Töne statt vieler bunter Kategorien — Farbe dient hier nur
+// dazu, Einträge in der Liste auf den ersten Blick auseinanderzuhalten.
 const AVATAR_COLORS = [
-  'bg-red-100 text-red-700',
-  'bg-orange-100 text-orange-700',
-  'bg-amber-100 text-amber-700',
-  'bg-lime-100 text-lime-700',
-  'bg-emerald-100 text-emerald-700',
-  'bg-teal-100 text-teal-700',
-  'bg-cyan-100 text-cyan-700',
   'bg-blue-100 text-blue-700',
-  'bg-indigo-100 text-indigo-700',
+  'bg-emerald-100 text-emerald-700',
+  'bg-amber-100 text-amber-700',
+  'bg-rose-100 text-rose-700',
   'bg-violet-100 text-violet-700',
-  'bg-purple-100 text-purple-700',
-  'bg-pink-100 text-pink-700',
+  'bg-cyan-100 text-cyan-700',
 ]
 
 function avatarColor(seed: string): string {
@@ -59,6 +59,17 @@ function formatDateTime(iso: string) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function slugify(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') || 'env'
+  )
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────
@@ -143,74 +154,124 @@ function KeyIcon() {
     </svg>
   )
 }
+function DownloadIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+    </svg>
+  )
+}
+function FolderIcon() {
+  return (
+    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+    </svg>
+  )
+}
+function PlusIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+  )
+}
+
+function EntryAvatar({ entry, size = 'sm' }: { entry: VaultEntry; size?: 'sm' | 'lg' }) {
+  const dim = size === 'lg' ? 'w-12 h-12 text-lg' : 'w-9 h-9 text-sm'
+  if (entry.type === 'env') {
+    return (
+      <span className={`${dim} shrink-0 rounded-full flex items-center justify-center font-semibold bg-slate-100 text-slate-600`}>{'{ }'}</span>
+    )
+  }
+  return (
+    <span className={`${dim} shrink-0 rounded-full flex items-center justify-center font-semibold ${avatarColor(entry.title)}`}>
+      {entry.title.charAt(0).toUpperCase() || '?'}
+    </span>
+  )
+}
 
 // ── Board ─────────────────────────────────────────────────────────────────
 
-export function VaultBoard({ entries }: { entries: VaultEntry[] }) {
+export function VaultBoard({ entries, folders }: { entries: VaultEntry[]; folders: VaultFolder[] }) {
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState<string | null>(null)
+  const [folderFilter, setFolderFilter] = useState<string>('all')
   const [selectedId, setSelectedId] = useState<string | 'new' | null>(null)
 
-  const categories = useMemo(() => {
+  const countByFolder = useMemo(() => {
     const counts = new Map<string, number>()
     for (const e of entries) {
-      const key = e.category?.trim() || 'Ohne Kategorie'
+      const key = e.folder_id ?? 'unfiled'
       counts.set(key, (counts.get(key) ?? 0) + 1)
     }
-    return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0], 'de'))
+    return counts
   }, [entries])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return entries.filter((entry) => {
-      if (category !== null) {
-        const key = entry.category?.trim() || 'Ohne Kategorie'
-        if (key !== category) return false
-      }
+      if (folderFilter === 'unfiled' && entry.folder_id !== null) return false
+      if (folderFilter !== 'all' && folderFilter !== 'unfiled' && entry.folder_id !== folderFilter) return false
       if (!q) return true
       return (
         entry.title.toLowerCase().includes(q) ||
         (entry.username ?? '').toLowerCase().includes(q) ||
         (entry.url ?? '').toLowerCase().includes(q) ||
-        (entry.category ?? '').toLowerCase().includes(q)
+        (entry.folder_name ?? '').toLowerCase().includes(q)
       )
     })
-  }, [entries, search, category])
+  }, [entries, search, folderFilter])
 
   const selectedEntry = selectedId && selectedId !== 'new' ? (entries.find((e) => e.id === selectedId) ?? null) : null
   // Ein gelöschter Eintrag verschwindet nach dem Server-Refresh (revalidatePath) aus
   // `entries` — das Panel blendet sich dann von selbst aus, ohne extra State-Sync.
   const showPanel = selectedId === 'new' || selectedEntry !== null
+  const unfiledCount = countByFolder.get('unfiled') ?? 0
 
   return (
     <div className="flex flex-col md:flex-row gap-4 md:h-175">
-      {/* ── Kategorien ──────────────────────────────────────────── */}
-      <div className="md:w-48 shrink-0">
+      {/* ── Ordner ──────────────────────────────────────────────── */}
+      <div className="md:w-48 shrink-0 flex flex-col gap-3">
         <div className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0">
           <button
-            onClick={() => setCategory(null)}
+            onClick={() => setFolderFilter('all')}
             className={`shrink-0 flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm text-left transition-colors ${
-              category === null ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+              folderFilter === 'all' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`}
             style={dmSans}
           >
             Alle Einträge
-            <span className={`text-xs ${category === null ? 'text-white/60' : 'text-gray-400'}`}>{entries.length}</span>
+            <span className={`text-xs ${folderFilter === 'all' ? 'text-white/60' : 'text-gray-400'}`}>{entries.length}</span>
           </button>
-          {categories.map(([name, count]) => (
-            <button
-              key={name}
-              onClick={() => setCategory(name)}
-              className={`shrink-0 flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm text-left transition-colors ${
-                category === name ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              style={dmSans}
-            >
-              <span className="truncate">{name}</span>
-              <span className={`text-xs ${category === name ? 'text-white/60' : 'text-gray-400'}`}>{count}</span>
-            </button>
-          ))}
+
+          {/* Ordner hängen optisch als Baum unter "Alle Einträge" — Einrückung + Linie wie im
+              Datei-Explorer, nur auf Desktop (die mobile Chip-Reihe bleibt flach). */}
+          <div className="contents md:flex md:flex-col md:gap-1 md:pl-3 md:ml-3.5 md:border-l md:border-gray-100">
+            {unfiledCount > 0 && (
+              <button
+                onClick={() => setFolderFilter('unfiled')}
+                className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-left transition-colors ${
+                  folderFilter === 'unfiled' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+                style={dmSans}
+              >
+                <FolderIcon />
+                <span className="flex-1 min-w-0 truncate">Nicht zugeordnet</span>
+                <span className={`text-xs shrink-0 ${folderFilter === 'unfiled' ? 'text-white/60' : 'text-gray-400'}`}>{unfiledCount}</span>
+              </button>
+            )}
+            {folders.map((f) => (
+              <FolderRow
+                key={f.id}
+                folder={f}
+                count={countByFolder.get(f.id) ?? 0}
+                active={folderFilter === f.id}
+                onSelect={() => setFolderFilter(f.id)}
+                onDeleted={() => setFolderFilter((current) => (current === f.id ? 'all' : current))}
+              />
+            ))}
+          </div>
         </div>
+        <AddFolderControl />
       </div>
 
       {/* ── Liste ───────────────────────────────────────────────── */}
@@ -229,9 +290,7 @@ export function VaultBoard({ entries }: { entries: VaultEntry[] }) {
             className="shrink-0 flex items-center gap-2 px-3.5 py-2 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors"
             style={dmSans}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
+            <PlusIcon />
             <span className="hidden sm:inline">Neu</span>
           </button>
         </div>
@@ -257,6 +316,7 @@ export function VaultBoard({ entries }: { entries: VaultEntry[] }) {
           <EntryPanel
             key={selectedId}
             entry={selectedEntry}
+            folders={folders}
             onClose={() => setSelectedId(null)}
             onDeleted={() => setSelectedId(null)}
           />
@@ -266,14 +326,197 @@ export function VaultBoard({ entries }: { entries: VaultEntry[] }) {
   )
 }
 
+// ── Ordner: Sidebar-Zeile mit Umbenennen/Löschen ────────────────────────
+
+function FolderRow({
+  folder,
+  count,
+  active,
+  onSelect,
+  onDeleted,
+}: {
+  folder: VaultFolder
+  count: number
+  active: boolean
+  onSelect: () => void
+  onDeleted: () => void
+}) {
+  const [renaming, setRenaming] = useState(false)
+  const [name, setName] = useState(folder.name)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [isSaving, startSaving] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  const submitRename = () => {
+    const trimmed = name.trim()
+    if (!trimmed || trimmed === folder.name) {
+      setRenaming(false)
+      setName(folder.name)
+      return
+    }
+    setError(null)
+    startSaving(async () => {
+      const result = await renameVaultFolderAction(folder.id, trimmed)
+      if (result.status === 'error') {
+        setError(result.message)
+        return
+      }
+      setRenaming(false)
+    })
+  }
+
+  const handleDelete = () => {
+    startSaving(async () => {
+      const result = await deleteVaultFolderAction(folder.id)
+      if (result.status === 'success') onDeleted()
+    })
+  }
+
+  if (renaming) {
+    return (
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') submitRename()
+          if (e.key === 'Escape') {
+            setRenaming(false)
+            setName(folder.name)
+          }
+        }}
+        onBlur={submitRename}
+        disabled={isSaving}
+        className="shrink-0 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none"
+        style={dmSans}
+      />
+    )
+  }
+
+  return (
+    <div
+      className={`group shrink-0 flex items-center gap-1 rounded-xl text-sm transition-colors ${
+        active ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+      }`}
+    >
+      <button onClick={onSelect} className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left" style={dmSans}>
+        <FolderIcon />
+        <span className="flex-1 min-w-0 truncate">{folder.name}</span>
+        <span className={`text-xs shrink-0 ${active ? 'text-white/60' : 'text-gray-400'}`}>{count}</span>
+      </button>
+      <span
+        className={`hidden md:flex items-center pr-1.5 gap-0.5 transition-opacity ${
+          active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+      >
+        {confirmDelete ? (
+          <button
+            onClick={handleDelete}
+            disabled={isSaving}
+            className={`text-xs font-semibold px-1.5 whitespace-nowrap ${active ? 'text-white' : 'text-red-600'}`}
+          >
+            Sicher?
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => setRenaming(true)}
+              title="Umbenennen"
+              className={`p-1 rounded ${active ? 'text-white/70 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}
+            >
+              <EditIcon />
+            </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              title="Löschen"
+              className={`p-1 rounded ${active ? 'text-white/70 hover:text-white' : 'text-gray-400 hover:text-red-600'}`}
+            >
+              <TrashIcon />
+            </button>
+          </>
+        )}
+      </span>
+      {error && (
+        <span className="text-xs text-red-500 px-2" style={dmSans}>
+          {error}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function AddFolderControl() {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isSaving, startSaving] = useTransition()
+
+  const submit = () => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setOpen(false)
+      return
+    }
+    setError(null)
+    startSaving(async () => {
+      const result = await createVaultFolderAction(trimmed)
+      if (result.status === 'error') {
+        setError(result.message)
+        return
+      }
+      setName('')
+      setOpen(false)
+    })
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+        style={dmSans}
+      >
+        <PlusIcon /> Neuer Ordner
+      </button>
+    )
+  }
+
+  return (
+    <div className="shrink-0 flex flex-col gap-1">
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') submit()
+          if (e.key === 'Escape') {
+            setOpen(false)
+            setName('')
+          }
+        }}
+        onBlur={submit}
+        disabled={isSaving}
+        placeholder="Ordnername…"
+        className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none"
+        style={dmSans}
+      />
+      {error && (
+        <span className="text-xs text-red-500" style={dmSans}>
+          {error}
+        </span>
+      )}
+    </div>
+  )
+}
+
 // ── Liste: eine Zeile ────────────────────────────────────────────────────
 
 function EntryRow({ entry, active, onSelect }: { entry: VaultEntry; active: boolean; onSelect: () => void }) {
-  const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
   const [isCopyingPassword, startCopyPassword] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const flashCopied = (field: 'username' | 'password') => {
+  const flashCopied = (field: string) => {
     setCopiedField(field)
     setTimeout(() => setCopiedField((f) => (f === field ? null : f)), 1500)
   }
@@ -297,7 +540,7 @@ function EntryRow({ entry, active, onSelect }: { entry: VaultEntry; active: bool
         return
       }
       try {
-        await navigator.clipboard.writeText(result.password)
+        await navigator.clipboard.writeText(result.secret)
         flashCopied('password')
       } catch {
         setError('Kopieren fehlgeschlagen.')
@@ -320,22 +563,20 @@ function EntryRow({ entry, active, onSelect }: { entry: VaultEntry; active: bool
         active ? 'bg-gray-100' : 'hover:bg-gray-50'
       }`}
     >
-      <span className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold ${avatarColor(entry.title)}`}>
-        {entry.title.charAt(0).toUpperCase() || '?'}
-      </span>
+      <EntryAvatar entry={entry} />
       <span className="flex-1 min-w-0">
         <span className="block text-sm font-medium text-gray-900 truncate" style={dmSans}>
           {entry.title}
         </span>
         <span className="block text-xs text-gray-400 truncate" style={dmSans}>
-          {entry.username || entry.category || '—'}
+          {entry.type === 'env' ? entry.folder_name || '.env-Datei' : entry.username || entry.folder_name || '—'}
         </span>
       </span>
       {error ? (
         <span className="text-xs text-red-500 shrink-0" style={dmSans}>
           {error}
         </span>
-      ) : (
+      ) : entry.type === 'password' ? (
         <span className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0">
           {entry.username && (
             <button
@@ -362,19 +603,54 @@ function EntryRow({ entry, active, onSelect }: { entry: VaultEntry; active: bool
             {isCopyingPassword ? <SpinnerIcon /> : copiedField === 'password' ? <CheckIcon /> : <KeyIcon />}
           </button>
         </span>
-      )}
+      ) : null}
     </div>
   )
 }
 
 // ── Detail-Panel (Ansicht + Formular) ───────────────────────────────────
 
-function EntryPanel({ entry, onClose, onDeleted }: { entry: VaultEntry | null; onClose: () => void; onDeleted: () => void }) {
+function EntryPanel({
+  entry,
+  folders,
+  onClose,
+  onDeleted,
+}: {
+  entry: VaultEntry | null
+  folders: VaultFolder[]
+  onClose: () => void
+  onDeleted: () => void
+}) {
   const isCreate = entry === null
   const [editing, setEditing] = useState(isCreate)
+  const [prefillVariables, setPrefillVariables] = useState<VariableRow[] | null>(null)
+  const [isPreparingEdit, startPrepareEdit] = useTransition()
+  const [prepareError, setPrepareError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, startDelete] = useTransition()
+
+  const handleEditClick = () => {
+    if (!entry) return
+    if (entry.type === 'password') {
+      setEditing(true)
+      return
+    }
+    setPrepareError(null)
+    startPrepareEdit(async () => {
+      const result = await revealVaultSecretAction(entry.id)
+      if (result.status === 'error') {
+        setPrepareError(result.message)
+        return
+      }
+      try {
+        setPrefillVariables(JSON.parse(result.secret) as VariableRow[])
+        setEditing(true)
+      } catch {
+        setPrepareError('Variablen konnten nicht gelesen werden.')
+      }
+    })
+  }
 
   const handleDelete = () => {
     if (!entry) return
@@ -403,7 +679,13 @@ function EntryPanel({ entry, onClose, onDeleted }: { entry: VaultEntry | null; o
 
       <div className="flex-1 overflow-y-auto p-4">
         {editing ? (
-          <EntryForm mode={isCreate ? 'create' : 'edit'} entry={entry ?? undefined} onDone={() => (isCreate ? onClose() : setEditing(false))} />
+          <EntryForm
+            mode={isCreate ? 'create' : 'edit'}
+            entry={entry ?? undefined}
+            folders={folders}
+            initialVariables={prefillVariables ?? undefined}
+            onDone={() => (isCreate ? onClose() : setEditing(false))}
+          />
         ) : entry ? (
           <EntryView entry={entry} />
         ) : null}
@@ -436,11 +718,12 @@ function EntryPanel({ entry, onClose, onDeleted }: { entry: VaultEntry | null; o
           ) : (
             <>
               <button
-                onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={handleEditClick}
+                disabled={isPreparingEdit}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
                 style={dmSans}
               >
-                <EditIcon /> Bearbeiten
+                {isPreparingEdit ? <SpinnerIcon /> : <EditIcon />} Bearbeiten
               </button>
               <button
                 onClick={() => setConfirmDelete(true)}
@@ -451,9 +734,9 @@ function EntryPanel({ entry, onClose, onDeleted }: { entry: VaultEntry | null; o
               </button>
             </>
           )}
-          {deleteError && (
+          {(deleteError || prepareError) && (
             <p className="text-xs text-red-600" style={dmSans}>
-              {deleteError}
+              {deleteError ?? prepareError}
             </p>
           )}
         </div>
@@ -498,17 +781,17 @@ function IconButton({
 }
 
 function EntryView({ entry }: { entry: VaultEntry }) {
-  const [revealedPassword, setRevealedPassword] = useState<string | null>(null)
+  const [revealedSecret, setRevealedSecret] = useState<string | null>(null)
   const [revealError, setRevealError] = useState<string | null>(null)
   const [isRevealing, startReveal] = useTransition()
-  const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
   const [history, setHistory] = useState<VaultAccessLogEntry[] | null>(null)
   const [isHistoryLoading, startHistoryLoad] = useTransition()
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     // EntryView wird pro Auswahl frisch gemountet (key={selectedId} im Board), daher
-    // starten revealedPassword/history hier bereits bei null — nur der Verlauf muss
+    // starten revealedSecret/history hier bereits bei null — nur der Verlauf muss
     // einmal nachgeladen werden.
     startHistoryLoad(async () => {
       const log = await loadVaultAccessLogAction(entry.id)
@@ -523,12 +806,21 @@ function EntryView({ entry }: { entry: VaultEntry }) {
     []
   )
 
-  const flash = (field: 'username' | 'password') => {
+  const variables = useMemo(() => {
+    if (entry.type !== 'env' || revealedSecret === null) return null
+    try {
+      return JSON.parse(revealedSecret) as VariableRow[]
+    } catch {
+      return []
+    }
+  }, [entry.type, revealedSecret])
+
+  const flash = (field: string) => {
     setCopiedField(field)
     setTimeout(() => setCopiedField((f) => (f === field ? null : f)), 1500)
   }
 
-  const copyText = async (text: string, field: 'username' | 'password') => {
+  const copyText = async (text: string, field: string) => {
     try {
       await navigator.clipboard.writeText(text)
       flash(field)
@@ -545,76 +837,133 @@ function EntryView({ entry }: { entry: VaultEntry }) {
         setRevealError(result.message)
         return
       }
-      setRevealedPassword(result.password)
+      setRevealedSecret(result.secret)
       setHistory(null)
       if (hideTimer.current) clearTimeout(hideTimer.current)
-      hideTimer.current = setTimeout(() => setRevealedPassword(null), REVEAL_TIMEOUT_MS)
+      hideTimer.current = setTimeout(() => setRevealedSecret(null), REVEAL_TIMEOUT_MS)
     })
+  }
+
+  const copyAllVariables = () => {
+    if (!variables) return
+    copyText(
+      variables.map((v) => `${v.key}=${v.value}`).join('\n'),
+      'all'
+    )
+  }
+
+  const downloadEnvFile = () => {
+    if (!variables) return
+    const content = variables.map((v) => `${v.key}=${v.value}`).join('\n') + '\n'
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${slugify(entry.title)}.env`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-3">
-        <span className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center text-lg font-semibold ${avatarColor(entry.title)}`}>
-          {entry.title.charAt(0).toUpperCase() || '?'}
-        </span>
+        <EntryAvatar entry={entry} size="lg" />
         <div className="min-w-0">
           <p className="text-base font-semibold text-gray-900 truncate" style={dmSans}>
             {entry.title}
           </p>
-          {entry.category && (
-            <p className="text-xs text-gray-400" style={dmSans}>
-              {entry.category}
-            </p>
-          )}
+          <p className="text-xs text-gray-400" style={dmSans}>
+            {entry.type === 'env' ? '.env-Datei' : 'Passwort'}
+            {entry.folder_name ? ` · ${entry.folder_name}` : ''}
+          </p>
         </div>
       </div>
 
-      {entry.username && (
-        <Field label="Benutzername">
-          <span className="flex-1 text-sm text-gray-900 truncate" style={dmSans}>
-            {entry.username}
-          </span>
-          <IconButton onClick={() => copyText(entry.username ?? '', 'username')} title="Kopieren">
-            {copiedField === 'username' ? <CheckIcon /> : <CopyIcon />}
-          </IconButton>
-        </Field>
+      {entry.type === 'password' ? (
+        <>
+          {entry.username && (
+            <Field label="Benutzername">
+              <span className="flex-1 text-sm text-gray-900 truncate" style={dmSans}>
+                {entry.username}
+              </span>
+              <IconButton onClick={() => copyText(entry.username ?? '', 'username')} title="Kopieren">
+                {copiedField === 'username' ? <CheckIcon /> : <CopyIcon />}
+              </IconButton>
+            </Field>
+          )}
+
+          <Field label="Passwort">
+            {revealedSecret !== null ? (
+              <>
+                <code className="flex-1 text-sm text-gray-900 break-all">{revealedSecret}</code>
+                <IconButton onClick={() => copyText(revealedSecret, 'password')} title="Kopieren">
+                  {copiedField === 'password' ? <CheckIcon /> : <CopyIcon />}
+                </IconButton>
+                <IconButton onClick={() => setRevealedSecret(null)} title="Verbergen">
+                  <EyeOffIcon />
+                </IconButton>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 text-sm text-gray-400 tracking-widest" style={dmSans}>
+                  ••••••••••••
+                </span>
+                <IconButton onClick={handleReveal} title="Anzeigen" disabled={isRevealing}>
+                  {isRevealing ? <SpinnerIcon /> : <EyeIcon />}
+                </IconButton>
+              </>
+            )}
+          </Field>
+
+          {entry.url && (
+            <Field label="URL">
+              <a href={entry.url} target="_blank" rel="noreferrer" className="flex-1 text-sm text-gray-900 truncate hover:underline" style={dmSans}>
+                {entry.url}
+              </a>
+            </Field>
+          )}
+        </>
+      ) : (
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <p className={labelClass} style={{ ...dmSans, marginBottom: 0 }}>
+              Variablen{variables ? ` (${variables.length})` : ''}
+            </p>
+            {variables && (
+              <div className="flex items-center gap-1">
+                <IconButton onClick={copyAllVariables} title="Alle kopieren (KEY=VALUE)">
+                  {copiedField === 'all' ? <CheckIcon /> : <CopyIcon />}
+                </IconButton>
+                <IconButton onClick={downloadEnvFile} title="Als .env herunterladen">
+                  <DownloadIcon />
+                </IconButton>
+                <IconButton onClick={() => setRevealedSecret(null)} title="Verbergen">
+                  <EyeOffIcon />
+                </IconButton>
+              </div>
+            )}
+          </div>
+          {variables ? (
+            <EnvVariablesTable variables={variables} copiedField={copiedField} onCopyValue={copyText} />
+          ) : (
+            <button
+              type="button"
+              onClick={handleReveal}
+              disabled={isRevealing}
+              className="w-full flex items-center justify-center gap-2 py-3 text-sm text-gray-500 bg-gray-50 border border-gray-100 rounded-xl hover:bg-gray-100 disabled:opacity-50 transition-colors"
+              style={dmSans}
+            >
+              {isRevealing ? <SpinnerIcon /> : <EyeIcon />}
+              {isRevealing ? 'Entschlüssele…' : 'Variablen anzeigen'}
+            </button>
+          )}
+        </div>
       )}
 
-      <Field label="Passwort">
-        {revealedPassword !== null ? (
-          <>
-            <code className="flex-1 text-sm text-gray-900 break-all">{revealedPassword}</code>
-            <IconButton onClick={() => copyText(revealedPassword, 'password')} title="Kopieren">
-              {copiedField === 'password' ? <CheckIcon /> : <CopyIcon />}
-            </IconButton>
-            <IconButton onClick={() => setRevealedPassword(null)} title="Verbergen">
-              <EyeOffIcon />
-            </IconButton>
-          </>
-        ) : (
-          <>
-            <span className="flex-1 text-sm text-gray-400 tracking-widest" style={dmSans}>
-              ••••••••••••
-            </span>
-            <IconButton onClick={handleReveal} title="Anzeigen" disabled={isRevealing}>
-              {isRevealing ? <SpinnerIcon /> : <EyeIcon />}
-            </IconButton>
-          </>
-        )}
-      </Field>
       {revealError && (
         <p className="text-xs text-red-600 -mt-3" style={dmSans}>
           {revealError}
         </p>
-      )}
-
-      {entry.url && (
-        <Field label="URL">
-          <a href={entry.url} target="_blank" rel="noreferrer" className="flex-1 text-sm text-gray-900 truncate hover:underline" style={dmSans}>
-            {entry.url}
-          </a>
-        </Field>
       )}
 
       {entry.notes && (
@@ -668,12 +1017,25 @@ function EntryView({ entry }: { entry: VaultEntry }) {
   )
 }
 
-function EntryForm({ mode, entry, onDone }: { mode: 'create' | 'edit'; entry?: VaultEntry; onDone: () => void }) {
+function EntryForm({
+  mode,
+  entry,
+  folders,
+  initialVariables,
+  onDone,
+}: {
+  mode: 'create' | 'edit'
+  entry?: VaultEntry
+  folders: VaultFolder[]
+  initialVariables?: VariableRow[]
+  onDone: () => void
+}) {
   const action = mode === 'create' ? createVaultEntryAction : updateVaultEntryAction
   const [state, formAction, pending] = useActionState<ActionResult | null, FormData>(action, null)
   const formRef = useRef<HTMLFormElement>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState('')
+  const [type, setType] = useState<VaultEntryType>(entry?.type ?? 'password')
   const strength = estimatePasswordStrength(password)
 
   useEffect(() => {
@@ -687,6 +1049,32 @@ function EntryForm({ mode, entry, onDone }: { mode: 'create' | 'edit'; entry?: V
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-3">
       {mode === 'edit' && entry && <input type="hidden" name="id" value={entry.id} />}
+      <input type="hidden" name="type" value={type} />
+
+      {mode === 'create' && (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setType('password')}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              type === 'password' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+            }`}
+            style={dmSans}
+          >
+            Passwort
+          </button>
+          <button
+            type="button"
+            onClick={() => setType('env')}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              type === 'env' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+            }`}
+            style={dmSans}
+          >
+            .env-Datei
+          </button>
+        </div>
+      )}
 
       <div>
         <label className={labelClass} style={dmSans}>
@@ -699,83 +1087,93 @@ function EntryForm({ mode, entry, onDone }: { mode: 'create' | 'edit'; entry?: V
           autoFocus
           disabled={pending}
           defaultValue={entry?.title ?? ''}
-          placeholder="z.B. Vercel-Team, Domain-Registrar…"
+          placeholder={type === 'env' ? 'z.B. Athena-Finance Production' : 'z.B. Vercel-Team, Domain-Registrar…'}
           className={inputClass}
           style={dmSans}
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className={labelClass} style={dmSans}>
-            Benutzername
-          </label>
-          <input name="username" type="text" disabled={pending} defaultValue={entry?.username ?? ''} className={inputClass} style={dmSans} />
-        </div>
-        <div>
-          <label className={labelClass} style={dmSans}>
-            Kategorie
-          </label>
-          <input
-            name="category"
-            type="text"
-            disabled={pending}
-            defaultValue={entry?.category ?? ''}
-            placeholder="Hosting, Domain, E-Mail…"
-            className={inputClass}
-            style={dmSans}
-          />
-        </div>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <label className={labelClass} style={{ ...dmSans, marginBottom: 0 }}>
-            {mode === 'edit' ? 'Neues Passwort (leer lassen = unverändert)' : 'Passwort'}
-          </label>
-          <PasswordGenerator disabled={pending} onGenerate={setPassword} />
-        </div>
-        <div className="relative">
-          <input
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            required={mode === 'create'}
-            disabled={pending}
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={`${inputClass} pr-16`}
-            style={dmSans}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600"
-            style={dmSans}
-          >
-            {showPassword ? 'Verbergen' : 'Anzeigen'}
-          </button>
-        </div>
-        {password && (
-          <div className="flex items-center gap-2 mt-1.5">
-            <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden flex gap-0.5">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <span key={i} className={`flex-1 rounded-full ${i <= strength.score ? STRENGTH_COLOR[strength.score] : 'bg-gray-100'}`} />
-              ))}
-            </div>
-            <span className="text-xs text-gray-400 shrink-0" style={dmSans}>
-              {strength.label}
-            </span>
-          </div>
-        )}
-      </div>
-
       <div>
         <label className={labelClass} style={dmSans}>
-          URL
+          Ordner
         </label>
-        <input name="url" type="text" disabled={pending} defaultValue={entry?.url ?? ''} placeholder="https://…" className={inputClass} style={dmSans} />
+        <select name="folder_id" disabled={pending} defaultValue={entry?.folder_id ?? ''} className={inputClass} style={dmSans}>
+          <option value="">Kein Ordner</option>
+          {folders.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </select>
       </div>
+
+      {type === 'password' ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass} style={dmSans}>
+                Benutzername
+              </label>
+              <input name="username" type="text" disabled={pending} defaultValue={entry?.username ?? ''} className={inputClass} style={dmSans} />
+            </div>
+            <div>
+              <label className={labelClass} style={dmSans}>
+                URL
+              </label>
+              <input name="url" type="text" disabled={pending} defaultValue={entry?.url ?? ''} placeholder="https://…" className={inputClass} style={dmSans} />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className={labelClass} style={{ ...dmSans, marginBottom: 0 }}>
+                {mode === 'edit' ? 'Neues Passwort (leer lassen = unverändert)' : 'Passwort'}
+              </label>
+              <PasswordGenerator disabled={pending} onGenerate={setPassword} />
+            </div>
+            <div className="relative">
+              <input
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                required={mode === 'create'}
+                disabled={pending}
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`${inputClass} pr-16`}
+                style={dmSans}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600"
+                style={dmSans}
+              >
+                {showPassword ? 'Verbergen' : 'Anzeigen'}
+              </button>
+            </div>
+            {password && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden flex gap-0.5">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <span key={i} className={`flex-1 rounded-full ${i <= strength.score ? STRENGTH_COLOR[strength.score] : 'bg-gray-100'}`} />
+                  ))}
+                </div>
+                <span className="text-xs text-gray-400 shrink-0" style={dmSans}>
+                  {strength.label}
+                </span>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <div>
+          <label className={labelClass} style={dmSans}>
+            Variablen
+          </label>
+          <EnvVariablesEditor initialVariables={initialVariables} disabled={pending} />
+        </div>
+      )}
 
       <div>
         <label className={labelClass} style={dmSans}>

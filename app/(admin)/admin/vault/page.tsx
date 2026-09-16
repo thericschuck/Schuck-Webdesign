@@ -1,8 +1,8 @@
-import { listVaultEntries } from '@/lib/domain/vault'
+import { listVaultEntries, listVaultFolders } from '@/lib/domain/vault'
 import { VaultBoard } from './VaultBoard'
 
 export default async function VaultPage() {
-  const entries = await listVaultEntries()
+  const [entries, folders] = await Promise.all([listVaultEntries(), listVaultFolders()])
 
   return (
     <div className="flex flex-col gap-6">
@@ -11,11 +11,11 @@ export default async function VaultPage() {
           Passwort-Tresor
         </h1>
         <p className="text-sm text-gray-500 mt-1" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-          Verschlüsselt gespeicherte Zugangsdaten – nur für Admins sichtbar. Jede Anzeige eines Passworts wird protokolliert.
+          Verschlüsselt gespeicherte Zugangsdaten &amp; .env-Dateien – nur für Admins sichtbar. Jede Anzeige wird protokolliert.
         </p>
       </div>
 
-      <VaultBoard entries={entries} />
+      <VaultBoard entries={entries} folders={folders} />
     </div>
   )
 }

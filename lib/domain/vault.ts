@@ -2,12 +2,16 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { DomainError } from './errors'
 import { encryptSecret, decryptSecret } from '@/lib/vault/encryption'
 
+export type VaultEntryType = 'password' | 'env'
+
 export interface VaultEntry {
   id: string
   title: string
+  type: VaultEntryType
   username: string | null
   url: string | null
-  category: string | null
+  folder_id: string | null
+  folder_name: string | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -18,18 +22,21 @@ export interface VaultEntry {
 interface RawVaultRow {
   id: string
   title: string
+  type: VaultEntryType
   username: string | null
   url: string | null
-  category: string | null
+  folder_id: string | null
   notes: string | null
   created_at: string
   updated_at: string
+  folder: { name: string } | { name: string }[] | null
   creator: { full_name: string | null } | { full_name: string | null }[] | null
   updater: { full_name: string | null } | { full_name: string | null }[] | null
 }
 
 const VAULT_SELECT = `
-  id, title, username, url, category, notes, created_at, updated_at,
+  id, title, type, username, url, folder_id, notes, created_at, updated_at,
+  folder:vault_folders(name),
   creator:profiles!vault_entries_created_by_fkey(full_name),
   updater:profiles!vault_entries_updated_by_fkey(full_name)
 `
@@ -42,9 +49,11 @@ function toVaultEntry(row: RawVaultRow): VaultEntry {
   return {
     id: row.id,
     title: row.title,
+    type: row.type,
     username: row.username,
     url: row.url,
-    category: row.category,
+    folder_id: row.folder_id,
+    folder_name: firstOf(row.folder)?.name ?? null,
     notes: row.notes,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -63,6 +72,48 @@ export async function listVaultEntries(): Promise<VaultEntry[]> {
   if (error) throw new DomainError(error.message)
   return (data as unknown as RawVaultRow[]).map(toVaultEntry)
 }
+
+// ── Ordner ────────────────────────────────────────────────────────────────
+
+export interface VaultFolder {
+  id: string
+  name: string
+}
+
+export async function listVaultFolders(): Promise<VaultFolder[]> {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient.from('vault_folders').select('id, name').order('name', { ascending: true })
+  if (error) throw new DomainError(error.message)
+  return data ?? []
+}
+
+export async function createVaultFolder(name: string): Promise<VaultFolder> {
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient.from('vault_folders').insert({ name }).select('id, name').single()
+  if (error) {
+    if (error.code === '23505') throw new DomainError('Ein Ordner mit diesem Namen existiert bereits.')
+    throw new DomainError(error.message)
+  }
+  return data
+}
+
+export async function renameVaultFolder(id: string, name: string): Promise<void> {
+  const adminClient = createAdminClient()
+  const { error } = await adminClient.from('vault_folders').update({ name }).eq('id', id)
+  if (error) {
+    if (error.code === '23505') throw new DomainError('Ein Ordner mit diesem Namen existiert bereits.')
+    throw new DomainError(error.message)
+  }
+}
+
+/** Einträge im Ordner werden NICHT gelöscht, sondern landen in "Nicht zugeordnet" (folder_id → null, siehe FK ON DELETE SET NULL). */
+export async function deleteVaultFolder(id: string): Promise<void> {
+  const adminClient = createAdminClient()
+  const { error } = await adminClient.from('vault_folders').delete().eq('id', id)
+  if (error) throw new DomainError(error.message)
+}
+
+// ── Zugriffsprotokoll ────────────────────────────────────────────────────
 
 export interface VaultAccessLogEntry {
   id: string
@@ -96,27 +147,32 @@ export async function listVaultAccessLog(entryId: string, limit = 10): Promise<V
   }))
 }
 
-export interface CreateVaultEntryInput {
+// ── Einträge: Anlegen / Bearbeiten / Löschen ────────────────────────────
+
+interface BaseEntryInput {
   title: string
-  username?: string | null
-  password: string
-  url?: string | null
-  category?: string | null
+  folderId?: string | null
   notes?: string | null
-  createdBy: string
 }
+
+export type CreateVaultEntryInput = BaseEntryInput & { createdBy: string } & (
+    | { type: 'password'; password: string; username?: string | null; url?: string | null }
+    | { type: 'env'; variables: { key: string; value: string }[] }
+  )
 
 export async function createVaultEntry(input: CreateVaultEntryInput): Promise<void> {
   const adminClient = createAdminClient()
-  const secret_encrypted = encryptSecret(input.password)
+  const secret_encrypted =
+    input.type === 'password' ? encryptSecret(input.password) : encryptSecret(JSON.stringify(input.variables))
 
   const { data, error } = await adminClient
     .from('vault_entries')
     .insert({
       title: input.title,
-      username: input.username ?? null,
-      url: input.url ?? null,
-      category: input.category ?? null,
+      type: input.type,
+      username: input.type === 'password' ? (input.username ?? null) : null,
+      url: input.type === 'password' ? (input.url ?? null) : null,
+      folder_id: input.folderId ?? null,
       notes: input.notes ?? null,
       secret_encrypted,
       created_by: input.createdBy,
@@ -130,15 +186,15 @@ export async function createVaultEntry(input: CreateVaultEntryInput): Promise<vo
   await logVaultAccess(data.id, input.title, input.createdBy, 'create')
 }
 
-export interface UpdateVaultEntryInput {
+export type UpdateVaultEntryInput = {
   title?: string
-  username?: string | null
-  password?: string
-  url?: string | null
-  category?: string | null
+  folderId?: string | null
   notes?: string | null
   updatedBy: string
-}
+} & (
+  | { type: 'password'; password?: string; username?: string | null; url?: string | null }
+  | { type: 'env'; variables?: { key: string; value: string }[] }
+)
 
 export async function updateVaultEntry(id: string, input: UpdateVaultEntryInput): Promise<void> {
   const adminClient = createAdminClient()
@@ -149,7 +205,7 @@ export async function updateVaultEntry(id: string, input: UpdateVaultEntryInput)
     title?: string
     username?: string | null
     url?: string | null
-    category?: string | null
+    folder_id?: string | null
     notes?: string | null
     secret_encrypted?: string
   } = {
@@ -157,11 +213,16 @@ export async function updateVaultEntry(id: string, input: UpdateVaultEntryInput)
     updated_at: new Date().toISOString(),
   }
   if (input.title !== undefined) patch.title = input.title
-  if (input.username !== undefined) patch.username = input.username
-  if (input.url !== undefined) patch.url = input.url
-  if (input.category !== undefined) patch.category = input.category
+  if (input.folderId !== undefined) patch.folder_id = input.folderId
   if (input.notes !== undefined) patch.notes = input.notes
-  if (input.password !== undefined) patch.secret_encrypted = encryptSecret(input.password)
+
+  if (input.type === 'password') {
+    if (input.username !== undefined) patch.username = input.username
+    if (input.url !== undefined) patch.url = input.url
+    if (input.password !== undefined) patch.secret_encrypted = encryptSecret(input.password)
+  } else {
+    if (input.variables !== undefined) patch.secret_encrypted = encryptSecret(JSON.stringify(input.variables))
+  }
 
   const { data, error } = await adminClient.from('vault_entries').update(patch).eq('id', id).select('title').single()
 
@@ -181,6 +242,7 @@ export async function deleteVaultEntry(id: string, deletedBy: string): Promise<v
   await logVaultAccess(id, data.title, deletedBy, 'delete')
 }
 
+/** Gibt den entschlüsselten Rohwert zurück — bei type 'env' ein JSON-String, den der Aufrufer parst. */
 export async function revealVaultSecret(id: string, accessedBy: string): Promise<string> {
   const adminClient = createAdminClient()
   const { data, error } = await adminClient
