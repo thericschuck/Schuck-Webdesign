@@ -92,18 +92,11 @@ export function AuthCallbackHandler() {
         return
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (profile?.role === 'admin') {
-        router.replace('/admin/dashboard')
-      } else {
-        // Neuer Client → Passwort einrichten
-        router.replace('/auth/set-password')
-      }
+      // Neue Einladung (Kunde oder Admin-Kollege) → immer erst Passwort einrichten.
+      // Die Rolle entscheidet erst danach (in set-password/actions.ts) über das Ziel —
+      // ein direkter Sprung zu /admin/dashboard hier würde den User einloggen, bevor
+      // er ein Passwort hat, und ihn beim nächsten Login aussperren.
+      router.replace('/auth/set-password')
     }
 
     handleCallback()

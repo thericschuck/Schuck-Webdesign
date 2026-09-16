@@ -2056,6 +2056,98 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_entries: {
+        Row: {
+          id: string
+          title: string
+          username: string | null
+          url: string | null
+          category: string | null
+          notes: string | null
+          secret_encrypted: string
+          created_by: string | null
+          updated_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          username?: string | null
+          url?: string | null
+          category?: string | null
+          notes?: string | null
+          secret_encrypted: string
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          username?: string | null
+          url?: string | null
+          category?: string | null
+          notes?: string | null
+          secret_encrypted?: string
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'vault_entries_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'vault_entries_updated_by_fkey'
+            columns: ['updated_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      vault_access_log: {
+        Row: {
+          id: string
+          entry_id: string
+          entry_title: string
+          accessed_by: string | null
+          action: 'view' | 'create' | 'update' | 'delete'
+          accessed_at: string
+        }
+        Insert: {
+          id?: string
+          entry_id: string
+          entry_title: string
+          accessed_by?: string | null
+          action: 'view' | 'create' | 'update' | 'delete'
+          accessed_at?: string
+        }
+        Update: {
+          id?: string
+          entry_id?: string
+          entry_title?: string
+          accessed_by?: string | null
+          action?: 'view' | 'create' | 'update' | 'delete'
+          accessed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'vault_access_log_accessed_by_fkey'
+            columns: ['accessed_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
