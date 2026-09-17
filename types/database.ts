@@ -561,31 +561,28 @@ export type Database = {
           }
         ]
       }
-      jarvis_messages: {
+      helm_messages: {
         Row: {
           id: string
           profile_id: string
-          role: 'user' | 'assistant'
-          content: string
+          message: Json
           created_at: string
         }
         Insert: {
           id?: string
           profile_id: string
-          role: 'user' | 'assistant'
-          content: string
+          message: Json
           created_at?: string
         }
         Update: {
           id?: string
           profile_id?: string
-          role?: 'user' | 'assistant'
-          content?: string
+          message?: Json
           created_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'jarvis_messages_profile_id_fkey'
+            foreignKeyName: 'helm_messages_profile_id_fkey'
             columns: ['profile_id']
             isOneToOne: false
             referencedRelation: 'profiles'
@@ -678,14 +675,15 @@ export type Database = {
           id: string
           tool_name: string
           tool_args: Json
-          conversation: Json
           expires_at: string
           created_at: string
           run_id: string | null
           step_id: string | null
-          action_type: string | null
           payload: Json | null
           status: 'pending' | 'approved' | 'rejected' | 'expired' | null
+          summary: string | null
+          result: Json | null
+          error: Json | null
           decided_by: string | null
           decided_at: string | null
         }
@@ -693,14 +691,15 @@ export type Database = {
           id?: string
           tool_name: string
           tool_args: Json
-          conversation: Json
           expires_at?: string
           created_at?: string
           run_id?: string | null
           step_id?: string | null
-          action_type?: string | null
           payload?: Json | null
           status?: 'pending' | 'approved' | 'rejected' | 'expired' | null
+          summary?: string | null
+          result?: Json | null
+          error?: Json | null
           decided_by?: string | null
           decided_at?: string | null
         }
@@ -708,14 +707,15 @@ export type Database = {
           id?: string
           tool_name?: string
           tool_args?: Json
-          conversation?: Json
           expires_at?: string
           created_at?: string
           run_id?: string | null
           step_id?: string | null
-          action_type?: string | null
           payload?: Json | null
           status?: 'pending' | 'approved' | 'rejected' | 'expired' | null
+          summary?: string | null
+          result?: Json | null
+          error?: Json | null
           decided_by?: string | null
           decided_at?: string | null
         }
@@ -733,6 +733,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'agent_steps'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'pending_actions_decided_by_fkey'
+            columns: ['decided_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           }
         ]
       }
@@ -745,9 +752,7 @@ export type Database = {
           system_prompt: string
           model: string
           parent_agent_id: string | null
-          config: Json | null
           status: 'active' | 'inactive'
-          position: Json | null
           created_at: string | null
           updated_at: string | null
         }
@@ -759,9 +764,7 @@ export type Database = {
           system_prompt: string
           model?: string
           parent_agent_id?: string | null
-          config?: Json | null
           status?: 'active' | 'inactive'
-          position?: Json | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -773,9 +776,7 @@ export type Database = {
           system_prompt?: string
           model?: string
           parent_agent_id?: string | null
-          config?: Json | null
           status?: 'active' | 'inactive'
-          position?: Json | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -793,29 +794,14 @@ export type Database = {
         Row: {
           id: string
           slug: string
-          name: string
-          description: string | null
-          input_schema: Json
-          is_irreversible: boolean | null
-          timeout_ms: number | null
         }
         Insert: {
           id?: string
           slug: string
-          name: string
-          description?: string | null
-          input_schema: Json
-          is_irreversible?: boolean | null
-          timeout_ms?: number | null
         }
         Update: {
           id?: string
           slug?: string
-          name?: string
-          description?: string | null
-          input_schema?: Json
-          is_irreversible?: boolean | null
-          timeout_ms?: number | null
         }
         Relationships: []
       }
@@ -981,160 +967,6 @@ export type Database = {
           },
           {
             foreignKeyName: 'agent_steps_agent_id_fkey'
-            columns: ['agent_id']
-            isOneToOne: false
-            referencedRelation: 'agents'
-            referencedColumns: ['id']
-          }
-        ]
-      }
-      agent_messages: {
-        Row: {
-          id: string
-          run_id: string | null
-          from_agent_id: string | null
-          to_agent_id: string | null
-          role: string | null
-          content: Json | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          run_id?: string | null
-          from_agent_id?: string | null
-          to_agent_id?: string | null
-          role?: string | null
-          content?: Json | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          run_id?: string | null
-          from_agent_id?: string | null
-          to_agent_id?: string | null
-          role?: string | null
-          content?: Json | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'agent_messages_run_id_fkey'
-            columns: ['run_id']
-            isOneToOne: false
-            referencedRelation: 'agent_runs'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'agent_messages_from_agent_id_fkey'
-            columns: ['from_agent_id']
-            isOneToOne: false
-            referencedRelation: 'agents'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'agent_messages_to_agent_id_fkey'
-            columns: ['to_agent_id']
-            isOneToOne: false
-            referencedRelation: 'agents'
-            referencedColumns: ['id']
-          }
-        ]
-      }
-      deliverables: {
-        Row: {
-          id: string
-          run_id: string | null
-          client_id: string | null
-          project_id: string | null
-          type: string
-          title: string
-          storage_path: string
-          mime_type: string | null
-          status: 'draft' | 'sent' | 'archived'
-          sent_at: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          run_id?: string | null
-          client_id?: string | null
-          project_id?: string | null
-          type: string
-          title: string
-          storage_path: string
-          mime_type?: string | null
-          status?: 'draft' | 'sent' | 'archived'
-          sent_at?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          run_id?: string | null
-          client_id?: string | null
-          project_id?: string | null
-          type?: string
-          title?: string
-          storage_path?: string
-          mime_type?: string | null
-          status?: 'draft' | 'sent' | 'archived'
-          sent_at?: string | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'deliverables_run_id_fkey'
-            columns: ['run_id']
-            isOneToOne: false
-            referencedRelation: 'agent_runs'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'deliverables_client_id_fkey'
-            columns: ['client_id']
-            isOneToOne: false
-            referencedRelation: 'clients'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'deliverables_project_id_fkey'
-            columns: ['project_id']
-            isOneToOne: false
-            referencedRelation: 'projects'
-            referencedColumns: ['id']
-          }
-        ]
-      }
-      scheduled_tasks: {
-        Row: {
-          id: string
-          agent_id: string | null
-          cron_expr: string
-          task_template: string
-          scope: string | null
-          active: boolean | null
-          last_run_at: string | null
-        }
-        Insert: {
-          id?: string
-          agent_id?: string | null
-          cron_expr: string
-          task_template: string
-          scope?: string | null
-          active?: boolean | null
-          last_run_at?: string | null
-        }
-        Update: {
-          id?: string
-          agent_id?: string | null
-          cron_expr?: string
-          task_template?: string
-          scope?: string | null
-          active?: boolean | null
-          last_run_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'scheduled_tasks_agent_id_fkey'
             columns: ['agent_id']
             isOneToOne: false
             referencedRelation: 'agents'

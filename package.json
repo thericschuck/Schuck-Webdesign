@@ -19,11 +19,14 @@
     "doc:verify-editor": "tsx scripts/verify-document-editor.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.54",
+    "@ai-sdk/react": "^4.0.105",
     "@anthropic-ai/sdk": "^0.110.0",
     "@sparticuz/chromium": "^149.0.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.0",
     "@xyflow/react": "^12.11.2",
+    "ai": "^7.0.102",
     "dagre": "^0.8.5",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.25.0",
@@ -43,7 +46,8 @@
     "sharp": "^0.35.3",
     "supabase": "^2.91.1",
     "three": "^0.185.1",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

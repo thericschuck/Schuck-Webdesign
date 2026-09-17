@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DomainError } from './errors'
-import { embedText } from '@/lib/jarvis/embeddings'
+import { embedText } from '@/lib/embeddings'
 import type { Database, KnowledgeNode, KnowledgeEdge, NodeType, NodeSource, NodeConfidence, EdgeType } from '@/types/database'
 
 type NodeUpdate = Database['public']['Tables']['nodes']['Update']
@@ -233,7 +233,7 @@ export interface ClientContextResult {
 }
 
 /**
- * Gemeinsame Kontext-Pipeline für den Per-Prompt-Hook (lib/jarvis/context.ts, Seed = query)
+ * Gemeinsame Kontext-Pipeline für den Per-Prompt-Hook (lib/helm/core/context.ts, Seed = query)
  * und das Tool get_client_context (Seed = clientId): Semantic Search bzw. Kunden-Knoten
  * → Graph-Traversal Tiefe 3 → Dedupe → deprecated ausgeschlossen → ~2.000-Token-Textblock.
  */
@@ -350,7 +350,7 @@ export interface WriteSessionLogInput {
  * zu den Client-/Projekt-Knoten der übergebenen IDs, sofern vorhanden. `messages` bleibt
  * leer — Tools bekommen keinen Zugriff auf die rohe Conversation (nur `args`), das Modell
  * liefert stattdessen einen selbst verfassten summary-Text. Das Label ist ein inhaltlicher,
- * von JARVIS verfasster Titel statt nur des Datums — sonst heißen mehrere Sessions am
+ * von HELM verfasster Titel statt nur des Datums — sonst heißen mehrere Sessions am
  * selben Tag alle identisch ("Gespräch DD.MM.YYYY") und sind in der Liste (die das Datum
  * ohnehin separat anzeigt) nicht mehr auf einen Blick unterscheidbar.
  */

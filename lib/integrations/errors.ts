@@ -1,6 +1,6 @@
 /**
  * Fehler aus der Integrations-Schicht (lib/integrations/*). `code` steuert,
- * wie lib/jarvis/agent.ts mit dem Fehler umgeht: "missing_key"/"unauthorized"
+ * wie lib/helm/core/run.ts mit dem Fehler umgeht: "missing_key"/"unauthorized"
  * eskalieren sofort (ein Retry ändert nichts an einem fehlenden/ungültigen
  * Schlüssel), "upstream_error" durchläuft die normale Retry-Zählung.
  */

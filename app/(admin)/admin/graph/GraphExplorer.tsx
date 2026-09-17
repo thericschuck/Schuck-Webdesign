@@ -1535,8 +1535,8 @@ export function GraphExplorer() {
 
       {/* Mobile + Tablet: Panel startet eingeklappt (Graph bleibt voll sichtbar/bedienbar), ein
           kleiner Toggle-Button öffnet es als Bottom-Sheet statt es dauerhaft über den Bildschirm
-          zu legen. Links platziert (nicht bottom-5 right-5), weil dort schon der JARVIS-Bubble
-          sitzt (components/admin/JarvisWidget.tsx, z-50) — sonst überlappen sich beide Buttons. */}
+          zu legen. Links platziert (nicht bottom-5 right-5), weil dort schon der HELM-Bubble
+          sitzt (components/admin/HelmWidget.tsx, z-50) — sonst überlappen sich beide Buttons. */}
       <button
         onClick={() => setMobileFiltersOpen(true)}
         className="lg:hidden absolute bottom-5 left-5 z-20 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/8 backdrop-blur-xl border border-white/12 text-white text-sm font-medium shadow-2xl shadow-black/60"
@@ -1549,7 +1549,7 @@ export function GraphExplorer() {
       </button>
 
       {mobileFiltersOpen && (
-        // z-[60]: höher als JARVIS' Bubble/Chat-Fenster (z-50) — sonst schwebt der Bubble
+        // z-[60]: höher als HELMs Bubble/Chat-Fenster (z-50) — sonst schwebt der Bubble
         // sichtbar über dem geöffneten Sheet statt dahinter zu verschwinden.
         <div className="lg:hidden fixed inset-0 z-60 flex items-end">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileFiltersOpen(false)} />

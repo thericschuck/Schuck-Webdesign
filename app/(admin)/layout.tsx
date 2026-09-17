@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AdminNav } from '@/components/admin/AdminNav'
-import { JarvisWidget } from '@/components/admin/JarvisWidget'
+import { HelmWidget } from '@/components/admin/HelmWidget'
 import { ToastProvider } from '@/components/admin/ToastProvider'
 
 export default async function AdminLayout({
@@ -70,11 +70,11 @@ export default async function AdminLayout({
           {/* max-w-6xl bleibt der Standard (Lesbarkeit auf den meisten Bildschirmen) — ab 2xl
               (≥1536px, echte breite Monitore) fällt die Deckelung weg, damit breite Inhalte
               wie die Produkttabelle den vorhandenen Platz auch wirklich nutzen können.
-              JARVIS im Vollbild (/admin/jarvis) ignoriert das ohnehin — siehe dort: eigener
-              fixed-positionierter Shell wie /admin/jarvis/cockpit, unabhängig vom Seitenfluss. */}
+              HELM im Vollbild (/admin/helm) ignoriert das ohnehin — siehe dort: eigener
+              fixed-positionierter Shell wie /admin/helm/cockpit, unabhängig vom Seitenfluss. */}
           <main className="w-full p-4 md:p-8 pt-16 md:pt-8 max-w-6xl 2xl:max-w-none">{children}</main>
         </div>
-        <JarvisWidget mode="floating" />
+        <HelmWidget mode="floating" />
       </div>
     </ToastProvider>
   )

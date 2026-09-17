@@ -33,7 +33,7 @@ Admin-Bereich für Eric (Projektverwaltung, Kundenverwaltung) + Portal für Kund
 - **Kein Test-Framework konfiguriert** (kein Jest/Vitest/Playwright, keine `__tests__`, kein `.github/workflows/`) — nicht nach Tests suchen oder `npm test` annehmen
 - Import-/Batch-Skripte (via `tsx`): `npm run import:catalog[:dry]`, `npm run import:leads[:dry]`, `npm run import:backfill-graph[:dry]` (Dry-Run-Varianten zum Testen ohne DB-Writes)
 - Kein `supabase/config.toml` → kein lokaler Supabase-Stack; Code verbindet direkt gegen das gehostete Supabase-Projekt über Env-Vars
-- Migrationen: `supabase/migrations/NNNN_beschreibung.sql`, fortlaufend nummeriert (aktuell bis `0025`); Buchstaben-Suffixe (`0008b`, `0008c`) markieren Nachträge zu einer bestehenden Migration
+- Migrationen: `supabase/migrations/NNNN_beschreibung.sql`, fortlaufend nummeriert (aktuell bis `0041`); Buchstaben-Suffixe (`0008b`, `0008c`) markieren Nachträge zu einer bestehenden Migration
 
 ---
 
@@ -81,32 +81,37 @@ Schuck-Redesign/
 
 ---
 
-## JARVIS – Admin-Agenten-System
+## HELM – Admin-Agenten-System
 
-Internes, admin-only KI-Cockpit (Anthropic Messages API direkt, kein Agent-Framework). Eingebettet als Widget (`components/admin/JarvisWidget.tsx`, floating oder full-page unter `/admin/jarvis`) und als Cockpit-Ansicht (`/admin/jarvis/cockpit`).
+Internes, admin-only KI-Cockpit auf dem Vercel AI SDK (`ai`, `@ai-sdk/anthropic`, `@ai-sdk/react`) — Nachfolger von "JARVIS" (bis Sept. 2026, siehe git-Historie/`JARVIS_*.md` für die alte Architektur). Eingebettet als Widget (`components/admin/HelmWidget.tsx`, floating oder full-page unter `/admin/helm`) und als Cockpit-Ansicht (`/admin/helm/cockpit`).
 
-**Agent-Loop (`lib/jarvis/agent.ts`)**
-- Eine gemeinsame Loop (`runJarvisAgent`) für Orchestrator und alle Sub-Agenten; max. 10 Iterationen, streamt über `client.messages.stream()`.
-- Tools mit `requiresConfirmation: true` pausieren die Loop → Human-in-the-loop; Zustand wird in `pending_actions` persistiert und über `/api/jarvis/confirm` fortgesetzt.
-- Jeder Run/Tool-Call wird in `agent_runs` / `agent_steps` protokolliert (Observability, keine Business-Daten).
+**Agent-Loop (`lib/helm/core/run.ts`)**
+- `runHelmAgent()` ist ein dünner `streamText()`-Wrapper (kein handgeschriebener Loop) für Orchestrator und alle Sub-Agenten-Läufe gleichermaßen; `stopWhen: stepCountIs(10)`.
+- **Bestätigung ist entkoppelt vom Modell-Loop**: ein `requiresConfirmation:true`-Tool pausiert nichts — es legt sofort einen `pending_actions`-Eintrag (`status='pending'`) an und gibt `{status:'pending_confirmation', actionId, summary}` als normales Tool-Ergebnis zurück. Die eigentliche Ausführung passiert erst bei Bestätigung über die Server Actions `confirmPendingAction`/`rejectPendingAction` (`lib/helm/actions/confirm.ts`).
+- Jeder Run/Tool-Call wird in `agent_runs`/`agent_steps` protokolliert (Observability, keine Business-Daten), inkl. Token-Verbrauch (`agent_steps.tokens_used`, aus `streamText`s `onStepFinish`).
 
-**Sub-Agenten**
-- 6 Stück (`design_agent`, `code_agent`, `seo_agent`, `care_agent`, `akquise_agent`, `finance_agent`), Code-Konstanten in `lib/jarvis/subagents.ts` sind nur Fallback/Seed.
-- **Laufzeit-Quelle ist die DB**: `public.agents` (system_prompt, model, status) + `public.agent_tools`/`public.tools` — live editierbar über `PATCH /api/admin/jarvis/agents/[id]`. `buildScopedRegistry()` liest das bei jedem Sub-Agent-Call frisch (kein Caching).
-- Sub-Agenten dürfen nur read-only Tools halten; ein zugewiesenes `requiresConfirmation`-Tool wirft einen Fehler.
+**Tool-Katalog (`lib/helm/catalog/`)**
+- Single Source of Truth: jedes Tool ist ein `HelmToolDef` (`slug`, `label`, `description`, zod-`schema`, `requiresConfirmation`, optional `summarize`, `execute`) in `lib/helm/catalog/domains/*.ts` — das zod-Schema validiert Argumente UND liefert die im System-Prompt gerenderte Beschreibung; keine separate DB-Kopie mehr (`public.tools` ist seit Migration `0041` nur noch `id`/`slug` als FK-Ziel für `agent_tools`).
+- `lib/helm/catalog/registry.ts#CATALOG` = alle Domänen-Tools + die 6 Sub-Agenten-Delegations-Tools; `toAiSdkTools(context)` baut daraus die AI-SDK-Tool-Map für den Orchestrator (Bestätigungs-Tools automatisch als "Vorschlag"-Wrapper über `lib/helm/actions/pending-actions.ts`).
 
-**System-Prompt (`lib/jarvis/system-prompt.ts`)**
-- Orchestrator-Prompt ist **hardcoded** (großer deutscher `BASE_PROMPT`), nicht DB-gesteuert — im Gegensatz zu den Sub-Agenten-Prompts.
-- `buildJarvisSystemPrompt()` hängt dynamisch an: Cold-Start-Kontext (offene Todos, ungelesene Kontaktanfragen), Wissensgraph-Suchtreffer zur letzten Nachricht, und `PageContext` (aktuelle Route, sichtbarer Seitentext, fokussiertes Formularfeld) vom Widget.
+**Sub-Agenten (`lib/helm/delegate.ts`, `lib/helm/subagents.ts`)**
+- 6 Stück (`design_agent`, `code_agent`, `seo_agent`, `care_agent`, `akquise_agent`, `finance_agent`), Code-Konstanten in `lib/helm/subagents.ts` sind nur Fallback/Seed.
+- **Laufzeit-Quelle ist die DB**: `public.agents` (system_prompt, model, status) + `public.agent_tools`/`public.tools` — live editierbar über `PATCH /api/admin/helm/agents/[id]`. `buildScopedRegistry()` liest das bei jedem Sub-Agent-Call frisch (kein Caching).
+- Sub-Agenten dürfen nur read-only Tools halten (Policy-Entscheidung, keine technische Notwendigkeit mehr unter dem entkoppelten Bestätigungsmodell); ein zugewiesenes `requiresConfirmation`-Tool wirft einen Fehler.
+
+**System-Prompt (`lib/helm/core/system-prompt.ts`)**
+- Cache-tiered: `core` (Identität/Regeln/Tool-Katalog, aus `CATALOG` gerendert) + `volatile` (Cold-Start-Kontext, Wissensgraph-Treffer, `PageContext`) als separate System-Messages, `core` mit Anthropic `cacheControl: {type:'ephemeral'}`.
+- Der Tool-Katalog-Text wird vom Aufrufer (`app/api/helm/chat/route.ts`) übergeben, nicht von `system-prompt.ts` selbst aus `registry.ts` importiert — sonst entstünde ein Zirkelbezug (`registry.ts → delegate.ts → core/run.ts → system-prompt.ts → registry.ts`).
+- Sub-Agenten bekommen einen eigenen, fokussierten Prompt-Override ohne Cache-Tiering (`buildHelmOverrideSystemMessage`).
 
 **API-Einstiegspunkte**
-- `POST /api/jarvis/chat` (`app/api/jarvis/chat/route.ts`) — admin-only, gibt SSE-Stream zurück (`delta`/`confirmation_required`/`done`/`error`), persistiert sichtbare Turns in `jarvis_messages`.
-- `/api/jarvis/confirm` — setzt einen pausierten Run nach Bestätigung/Ablehnung fort.
-- `/api/admin/jarvis/cockpit`, `/api/admin/jarvis/agent-runs/[id]`, `/api/admin/jarvis/agents/[id]` — Observability + Live-Konfiguration der Agenten (alle admin-only).
+- `POST /api/helm/chat` (`app/api/helm/chat/route.ts`) — admin-only, `runHelmAgent(...).toUIMessageStreamResponse(...)`; Client ist `@ai-sdk/react`s `useChat`, kein handgerolltes SSE-Parsing mehr.
+- Bestätigen/Ablehnen läuft nicht mehr über einen Route/Stream, sondern über die Server Actions `confirmPendingAction`/`rejectPendingAction` (`lib/helm/actions/confirm.ts`) — der Modell-Turn, der den Vorschlag erzeugt hat, ist ja schon abgeschlossen.
+- `/api/admin/helm/cockpit`, `/api/admin/helm/agent-runs/[id]`, `/api/admin/helm/agents/[id]` (+ `.../tools`), `/api/admin/helm/tools` (Katalog-Metadaten für die Cockpit-UI, da Client-Komponenten `lib/helm/catalog/registry.ts` nicht direkt importieren können) — Observability + Live-Konfiguration (alle admin-only).
 
-**Relevante Tabellen** (siehe `supabase/migrations/0017_jarvis_phase1_agents.sql` ff.): `agents`, `tools`, `agent_tools`, `agent_runs`, `agent_steps`, `pending_actions`, `jarvis_messages`. Migrationen `0021`/`0022` sind reine Daten-Migrationen (echte System-Prompts bzw. Modell-Rightsizing pro Sub-Agent), keine Schema-Änderungen.
+**Relevante Tabellen** (siehe `supabase/migrations/0017_jarvis_phase1_agents.sql` ff., abgespeckt/umgebaut in `0039`–`0041`): `agents`, `tools` (nur noch `id`/`slug`), `agent_tools`, `agent_runs`, `agent_steps`, `pending_actions` (`status`/`summary`/`result`/`error`/`decided_by`/`decided_at` jetzt tragend, kein Delete-on-decide mehr), `helm_messages` (volle `UIMessage`-jsonb, ersetzt das textbasierte `jarvis_messages`). `agent_messages`/`deliverables`/`scheduled_tasks` sowie `agents.position`/`agents.config` wurden per Migration `0041` als nie verdrahtetes Scaffolding entfernt.
 
-**Wissensgraph (`/admin/wissen`, `/admin/wissen/sessions`)** — verwandt, aber nicht JARVIS-exklusiv: `public.nodes`/`public.edges`/`public.conversation_logs` (Migration `0009`), Domain-Layer in `lib/domain/knowledge.ts`. JARVIS liest/schreibt hier über eigene Tools (`add_knowledge_node`, `semantic_search`, `write_session_log`, …); die Sessions-Ansicht zeigt `write_session_log`-Einträge und ist getrennt von der `agent_runs`-Observability (Wissen vs. Ausführung).
+**Wissensgraph (`/admin/wissen`, `/admin/wissen/sessions`)** — verwandt, aber nicht HELM-exklusiv und **unverändert** durch den JARVIS→HELM-Umbau: `public.nodes`/`public.edges`/`public.conversation_logs` (Migration `0009`), Domain-Layer in `lib/domain/knowledge.ts` (inkl. `lib/embeddings.ts`, aus `lib/jarvis/embeddings.ts` hierher verschoben, da von `lib/domain/knowledge.ts` genutzt, nicht agent-spezifisch). HELM liest/schreibt hier über eigene Tools (`add_knowledge_node`, `semantic_search`, `write_session_log`, …); die Sessions-Ansicht zeigt `write_session_log`-Einträge und ist getrennt von der `agent_runs`-Observability (Wissen vs. Ausführung). Der DB-Enum-Wert `nodes.source = 'jarvis_auto'` bleibt bewusst unverändert (historischer Datenwert, keine Code-Referenz mehr).
 
 ---
 
