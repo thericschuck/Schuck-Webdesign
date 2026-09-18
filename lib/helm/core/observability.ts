@@ -21,8 +21,11 @@ async function resolveAgentId(slug: string): Promise<string | null> {
 export interface StartRunInput {
   agentSlug: string
   parentRunId?: string
-  trigger: 'user' | 'sub_agent'
+  trigger: 'user' | 'sub_agent' | 'automation' | 'mention'
   task?: string | null
+  /** Verlinkt einen von der Automations-Engine ausgelösten Lauf mit seiner
+   * helm_automations-Zeile (siehe app/api/cron/helm-automations/route.ts). */
+  automationId?: string | null
 }
 
 export async function startAgentRun(input: StartRunInput): Promise<string | null> {
@@ -36,6 +39,7 @@ export async function startAgentRun(input: StartRunInput): Promise<string | null
         parent_run_id: input.parentRunId ?? null,
         trigger: input.trigger,
         task: input.task ?? null,
+        automation_id: input.automationId ?? null,
         status: 'running',
         started_at: new Date().toISOString(),
       })

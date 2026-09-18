@@ -27,6 +27,14 @@ export const CONFIRMATION_REQUIRED_SLUGS: string[] = CATALOG.filter((def) => def
  * requiresConfirmation:true-Tools werden NIE direkt ausführbar gemacht — sie laufen immer
  * über buildProposalTool() (lib/helm/actions/pending-actions.ts).
  */
+/** Slug → menschenlesbares Label, serialisierbar für Server-Component-Props (Tool-Trace in
+ * components/admin/helm/HelmMessageBubble.tsx — Client-Komponenten dürfen CATALOG selbst
+ * nicht importieren, das würde Server-only-Code wie createAdminClient in den Client-Bundle
+ * ziehen, siehe app/api/admin/helm/tools/route.ts-Kommentar für denselben Grund). */
+export function toolLabelMap(): Record<string, string> {
+  return Object.fromEntries(CATALOG.map((def) => [def.slug, def.label]))
+}
+
 export function toAiSdkTools(context?: ToolExecuteContext) {
   const confirmable = CATALOG.filter((def) => def.requiresConfirmation)
   const direct = CATALOG.filter((def) => !def.requiresConfirmation)

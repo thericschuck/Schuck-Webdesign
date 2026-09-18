@@ -10,10 +10,14 @@ import {
   revealVaultSecret,
   listVaultAccessLog,
   createVaultFolder,
-  renameVaultFolder,
+  updateVaultFolder,
   deleteVaultFolder,
+  createVaultTag,
+  updateVaultTag,
+  deleteVaultTag,
   type VaultAccessLogEntry,
   type VaultEntryType,
+  type VaultTag,
 } from '@/lib/domain/vault'
 
 type ActionResult = { status: 'error'; message: string } | { status: 'success' }
@@ -36,20 +40,29 @@ function readVariables(formData: FormData): { key: string; value: string }[] {
     .filter((v) => v.key.length > 0)
 }
 
+function readTagIds(formData: FormData): string[] {
+  return formData.getAll('tag_id').map(String).filter(Boolean)
+}
+
+function readFolderIds(formData: FormData): string[] {
+  return formData.getAll('folder_id').map(String).filter(Boolean)
+}
+
 export async function createVaultEntryAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
     const adminId = await currentAdminId()
     const title = String(formData.get('title') ?? '').trim()
     const type = (String(formData.get('type') ?? 'password') as VaultEntryType) === 'env' ? 'env' : 'password'
-    const folderId = String(formData.get('folder_id') ?? '').trim() || null
+    const folderIds = readFolderIds(formData)
     const notes = String(formData.get('notes') ?? '').trim() || null
+    const tagIds = readTagIds(formData)
 
     if (!title) return { status: 'error', message: 'Titel ist erforderlich.' }
 
     if (type === 'env') {
       const variables = readVariables(formData)
       if (variables.length === 0) return { status: 'error', message: 'Mindestens eine Variable ist erforderlich.' }
-      await createVaultEntry({ type: 'env', title, variables, folderId, notes, createdBy: adminId })
+      await createVaultEntry({ type: 'env', title, variables, folderIds, notes, tagIds, createdBy: adminId })
     } else {
       const password = String(formData.get('password') ?? '')
       if (!password) return { status: 'error', message: 'Passwort ist erforderlich.' }
@@ -59,8 +72,9 @@ export async function createVaultEntryAction(_prev: ActionResult | null, formDat
         password,
         username: String(formData.get('username') ?? '').trim() || null,
         url: String(formData.get('url') ?? '').trim() || null,
-        folderId,
+        folderIds,
         notes,
+        tagIds,
         createdBy: adminId,
       })
     }
@@ -78,8 +92,9 @@ export async function updateVaultEntryAction(_prev: ActionResult | null, formDat
     const id = String(formData.get('id') ?? '')
     const title = String(formData.get('title') ?? '').trim()
     const type = (String(formData.get('type') ?? 'password') as VaultEntryType) === 'env' ? 'env' : 'password'
-    const folderId = String(formData.get('folder_id') ?? '').trim() || null
+    const folderIds = readFolderIds(formData)
     const notes = String(formData.get('notes') ?? '').trim() || null
+    const tagIds = readTagIds(formData)
 
     if (!id) return { status: 'error', message: 'Ungültiger Eintrag.' }
     if (!title) return { status: 'error', message: 'Titel ist erforderlich.' }
@@ -87,7 +102,7 @@ export async function updateVaultEntryAction(_prev: ActionResult | null, formDat
     if (type === 'env') {
       const variables = readVariables(formData)
       if (variables.length === 0) return { status: 'error', message: 'Mindestens eine Variable ist erforderlich.' }
-      await updateVaultEntry(id, { type: 'env', title, variables, folderId, notes, updatedBy: adminId })
+      await updateVaultEntry(id, { type: 'env', title, variables, folderIds, notes, tagIds, updatedBy: adminId })
     } else {
       const password = String(formData.get('password') ?? '')
       await updateVaultEntry(id, {
@@ -95,8 +110,9 @@ export async function updateVaultEntryAction(_prev: ActionResult | null, formDat
         title,
         username: String(formData.get('username') ?? '').trim() || null,
         url: String(formData.get('url') ?? '').trim() || null,
-        folderId,
+        folderIds,
         notes,
+        tagIds,
         // Leeres Passwort-Feld beim Bearbeiten heißt "unverändert lassen".
         password: password ? password : undefined,
         updatedBy: adminId,
@@ -136,12 +152,17 @@ export async function loadVaultAccessLogAction(id: string): Promise<VaultAccessL
   return listVaultAccessLog(id)
 }
 
-export async function createVaultFolderAction(name: string): Promise<ActionResult> {
+// ── Ordner ───────────────────────────────────────────────────────────────
+
+export async function createVaultFolderAction(
+  name: string,
+  opts: { parentId?: string | null; color?: string | null } = {}
+): Promise<ActionResult> {
   try {
     await assertAdmin()
     const trimmed = name.trim()
     if (!trimmed) return { status: 'error', message: 'Name ist erforderlich.' }
-    await createVaultFolder(trimmed)
+    await createVaultFolder(trimmed, opts)
     revalidatePath('/admin/vault')
     return { status: 'success' }
   } catch (err) {
@@ -149,16 +170,18 @@ export async function createVaultFolderAction(name: string): Promise<ActionResul
   }
 }
 
-export async function renameVaultFolderAction(id: string, name: string): Promise<ActionResult> {
+export async function updateVaultFolderAction(
+  id: string,
+  patch: { name?: string; parentId?: string | null; color?: string | null }
+): Promise<ActionResult> {
   try {
     await assertAdmin()
-    const trimmed = name.trim()
-    if (!trimmed) return { status: 'error', message: 'Name ist erforderlich.' }
-    await renameVaultFolder(id, trimmed)
+    if (patch.name !== undefined && !patch.name.trim()) return { status: 'error', message: 'Name ist erforderlich.' }
+    await updateVaultFolder(id, { ...patch, name: patch.name?.trim() })
     revalidatePath('/admin/vault')
     return { status: 'success' }
   } catch (err) {
-    return { status: 'error', message: err instanceof DomainError ? err.message : 'Ordner konnte nicht umbenannt werden.' }
+    return { status: 'error', message: err instanceof DomainError ? err.message : 'Ordner konnte nicht gespeichert werden.' }
   }
 }
 
@@ -170,5 +193,46 @@ export async function deleteVaultFolderAction(id: string): Promise<ActionResult>
     return { status: 'success' }
   } catch (err) {
     return { status: 'error', message: err instanceof DomainError ? err.message : 'Ordner konnte nicht gelöscht werden.' }
+  }
+}
+
+// ── Tags ─────────────────────────────────────────────────────────────────
+
+export async function createVaultTagAction(
+  name: string,
+  color: string
+): Promise<{ status: 'success'; tag: VaultTag } | { status: 'error'; message: string }> {
+  try {
+    const adminId = await currentAdminId()
+    const trimmed = name.trim()
+    if (!trimmed) return { status: 'error', message: 'Name ist erforderlich.' }
+    const tag = await createVaultTag(trimmed, color, adminId)
+    revalidatePath('/admin/vault')
+    return { status: 'success', tag }
+  } catch (err) {
+    return { status: 'error', message: err instanceof DomainError ? err.message : 'Tag konnte nicht angelegt werden.' }
+  }
+}
+
+export async function updateVaultTagAction(id: string, patch: { name?: string; color?: string }): Promise<ActionResult> {
+  try {
+    await assertAdmin()
+    if (patch.name !== undefined && !patch.name.trim()) return { status: 'error', message: 'Name ist erforderlich.' }
+    await updateVaultTag(id, { ...patch, name: patch.name?.trim() })
+    revalidatePath('/admin/vault')
+    return { status: 'success' }
+  } catch (err) {
+    return { status: 'error', message: err instanceof DomainError ? err.message : 'Tag konnte nicht gespeichert werden.' }
+  }
+}
+
+export async function deleteVaultTagAction(id: string): Promise<ActionResult> {
+  try {
+    await assertAdmin()
+    await deleteVaultTag(id)
+    revalidatePath('/admin/vault')
+    return { status: 'success' }
+  } catch (err) {
+    return { status: 'error', message: err instanceof DomainError ? err.message : 'Tag konnte nicht gelöscht werden.' }
   }
 }

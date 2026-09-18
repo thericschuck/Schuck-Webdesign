@@ -22,7 +22,9 @@ const PLACEHOLDER_PROMPT = 'PLATZHALTER: System-Prompt folgt'
  * Bewusst kein Caching: läuft bei jedem Sub-Agenten-Aufruf frisch, damit eine Änderung an
  * der DB-Zuordnung sofort wirkt — Sub-Agenten-Aufrufe sind kein Hot-Path.
  */
-async function buildScopedRegistry(
+/** Exportiert, damit app/api/cron/helm-automations/route.ts (lib/helm/automations.ts) dieselbe
+ * Sub-Agenten-Auflösung für automatisierte Läufe wiederverwenden kann statt sie zu duplizieren. */
+export async function buildScopedRegistry(
   def: SubAgentDefinition
 ): Promise<{ defs: HelmToolDef[]; systemPrompt: string; model: string | null }> {
   const adminClient = createAdminClient()
@@ -83,6 +85,7 @@ function buildDelegateTool(def: SubAgentDefinition): HelmToolDef {
     slug: def.name,
     label: def.label,
     description: `${def.label}: fokussierter Sub-Agent. Übergib eine konkrete Aufgabe als "task".`,
+    category: 'Sub-Agenten',
     requiresConfirmation: false,
     schema: z.object({
       task: z.string().min(1).describe('Konkrete Aufgabe/Frage für diesen Sub-Agenten, in natürlicher Sprache.'),

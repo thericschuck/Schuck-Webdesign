@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { AdminNav } from '@/components/admin/AdminNav'
 import { HelmWidget } from '@/components/admin/HelmWidget'
 import { ToastProvider } from '@/components/admin/ToastProvider'
+import { HelmSettingsProvider } from '@/components/providers/helm-settings-context'
+import { getHelmSettings } from '@/lib/helm/actions/settings'
+import { toolLabelMap } from '@/lib/helm/catalog/registry'
 
 export default async function AdminLayout({
   children,
@@ -24,6 +27,7 @@ export default async function AdminLayout({
     { count: unreadContacts },
     { count: openTodos },
     { count: leadsWiedervorlageFaellig },
+    helmSettings,
   ] = await Promise.all([
     supabase.from('profiles').select('role, full_name').eq('id', user.id).single(),
     supabase
@@ -50,32 +54,35 @@ export default async function AdminLayout({
       .lte('wiedervorlage', new Date().toISOString().slice(0, 10))
       .neq('current_stage', 'gewonnen')
       .neq('current_stage', 'verloren'),
+    getHelmSettings(),
   ])
 
   if (profile?.role !== 'admin') redirect('/portal')
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
-        <AdminNav
-          adminName={profile.full_name}
-          unreadMessages={unreadMessages ?? 0}
-          pendingReviews={pendingReviews ?? 0}
-          unreadContacts={unreadContacts ?? 0}
-          openTodos={openTodos ?? 0}
-          leadsWiedervorlageFaellig={leadsWiedervorlageFaellig ?? 0}
-        />
-        {/* Content area — offset by sidebar on desktop, top bar on mobile */}
-        <div className="flex-1 min-w-0 md:ml-60 min-h-screen">
-          {/* max-w-6xl bleibt der Standard (Lesbarkeit auf den meisten Bildschirmen) — ab 2xl
-              (≥1536px, echte breite Monitore) fällt die Deckelung weg, damit breite Inhalte
-              wie die Produkttabelle den vorhandenen Platz auch wirklich nutzen können.
-              HELM im Vollbild (/admin/helm) ignoriert das ohnehin — siehe dort: eigener
-              fixed-positionierter Shell wie /admin/helm/cockpit, unabhängig vom Seitenfluss. */}
-          <main className="w-full p-4 md:p-8 pt-16 md:pt-8 max-w-6xl 2xl:max-w-none">{children}</main>
+      <HelmSettingsProvider initial={helmSettings}>
+        <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
+          <AdminNav
+            adminName={profile.full_name}
+            unreadMessages={unreadMessages ?? 0}
+            pendingReviews={pendingReviews ?? 0}
+            unreadContacts={unreadContacts ?? 0}
+            openTodos={openTodos ?? 0}
+            leadsWiedervorlageFaellig={leadsWiedervorlageFaellig ?? 0}
+          />
+          {/* Content area — offset by sidebar on desktop, top bar on mobile */}
+          <div className="flex-1 min-w-0 md:ml-60 min-h-screen">
+            {/* max-w-6xl bleibt der Standard (Lesbarkeit auf den meisten Bildschirmen) — ab 2xl
+                (≥1536px, echte breite Monitore) fällt die Deckelung weg, damit breite Inhalte
+                wie die Produkttabelle den vorhandenen Platz auch wirklich nutzen können.
+                HELM im Vollbild (/admin/helm) ignoriert das ohnehin — siehe dort: eigener
+                fixed-positionierter Shell wie /admin/helm/cockpit, unabhängig vom Seitenfluss. */}
+            <main className="w-full p-4 md:p-8 pt-16 md:pt-8 max-w-6xl 2xl:max-w-none">{children}</main>
+          </div>
+          <HelmWidget mode="floating" toolLabels={toolLabelMap()} />
         </div>
-        <HelmWidget mode="floating" />
-      </div>
+      </HelmSettingsProvider>
     </ToastProvider>
   )
 }

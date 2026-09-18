@@ -1,20 +1,14 @@
 'use client'
 
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import type { VaultEntry, VaultAccessLogEntry, VaultFolder, VaultEntryType } from '@/lib/domain/vault'
-import {
-  createVaultEntryAction,
-  updateVaultEntryAction,
-  deleteVaultEntryAction,
-  revealVaultSecretAction,
-  loadVaultAccessLogAction,
-  createVaultFolderAction,
-  renameVaultFolderAction,
-  deleteVaultFolderAction,
-} from './actions'
+import type { VaultEntry, VaultAccessLogEntry, VaultFolder, VaultEntryType, VaultTag } from '@/lib/domain/vault'
+import { createVaultEntryAction, updateVaultEntryAction, deleteVaultEntryAction, revealVaultSecretAction, loadVaultAccessLogAction } from './actions'
 import { PasswordGenerator } from './PasswordGenerator'
 import { estimatePasswordStrength } from './password-strength'
 import { EnvVariablesEditor, EnvVariablesTable, type VariableRow } from './EnvVariables'
+import { FolderTree, FolderPicker, FolderChip } from './FolderTree'
+import { TagFilterBar, TagChip, TagPicker } from './Tags'
+import { colorClasses } from '@/lib/vault/colors'
 
 type ActionResult = { status: 'error'; message: string } | { status: 'success' }
 
@@ -161,13 +155,6 @@ function DownloadIcon() {
     </svg>
   )
 }
-function FolderIcon() {
-  return (
-    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-    </svg>
-  )
-}
 function PlusIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -178,13 +165,28 @@ function PlusIcon() {
 
 function EntryAvatar({ entry, size = 'sm' }: { entry: VaultEntry; size?: 'sm' | 'lg' }) {
   const dim = size === 'lg' ? 'w-12 h-12 text-lg' : 'w-9 h-9 text-sm'
+  // Spiegelt die Farbe des ersten zugeordneten Ordners, falls vorhanden — sonst
+  // Fallback auf die bisherige Hash-Farbe (Passwort) bzw. ein neutrales Grau (.env).
+  // Ein Eintrag kann in mehreren Ordnern liegen; der Avatar kann nur eine Farbe
+  // zeigen, daher zählt hier einfach der erste.
+  const folderTint = entry.folders[0]?.color ? colorClasses(entry.folders[0].color) : null
   if (entry.type === 'env') {
     return (
-      <span className={`${dim} shrink-0 rounded-full flex items-center justify-center font-semibold bg-slate-100 text-slate-600`}>{'{ }'}</span>
+      <span
+        className={`${dim} shrink-0 rounded-full flex items-center justify-center font-semibold ${
+          folderTint ? `${folderTint.bg} ${folderTint.text}` : 'bg-slate-100 text-slate-600'
+        }`}
+      >
+        {'{ }'}
+      </span>
     )
   }
   return (
-    <span className={`${dim} shrink-0 rounded-full flex items-center justify-center font-semibold ${avatarColor(entry.title)}`}>
+    <span
+      className={`${dim} shrink-0 rounded-full flex items-center justify-center font-semibold ${
+        folderTint ? `${folderTint.bg} ${folderTint.text}` : avatarColor(entry.title)
+      }`}
+    >
       {entry.title.charAt(0).toUpperCase() || '?'}
     </span>
   )
@@ -192,131 +194,241 @@ function EntryAvatar({ entry, size = 'sm' }: { entry: VaultEntry; size?: 'sm' | 
 
 // ── Board ─────────────────────────────────────────────────────────────────
 
-export function VaultBoard({ entries, folders }: { entries: VaultEntry[]; folders: VaultFolder[] }) {
+export function VaultBoard({ entries, folders, tags }: { entries: VaultEntry[]; folders: VaultFolder[]; tags: VaultTag[] }) {
   const [search, setSearch] = useState('')
-  const [folderFilter, setFolderFilter] = useState<string>('all')
+  // Wie ein Datei-Explorer: `null` = Wurzel, sonst die ID des gerade geöffneten Ordners.
+  // Navigation passiert durch Klick auf einen Ordner (Sidebar-Baum ODER Ordner-Kachel
+  // rechts) statt über einen reinen Filter — Unterordner sieht man erst beim Reinklicken.
+  const [rawFolderId, setCurrentFolderId] = useState<string | null>(null)
+  // Fällt beim Rendern (statt per Effect) auf die Wurzel zurück, falls der gerade
+  // geöffnete Ordner verschwunden ist (z.B. gerade gelöscht) — vermeidet einen
+  // zusätzlichen Render-Zyklus nur zum Zurücksetzen des States.
+  const currentFolderId = rawFolderId && !folders.some((f) => f.id === rawFolderId) ? null : rawFolderId
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set())
   const [selectedId, setSelectedId] = useState<string | 'new' | null>(null)
 
-  const countByFolder = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const e of entries) {
-      const key = e.folder_id ?? 'unfiled'
-      counts.set(key, (counts.get(key) ?? 0) + 1)
-    }
-    return counts
-  }, [entries])
+  const toggleTagFilter = (id: string) =>
+    setTagFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
-  const filtered = useMemo(() => {
+  // Suche/Tags sind quer zur Ordnerstruktur — sobald eines von beiden aktiv ist, wird
+  // die Baumnavigation durch eine flache Treffer-Liste (über den ganzen Tresor) ersetzt,
+  // in der jeder Treffer seinen Ordner als Badge zeigt (siehe EntryRow).
+  const isFlatView = search.trim() !== '' || tagFilter.size > 0
+
+  const flatResults = useMemo(() => {
+    if (!isFlatView) return []
     const q = search.trim().toLowerCase()
     return entries.filter((entry) => {
-      if (folderFilter === 'unfiled' && entry.folder_id !== null) return false
-      if (folderFilter !== 'all' && folderFilter !== 'unfiled' && entry.folder_id !== folderFilter) return false
+      if (tagFilter.size > 0 && !entry.tags.some((t) => tagFilter.has(t.id))) return false
       if (!q) return true
       return (
         entry.title.toLowerCase().includes(q) ||
         (entry.username ?? '').toLowerCase().includes(q) ||
         (entry.url ?? '').toLowerCase().includes(q) ||
-        (entry.folder_name ?? '').toLowerCase().includes(q)
+        entry.folders.some((f) => f.name.toLowerCase().includes(q))
       )
     })
-  }, [entries, search, folderFilter])
+  }, [isFlatView, entries, search, tagFilter])
+
+  const visibleFolders = useMemo(() => {
+    if (isFlatView) return []
+    return folders.filter((f) => f.parent_id === currentFolderId).sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  }, [isFlatView, folders, currentFolderId])
+
+  // Ein Eintrag ohne jede Ordnerzuordnung liegt "lose" an der Wurzel — genau wie eine
+  // Datei ohne Unterordner im Explorer-Root. Mit Zuordnung taucht er in JEDEM
+  // zugewiesenen Ordner auf (n:m), nicht nur in einem.
+  const visibleEntries = useMemo(
+    () =>
+      isFlatView
+        ? flatResults
+        : entries.filter((e) => (currentFolderId === null ? e.folders.length === 0 : e.folders.some((f) => f.id === currentFolderId))),
+    [isFlatView, flatResults, entries, currentFolderId]
+  )
+
+  // Für die "X Elemente"-Beschriftung der Ordner-Kacheln rechts (Unterordner + direkte
+  // Einträge, jeweils genau eine Ebene tief — wie die Größenanzeige im Explorer, die auch
+  // nicht rekursiv in Unterordner schaut). Ein Eintrag in mehreren Ordnern zählt dabei
+  // bei jedem seiner Ordner einzeln mit.
+  const subfolderCountByParent = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const f of folders) {
+      if (!f.parent_id) continue
+      counts.set(f.parent_id, (counts.get(f.parent_id) ?? 0) + 1)
+    }
+    return counts
+  }, [folders])
+  const entryCountByFolder = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const e of entries) {
+      for (const f of e.folders) {
+        counts.set(f.id, (counts.get(f.id) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [entries])
+
+  const breadcrumb = useMemo(() => {
+    const byId = new Map(folders.map((f) => [f.id, f]))
+    const chain: VaultFolder[] = []
+    let current = currentFolderId
+    while (current) {
+      const f = byId.get(current)
+      if (!f) break
+      chain.unshift(f)
+      current = f.parent_id
+    }
+    return chain
+  }, [folders, currentFolderId])
+
+  const openFolderFromBadge = (folderId: string) => {
+    // Klick auf den Ordner-Badge eines Treffers (Such-/Tag-Ansicht) springt zurück in
+    // die normale Baumnavigation an genau diese Stelle.
+    setSearch('')
+    setTagFilter(new Set())
+    setCurrentFolderId(folderId)
+  }
 
   const selectedEntry = selectedId && selectedId !== 'new' ? (entries.find((e) => e.id === selectedId) ?? null) : null
   // Ein gelöschter Eintrag verschwindet nach dem Server-Refresh (revalidatePath) aus
   // `entries` — das Panel blendet sich dann von selbst aus, ohne extra State-Sync.
   const showPanel = selectedId === 'new' || selectedEntry !== null
-  const unfiledCount = countByFolder.get('unfiled') ?? 0
+  const createDefaultFolderId = isFlatView ? null : currentFolderId
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 md:h-175">
-      {/* ── Ordner ──────────────────────────────────────────────── */}
-      <div className="md:w-48 shrink-0 flex flex-col gap-3">
-        <div className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0">
-          <button
-            onClick={() => setFolderFilter('all')}
-            className={`shrink-0 flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm text-left transition-colors ${
-              folderFilter === 'all' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-            style={dmSans}
-          >
-            Alle Einträge
-            <span className={`text-xs ${folderFilter === 'all' ? 'text-white/60' : 'text-gray-400'}`}>{entries.length}</span>
-          </button>
-
-          {/* Ordner hängen optisch als Baum unter "Alle Einträge" — Einrückung + Linie wie im
-              Datei-Explorer, nur auf Desktop (die mobile Chip-Reihe bleibt flach). */}
-          <div className="contents md:flex md:flex-col md:gap-1 md:pl-3 md:ml-3.5 md:border-l md:border-gray-100">
-            {unfiledCount > 0 && (
-              <button
-                onClick={() => setFolderFilter('unfiled')}
-                className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-left transition-colors ${
-                  folderFilter === 'unfiled' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-                style={dmSans}
-              >
-                <FolderIcon />
-                <span className="flex-1 min-w-0 truncate">Nicht zugeordnet</span>
-                <span className={`text-xs shrink-0 ${folderFilter === 'unfiled' ? 'text-white/60' : 'text-gray-400'}`}>{unfiledCount}</span>
-              </button>
-            )}
-            {folders.map((f) => (
-              <FolderRow
-                key={f.id}
-                folder={f}
-                count={countByFolder.get(f.id) ?? 0}
-                active={folderFilter === f.id}
-                onSelect={() => setFolderFilter(f.id)}
-                onDeleted={() => setFolderFilter((current) => (current === f.id ? 'all' : current))}
-              />
-            ))}
-          </div>
-        </div>
-        <AddFolderControl />
+    <div className="flex flex-col md:flex-row gap-4 h-[calc(100dvh-13rem)] min-h-100 md:h-[calc(100dvh-11rem)] md:min-h-125 md:max-h-200">
+      {/* ── Ordner & Tags ───────────────────────────────────────── */}
+      <div className="md:w-56 shrink-0 flex flex-col gap-3 md:bg-white md:border md:border-gray-100 md:rounded-2xl md:p-3 md:overflow-hidden">
+        <p className="hidden md:block px-1 text-xs font-semibold text-gray-400 uppercase tracking-wide" style={dmSans}>
+          Ordner
+        </p>
+        <FolderTree folders={folders} entries={entries} folderFilter={currentFolderId} onSelectFilter={setCurrentFolderId} />
+        <TagFilterBar tags={tags} activeTagIds={tagFilter} onToggle={toggleTagFilter} />
       </div>
 
       {/* ── Liste ───────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0 flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden">
-        <div className="flex items-center gap-2 p-3 border-b border-gray-100 shrink-0">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Suchen…"
-            className={inputClass}
-            style={dmSans}
-          />
-          <button
-            onClick={() => setSelectedId('new')}
-            className="shrink-0 flex items-center gap-2 px-3.5 py-2 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors"
-            style={dmSans}
-          >
-            <PlusIcon />
-            <span className="hidden sm:inline">Neu</span>
-          </button>
+        <div className="flex flex-col gap-2 p-3 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Suchen…"
+              className={inputClass}
+              style={dmSans}
+            />
+            <button
+              onClick={() => setSelectedId('new')}
+              className="shrink-0 flex items-center gap-2 px-3.5 py-2 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors"
+              style={dmSans}
+            >
+              <PlusIcon />
+              <span className="hidden sm:inline">Neu</span>
+            </button>
+          </div>
+
+          {isFlatView ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-gray-400" style={dmSans}>
+                {search.trim() ? `Treffer für „${search.trim()}“` : 'Gefiltert nach Tag:'}
+              </span>
+              {tags
+                .filter((t) => tagFilter.has(t.id))
+                .map((t) => (
+                  <span key={t.id} className="inline-flex items-center gap-1">
+                    <TagChip tag={t} size="xs" />
+                    <button
+                      onClick={() => toggleTagFilter(t.id)}
+                      className="p-0.5 text-gray-400 hover:text-gray-700 transition-colors"
+                      aria-label={`Tag ${t.name} entfernen`}
+                    >
+                      <CloseIcon />
+                    </button>
+                  </span>
+                ))}
+              <button
+                onClick={() => {
+                  setSearch('')
+                  setTagFilter(new Set())
+                }}
+                className="text-xs text-gray-400 hover:text-gray-700 underline transition-colors"
+                style={dmSans}
+              >
+                Zurück zur Ordneransicht
+              </button>
+            </div>
+          ) : (
+            // Adressleiste wie im Datei-Explorer — Klick auf ein Segment springt dorthin.
+            <div className="flex items-center gap-1 text-sm overflow-x-auto" style={dmSans}>
+              <button
+                onClick={() => setCurrentFolderId(null)}
+                className={`shrink-0 transition-colors ${currentFolderId === null ? 'font-semibold text-gray-900' : 'text-gray-400 hover:text-gray-700'}`}
+              >
+                Start
+              </button>
+              {breadcrumb.map((f, i) => (
+                <span key={f.id} className="flex items-center gap-1 shrink-0">
+                  <span className="text-gray-300">/</span>
+                  <button
+                    onClick={() => setCurrentFolderId(f.id)}
+                    className={`transition-colors ${i === breadcrumb.length - 1 ? 'font-semibold text-gray-900' : 'text-gray-400 hover:text-gray-700'}`}
+                  >
+                    {f.name}
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-2">
-          {filtered.length === 0 ? (
+          {visibleFolders.length === 0 && visibleEntries.length === 0 ? (
             <div className="text-sm text-gray-400 text-center py-12" style={dmSans}>
-              {entries.length === 0 ? 'Noch keine Einträge im Tresor.' : 'Keine Treffer.'}
+              {isFlatView ? 'Keine Treffer.' : entries.length === 0 ? 'Noch keine Einträge im Tresor.' : 'Dieser Ordner ist leer.'}
             </div>
           ) : (
             <div className="flex flex-col gap-0.5">
-              {filtered.map((entry) => (
-                <EntryRow key={entry.id} entry={entry} active={entry.id === selectedId} onSelect={() => setSelectedId(entry.id)} />
+              {visibleFolders.map((folder) => (
+                <FolderListRow
+                  key={folder.id}
+                  folder={folder}
+                  itemCount={(subfolderCountByParent.get(folder.id) ?? 0) + (entryCountByFolder.get(folder.id) ?? 0)}
+                  onOpen={() => setCurrentFolderId(folder.id)}
+                />
+              ))}
+              {visibleEntries.map((entry) => (
+                <EntryRow
+                  key={entry.id}
+                  entry={entry}
+                  active={entry.id === selectedId}
+                  onSelect={() => setSelectedId(entry.id)}
+                  onSelectFolder={openFolderFromBadge}
+                  showFolderBadge={isFlatView}
+                />
               ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Detail / Formular ──────────────────────────────────── */}
+      {/* ── Detail / Formular ─────────────────────────────────────
+          Bleibt bis lg (1024px) ein Vollbild-Overlay statt dritter Spalte — bei
+          Sidebar (12rem) + Liste + fixer Panel-Breite (26rem) wäre ein 768–1023px
+          breites Tablet sonst spürbar zu eng. */}
       {showPanel && (
-        <div className="fixed inset-0 z-40 bg-white pt-14 md:pt-0 md:static md:z-auto md:w-105 md:shrink-0 md:rounded-2xl md:border md:border-gray-100 overflow-y-auto">
+        <div className="fixed inset-0 z-40 bg-white pt-14 md:pt-0 lg:static lg:z-auto lg:w-105 lg:shrink-0 lg:rounded-2xl lg:border lg:border-gray-100 overflow-y-auto">
           <EntryPanel
             key={selectedId}
             entry={selectedEntry}
             folders={folders}
+            tags={tags}
+            createDefaultFolderId={createDefaultFolderId}
             onClose={() => setSelectedId(null)}
             onDeleted={() => setSelectedId(null)}
           />
@@ -326,192 +438,68 @@ export function VaultBoard({ entries, folders }: { entries: VaultEntry[]; folder
   )
 }
 
-// ── Ordner: Sidebar-Zeile mit Umbenennen/Löschen ────────────────────────
+// ── Liste: eine Ordner-Kachel (Explorer-Stil, im Hauptbereich rechts) ───────
 
-function FolderRow({
-  folder,
-  count,
-  active,
-  onSelect,
-  onDeleted,
-}: {
-  folder: VaultFolder
-  count: number
-  active: boolean
-  onSelect: () => void
-  onDeleted: () => void
-}) {
-  const [renaming, setRenaming] = useState(false)
-  const [name, setName] = useState(folder.name)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [isSaving, startSaving] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-
-  const submitRename = () => {
-    const trimmed = name.trim()
-    if (!trimmed || trimmed === folder.name) {
-      setRenaming(false)
-      setName(folder.name)
-      return
-    }
-    setError(null)
-    startSaving(async () => {
-      const result = await renameVaultFolderAction(folder.id, trimmed)
-      if (result.status === 'error') {
-        setError(result.message)
-        return
-      }
-      setRenaming(false)
-    })
-  }
-
-  const handleDelete = () => {
-    startSaving(async () => {
-      const result = await deleteVaultFolderAction(folder.id)
-      if (result.status === 'success') onDeleted()
-    })
-  }
-
-  if (renaming) {
-    return (
-      <input
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submitRename()
-          if (e.key === 'Escape') {
-            setRenaming(false)
-            setName(folder.name)
-          }
-        }}
-        onBlur={submitRename}
-        disabled={isSaving}
-        className="shrink-0 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none"
-        style={dmSans}
-      />
-    )
-  }
-
+function FolderGlyphIcon() {
   return (
-    <div
-      className={`group shrink-0 flex items-center gap-1 rounded-xl text-sm transition-colors ${
-        active ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
-      }`}
+    <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+    </svg>
+  )
+}
+function ChevronRightIcon() {
+  return (
+    <svg
+      className="w-4 h-4 shrink-0 text-gray-300 group-hover:text-gray-500 transition-colors"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
     >
-      <button onClick={onSelect} className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left" style={dmSans}>
-        <FolderIcon />
-        <span className="flex-1 min-w-0 truncate">{folder.name}</span>
-        <span className={`text-xs shrink-0 ${active ? 'text-white/60' : 'text-gray-400'}`}>{count}</span>
-      </button>
-      <span
-        className={`hidden md:flex items-center pr-1.5 gap-0.5 transition-opacity ${
-          active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}
-      >
-        {confirmDelete ? (
-          <button
-            onClick={handleDelete}
-            disabled={isSaving}
-            className={`text-xs font-semibold px-1.5 whitespace-nowrap ${active ? 'text-white' : 'text-red-600'}`}
-          >
-            Sicher?
-          </button>
-        ) : (
-          <>
-            <button
-              onClick={() => setRenaming(true)}
-              title="Umbenennen"
-              className={`p-1 rounded ${active ? 'text-white/70 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}
-            >
-              <EditIcon />
-            </button>
-            <button
-              onClick={() => setConfirmDelete(true)}
-              title="Löschen"
-              className={`p-1 rounded ${active ? 'text-white/70 hover:text-white' : 'text-gray-400 hover:text-red-600'}`}
-            >
-              <TrashIcon />
-            </button>
-          </>
-        )}
-      </span>
-      {error && (
-        <span className="text-xs text-red-500 px-2" style={dmSans}>
-          {error}
-        </span>
-      )}
-    </div>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
   )
 }
 
-function AddFolderControl() {
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isSaving, startSaving] = useTransition()
-
-  const submit = () => {
-    const trimmed = name.trim()
-    if (!trimmed) {
-      setOpen(false)
-      return
-    }
-    setError(null)
-    startSaving(async () => {
-      const result = await createVaultFolderAction(trimmed)
-      if (result.status === 'error') {
-        setError(result.message)
-        return
-      }
-      setName('')
-      setOpen(false)
-    })
-  }
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-        style={dmSans}
-      >
-        <PlusIcon /> Neuer Ordner
-      </button>
-    )
-  }
-
+function FolderListRow({ folder, itemCount, onOpen }: { folder: VaultFolder; itemCount: number; onOpen: () => void }) {
+  const c = colorClasses(folder.color)
   return (
-    <div className="shrink-0 flex flex-col gap-1">
-      <input
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit()
-          if (e.key === 'Escape') {
-            setOpen(false)
-            setName('')
-          }
-        }}
-        onBlur={submit}
-        disabled={isSaving}
-        placeholder="Ordnername…"
-        className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none"
-        style={dmSans}
-      />
-      {error && (
-        <span className="text-xs text-red-500" style={dmSans}>
-          {error}
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-gray-50"
+    >
+      <span className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center ${c.bg} ${c.text}`}>
+        <FolderGlyphIcon />
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-medium text-gray-900 truncate" style={dmSans}>
+          {folder.name}
         </span>
-      )}
-    </div>
+        <span className="block text-xs text-gray-400" style={dmSans}>
+          {itemCount} Element{itemCount === 1 ? '' : 'e'}
+        </span>
+      </span>
+      <ChevronRightIcon />
+    </button>
   )
 }
 
 // ── Liste: eine Zeile ────────────────────────────────────────────────────
 
-function EntryRow({ entry, active, onSelect }: { entry: VaultEntry; active: boolean; onSelect: () => void }) {
+function EntryRow({
+  entry,
+  active,
+  onSelect,
+  onSelectFolder,
+  showFolderBadge,
+}: {
+  entry: VaultEntry
+  active: boolean
+  onSelect: () => void
+  onSelectFolder: (folderId: string) => void
+  showFolderBadge: boolean
+}) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [isCopyingPassword, startCopyPassword] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -569,15 +557,47 @@ function EntryRow({ entry, active, onSelect }: { entry: VaultEntry; active: bool
           {entry.title}
         </span>
         <span className="block text-xs text-gray-400 truncate" style={dmSans}>
-          {entry.type === 'env' ? entry.folder_name || '.env-Datei' : entry.username || entry.folder_name || '—'}
+          {entry.type === 'env' ? '.env-Datei' : entry.username || '—'}
         </span>
+        {/* Ordner-Badges erscheinen nur in der flachen Such-/Tag-Trefferliste — beim
+            normalen Durchklicken sitzt der Eintrag ja sichtbar schon IM Ordner (Breadcrumb
+            oben), ein zusätzliches Label wäre da redundant, genau wie im Explorer. Ein
+            Eintrag kann in mehreren Ordnern liegen, daher hier ggf. mehrere Badges. */}
+        {((showFolderBadge && entry.folders.length > 0) || entry.tags.length > 0) && (
+          <span className="flex flex-wrap items-center gap-1 mt-1">
+            {showFolderBadge &&
+              entry.folders.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSelectFolder(f.id)
+                  }}
+                  title={`Nach Ordner „${f.name}“ filtern`}
+                  className="inline-flex items-center gap-1 pl-1 pr-1.5 py-0.5 rounded-full text-[0.65rem] font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${colorClasses(f.color).dot}`} />
+                  {f.name}
+                </button>
+              ))}
+            {entry.tags.slice(0, 3).map((t) => (
+              <TagChip key={t.id} tag={t} size="xs" />
+            ))}
+            {entry.tags.length > 3 && (
+              <span className="text-[0.65rem] text-gray-400 self-center">+{entry.tags.length - 3}</span>
+            )}
+          </span>
+        )}
       </span>
       {error ? (
         <span className="text-xs text-red-500 shrink-0" style={dmSans}>
           {error}
         </span>
       ) : entry.type === 'password' ? (
-        <span className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0">
+        // Immer sichtbar ab sm (statt erst bei :hover) — auf Touch-Geräten ohne Hover-State
+        // wären die Kopieren-Shortcuts sonst gar nicht erreichbar.
+        <span className="hidden sm:flex items-center gap-1 opacity-70 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0">
           {entry.username && (
             <button
               type="button"
@@ -613,11 +633,15 @@ function EntryRow({ entry, active, onSelect }: { entry: VaultEntry; active: bool
 function EntryPanel({
   entry,
   folders,
+  tags,
+  createDefaultFolderId,
   onClose,
   onDeleted,
 }: {
   entry: VaultEntry | null
   folders: VaultFolder[]
+  tags: VaultTag[]
+  createDefaultFolderId: string | null
   onClose: () => void
   onDeleted: () => void
 }) {
@@ -683,6 +707,8 @@ function EntryPanel({
             mode={isCreate ? 'create' : 'edit'}
             entry={entry ?? undefined}
             folders={folders}
+            tags={tags}
+            defaultFolderId={createDefaultFolderId}
             initialVariables={prefillVariables ?? undefined}
             onDone={() => (isCreate ? onClose() : setEditing(false))}
           />
@@ -874,10 +900,20 @@ function EntryView({ entry }: { entry: VaultEntry }) {
           </p>
           <p className="text-xs text-gray-400" style={dmSans}>
             {entry.type === 'env' ? '.env-Datei' : 'Passwort'}
-            {entry.folder_name ? ` · ${entry.folder_name}` : ''}
           </p>
         </div>
       </div>
+
+      {(entry.folders.length > 0 || entry.tags.length > 0) && (
+        <div className="flex flex-wrap gap-1.5 -mt-3">
+          {entry.folders.map((f) => (
+            <FolderChip key={f.id} folder={f} />
+          ))}
+          {entry.tags.map((t) => (
+            <TagChip key={t.id} tag={t} />
+          ))}
+        </div>
+      )}
 
       {entry.type === 'password' ? (
         <>
@@ -1021,12 +1057,16 @@ function EntryForm({
   mode,
   entry,
   folders,
+  tags,
+  defaultFolderId,
   initialVariables,
   onDone,
 }: {
   mode: 'create' | 'edit'
   entry?: VaultEntry
   folders: VaultFolder[]
+  tags: VaultTag[]
+  defaultFolderId?: string | null
   initialVariables?: VariableRow[]
   onDone: () => void
 }) {
@@ -1097,14 +1137,17 @@ function EntryForm({
         <label className={labelClass} style={dmSans}>
           Ordner
         </label>
-        <select name="folder_id" disabled={pending} defaultValue={entry?.folder_id ?? ''} className={inputClass} style={dmSans}>
-          <option value="">Kein Ordner</option>
-          {folders.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
+        <FolderPicker
+          folders={folders}
+          initialFolderIds={entry ? entry.folders.map((f) => f.id) : defaultFolderId ? [defaultFolderId] : []}
+        />
+      </div>
+
+      <div>
+        <label className={labelClass} style={dmSans}>
+          Tags
+        </label>
+        <TagPicker tags={tags} initialTagIds={entry?.tags.map((t) => t.id) ?? []} />
       </div>
 
       {type === 'password' ? (

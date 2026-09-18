@@ -565,18 +565,21 @@ export type Database = {
         Row: {
           id: string
           profile_id: string
+          conversation_id: string
           message: Json
           created_at: string
         }
         Insert: {
           id?: string
           profile_id: string
+          conversation_id: string
           message: Json
           created_at?: string
         }
         Update: {
           id?: string
           profile_id?: string
+          conversation_id?: string
           message?: Json
           created_at?: string
         }
@@ -587,8 +590,130 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'helm_messages_conversation_id_fkey'
+            columns: ['conversation_id']
+            isOneToOne: false
+            referencedRelation: 'helm_conversations'
+            referencedColumns: ['id']
           }
         ]
+      }
+      helm_conversations: {
+        Row: {
+          id: string
+          profile_id: string
+          title: string | null
+          pinned: boolean
+          archived_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          title?: string | null
+          pinned?: boolean
+          archived_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          title?: string | null
+          pinned?: boolean
+          archived_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'helm_conversations_profile_id_fkey'
+            columns: ['profile_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      helm_settings: {
+        Row: {
+          profile_id: string
+          model: string
+          effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+          updated_at: string
+        }
+        Insert: {
+          profile_id: string
+          model?: string
+          effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+          updated_at?: string
+        }
+        Update: {
+          profile_id?: string
+          model?: string
+          effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'helm_settings_profile_id_fkey'
+            columns: ['profile_id']
+            isOneToOne: true
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      helm_automations: {
+        Row: {
+          id: string
+          label: string
+          agent_slug: string
+          task: string
+          recurrence: 'daily' | 'weekly'
+          weekday: number | null
+          time_of_day: string
+          status: 'active' | 'paused'
+          last_run_at: string | null
+          next_run_at: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          label: string
+          agent_slug: string
+          task: string
+          recurrence: 'daily' | 'weekly'
+          weekday?: number | null
+          time_of_day: string
+          status?: 'active' | 'paused'
+          last_run_at?: string | null
+          next_run_at: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          label?: string
+          agent_slug?: string
+          task?: string
+          recurrence?: 'daily' | 'weekly'
+          weekday?: number | null
+          time_of_day?: string
+          status?: 'active' | 'paused'
+          last_run_at?: string | null
+          next_run_at?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       contact_submissions: {
         Row: {
@@ -851,6 +976,7 @@ export type Database = {
           ended_at: string | null
           created_at: string | null
           significance: 'trivial' | 'normal' | 'notable'
+          automation_id: string | null
         }
         Insert: {
           id?: string
@@ -867,6 +993,7 @@ export type Database = {
           ended_at?: string | null
           created_at?: string | null
           significance?: 'trivial' | 'normal' | 'notable'
+          automation_id?: string | null
         }
         Update: {
           id?: string
@@ -883,6 +1010,7 @@ export type Database = {
           ended_at?: string | null
           created_at?: string | null
           significance?: 'trivial' | 'normal' | 'notable'
+          automation_id?: string | null
         }
         Relationships: [
           {
@@ -897,6 +1025,13 @@ export type Database = {
             columns: ['parent_run_id']
             isOneToOne: false
             referencedRelation: 'agent_runs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_runs_automation_id_fkey'
+            columns: ['automation_id']
+            isOneToOne: false
+            referencedRelation: 'helm_automations'
             referencedColumns: ['id']
           }
         ]
@@ -1892,18 +2027,24 @@ export type Database = {
         Row: {
           id: string
           name: string
+          parent_id: string | null
+          color: string | null
           created_by: string | null
           created_at: string
         }
         Insert: {
           id?: string
           name: string
+          parent_id?: string | null
+          color?: string | null
           created_by?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           name?: string
+          parent_id?: string | null
+          color?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -1913,6 +2054,75 @@ export type Database = {
             columns: ['created_by']
             isOneToOne: false
             referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'vault_folders_parent_id_fkey'
+            columns: ['parent_id']
+            isOneToOne: false
+            referencedRelation: 'vault_folders'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      vault_tags: {
+        Row: {
+          id: string
+          name: string
+          color: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          color?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          color?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'vault_tags_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      vault_entry_tags: {
+        Row: {
+          entry_id: string
+          tag_id: string
+        }
+        Insert: {
+          entry_id: string
+          tag_id: string
+        }
+        Update: {
+          entry_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'vault_entry_tags_entry_id_fkey'
+            columns: ['entry_id']
+            isOneToOne: false
+            referencedRelation: 'vault_entries'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'vault_entry_tags_tag_id_fkey'
+            columns: ['tag_id']
+            isOneToOne: false
+            referencedRelation: 'vault_tags'
             referencedColumns: ['id']
           }
         ]
@@ -1924,7 +2134,6 @@ export type Database = {
           type: 'password' | 'env'
           username: string | null
           url: string | null
-          folder_id: string | null
           notes: string | null
           secret_encrypted: string
           created_by: string | null
@@ -1938,7 +2147,6 @@ export type Database = {
           type?: 'password' | 'env'
           username?: string | null
           url?: string | null
-          folder_id?: string | null
           notes?: string | null
           secret_encrypted: string
           created_by?: string | null
@@ -1952,7 +2160,6 @@ export type Database = {
           type?: 'password' | 'env'
           username?: string | null
           url?: string | null
-          folder_id?: string | null
           notes?: string | null
           secret_encrypted?: string
           created_by?: string | null
@@ -1974,9 +2181,32 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']
+          }
+        ]
+      }
+      vault_entry_folders: {
+        Row: {
+          entry_id: string
+          folder_id: string
+        }
+        Insert: {
+          entry_id: string
+          folder_id: string
+        }
+        Update: {
+          entry_id?: string
+          folder_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'vault_entry_folders_entry_id_fkey'
+            columns: ['entry_id']
+            isOneToOne: false
+            referencedRelation: 'vault_entries'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'vault_entries_folder_id_fkey'
+            foreignKeyName: 'vault_entry_folders_folder_id_fkey'
             columns: ['folder_id']
             isOneToOne: false
             referencedRelation: 'vault_folders'
@@ -2134,6 +2364,8 @@ export type Document      = Tables<'documents'>
 export type ProjectUpdate = Tables<'project_updates'>
 export type Counter       = Tables<'counters'>
 export type PendingAction = Tables<'pending_actions'>
+export type HelmConversation = Tables<'helm_conversations'>
+export type HelmAutomation = Tables<'helm_automations'>
 export type Article       = Tables<'articles'>
 export type Package       = Tables<'packages'>
 export type PackageItem   = Tables<'package_items'>

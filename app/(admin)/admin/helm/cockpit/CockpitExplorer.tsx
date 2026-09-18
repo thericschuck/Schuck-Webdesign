@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
+import { HelmTabs } from '@/components/admin/helm/HelmTabs'
 import {
   applyNodeChanges,
   Controls,
@@ -358,25 +358,11 @@ export function CockpitExplorer() {
           />
         </div>
 
-        {/* Schwebende Kontrollleiste statt einer Tab-Leiste — Chat/Cockpit-Umschalter, Legende
-            und Historie-Knopf in einer Zeile, damit der Graph darunter den ganzen Rest der
-            Seite bekommt. */}
+        {/* Schwebende Kontrollleiste statt einer Tab-Leiste — Chat/Cockpit/Funktionen/
+            Automationen-Umschalter, Legende und Historie-Knopf in einer Zeile, damit der
+            Graph darunter den ganzen Rest der Seite bekommt. */}
         <div className="absolute top-4 left-4 right-4 z-10 flex flex-wrap items-center gap-3">
-          <div className="flex gap-1 p-1 rounded-lg bg-white/5 backdrop-blur-md border border-white/8">
-            <Link
-              href="/admin/helm"
-              className="px-3 py-1.5 rounded-md text-xs font-medium text-white/50 hover:text-white transition-colors"
-              style={{ fontFamily: 'var(--font-dm-sans)' }}
-            >
-              Chat
-            </Link>
-            <span
-              className="px-3 py-1.5 rounded-md text-xs font-medium bg-[#7F77DD] text-white"
-              style={{ fontFamily: 'var(--font-dm-sans)' }}
-            >
-              Cockpit
-            </span>
-          </div>
+          <HelmTabs className="backdrop-blur-md" />
 
           <div className="flex items-center gap-4 px-3 py-2 rounded-xl bg-white/5 backdrop-blur-md border border-white/8">
             {LEGEND.map(({ kind, label }) => (

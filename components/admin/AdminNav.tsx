@@ -16,7 +16,7 @@ const NAV = [
   },
   {
     href: '/admin/helm',
-    label: 'HELM',
+    label: 'Jarvis',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a4 4 0 115.657 0 4.5 4.5 0 00-1.343 3.171V19a1 1 0 01-1 1h-2a1 1 0 01-1-1v-.586a4.5 4.5 0 00-1.343-3.171z" />

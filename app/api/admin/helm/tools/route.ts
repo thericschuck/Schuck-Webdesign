@@ -17,6 +17,7 @@ export async function GET() {
     slug: def.slug,
     name: def.label,
     description: def.description,
+    category: def.category ?? 'Sonstige',
     isIrreversible: def.requiresConfirmation,
   }))
 

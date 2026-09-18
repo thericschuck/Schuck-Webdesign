@@ -23,6 +23,10 @@ export interface HelmToolDef<TSchema extends z.ZodTypeAny = z.ZodTypeAny> {
   label: string
   /** Tool-Beschreibung für das Modell (system prompt Tool-Katalog) UND für die Cockpit-UI. */
   description: string
+  /** Domänen-Gruppe für die Funktionen-Katalogseite (/admin/helm/functions) — von
+   * base-tools.ts beim Zusammenführen der Domain-Arrays vergeben (tagCategory()), nicht pro
+   * Tool einzeln gepflegt. Optional, damit Delegations-Tools (delegate.ts) keine brauchen. */
+  category?: string
   schema: TSchema
   /**
    * true = das Tool führt nichts direkt aus. lib/helm/actions/pending-actions.ts baut daraus

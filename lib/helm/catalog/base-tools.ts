@@ -19,17 +19,24 @@ import { notificationTools } from './domains/notifications'
  * lokal duplizierte Tool-Liste in tools/subagents.ts umgehen musste (siehe
  * lib/jarvis/tools/subagents.ts, ALL_TOOLS-Kommentar).
  */
+/** Tagt jedes Tool eines Domain-Arrays mit seiner Kategorie für die Funktionen-Katalogseite
+ * (/admin/helm/functions) — eine Zeile pro Domäne statt eines category-Felds in jeder der 90
+ * einzelnen Tool-Definitionen. */
+function tagCategory(tools: HelmToolDef[], category: string): HelmToolDef[] {
+  return tools.map((tool) => ({ ...tool, category }))
+}
+
 export const BASE_TOOLS: HelmToolDef[] = [
-  ...clientTools,
-  ...projectTools,
-  ...productTools,
-  ...akquiseTools,
-  ...financeTools,
-  ...documentTools,
-  ...knowledgeTools,
-  ...integrationTools,
-  ...todoTools,
-  ...notificationTools,
+  ...tagCategory(clientTools, 'Kunden'),
+  ...tagCategory(projectTools, 'Projekte'),
+  ...tagCategory(productTools, 'Produkte'),
+  ...tagCategory(akquiseTools, 'Akquise'),
+  ...tagCategory(financeTools, 'Finanzen'),
+  ...tagCategory(documentTools, 'Dokumente'),
+  ...tagCategory(knowledgeTools, 'Wissensgraph'),
+  ...tagCategory(integrationTools, 'Integrationen'),
+  ...tagCategory(todoTools, 'Todos'),
+  ...tagCategory(notificationTools, 'Benachrichtigungen'),
 ]
 
 export const BASE_TOOLS_BY_SLUG = new Map(BASE_TOOLS.map((tool) => [tool.slug, tool]))
